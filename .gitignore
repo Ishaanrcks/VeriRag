@@ -1,0 +1,28 @@
+# Secrets / environment
+.env
+
+# Data (keep the directories via .gitkeep, ignore their contents)
+data/raw/*
+data/processed/*
+data/chroma/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/chroma/.gitkeep
+
+# Eval results (keep the directory)
+eval/results/*
+!eval/results/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv
+*.db
+
+# Packaging / build artifacts
+*.egg-info/
+build/
+dist/
+
+# OS
+.DS_Store
