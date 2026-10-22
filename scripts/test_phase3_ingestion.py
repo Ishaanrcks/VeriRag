@@ -87,8 +87,8 @@ def main() -> None:
 
     # 6) Raw sparse query.
     _rule(f"STEP 6 - sparse BM25 search for {QUERY!r} (k=3)")
-    for cid, score in SparseIndex().search(QUERY, k=3):
-        print(f"  score={score:.4f}  chunk_id={cid}")
+    for hit in SparseIndex().search(QUERY, k=3):
+        print(f"  score={hit.sparse_score:.4f}  chunk_id={hit.chunk_id}")
 
     # 7) Delete the PDF's doc_id from both stores; counts drop by its chunks.
     _rule("STEP 7 - delete_by_doc_id(PDF) from both stores")

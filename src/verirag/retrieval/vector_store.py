@@ -16,6 +16,8 @@ import numpy as np
 from langchain_core.documents import Document
 
 from verirag.config import settings
+from verirag.embeddings.embedder import embed_query
+from verirag.retrieval.types import SearchHit
 
 # Chroma metadata only accepts these scalar types (never None).
 _SCALARS = (str, int, float, bool)
@@ -80,6 +82,48 @@ def add_chunks(
         documents=documents,
         metadatas=metadatas,
     )
+
+
+def dense_search(
+    query: str, k: int, collection: "chromadb.Collection | None" = None
+) -> list[SearchHit]:
+    """Dense (vector) search for a query, returning ranked SearchHits.
+
+    The query is embedded with ``embed_query`` -- the *query* side, which
+    carries BGE's retrieval instruction prefix (never ``embed_passages``).
+    """
+    if collection is None:
+        collection = get_collection()
+    if collection.count() == 0:
+        return []
+
+    query_vector = embed_query(query)
+    result = collection.query(
+        query_embeddings=[query_vector.tolist()],
+        n_results=k,
+        include=["documents", "metadatas", "distances"],
+    )
+
+    hits: list[SearchHit] = []
+    for rank, (chunk_id, document, metadata, distance) in enumerate(
+        zip(
+            result["ids"][0],
+            result["documents"][0],
+            result["metadatas"][0],
+            result["distances"][0],
+        ),
+        start=1,
+    ):
+        hits.append(
+            SearchHit(
+                chunk_id=chunk_id,
+                raw_text=document or "",
+                metadata=dict(metadata or {}),
+                dense_rank=rank,
+                dense_distance=float(distance),
+            )
+        )
+    return hits
 
 
 def exists_doc_id(

@@ -17,6 +17,7 @@ from langchain_core.documents import Document
 from rank_bm25 import BM25Okapi
 
 from verirag.config import settings
+from verirag.retrieval.types import SearchHit
 
 logger = logging.getLogger(__name__)
 
@@ -91,13 +92,30 @@ class SparseIndex:
                 self._rows.append(row)
         self._rebuild()
 
-    def search(self, query: str, k: int) -> list[tuple[str, float]]:
-        """Return the top-k ``(chunk_id, bm25_score)`` pairs for the query."""
+    def search(self, query: str, k: int) -> list[SearchHit]:
+        """Return the top-k BM25 hits as fully-populated SearchHits.
+
+        The corpus rows already hold raw_text and metadata in memory, so the
+        hits are complete -- no follow-up lookup in the dense store needed.
+        """
         if self._bm25 is None or not self._rows:
             return []
         scores = self._bm25.get_scores(_tokenize(query))
         top = np.argsort(scores)[::-1][:k]
-        return [(self._chunk_ids[i], float(scores[i])) for i in top]
+
+        hits: list[SearchHit] = []
+        for rank, i in enumerate(top, start=1):
+            row = self._rows[i]
+            hits.append(
+                SearchHit(
+                    chunk_id=row["chunk_id"],
+                    raw_text=row["text"],
+                    metadata=dict(row.get("metadata") or {}),
+                    sparse_rank=rank,
+                    sparse_score=float(scores[i]),
+                )
+            )
+        return hits
 
     def delete_by_doc_id(self, doc_id: str) -> None:
         """Drop all rows for a source file, rewrite the JSONL, rebuild."""
@@ -108,3 +126,17 @@ class SparseIndex:
         if len(self._rows) != before:
             self._write_all()
             self._rebuild()
+
+
+def sparse_search(
+    query: str, k: int, corpus_path: str | Path | None = None
+) -> list[SearchHit]:
+    """Load the persisted corpus and run a BM25 search (mirrors dense_search).
+
+    Builds a fresh SparseIndex so results always reflect the latest
+    ingestion. For large corpora this per-query rebuild should be replaced by
+    a cached index invalidated on write (future optimization) -- correctness
+    over premature caching here, since a stale cache would silently miss
+    newly ingested chunks.
+    """
+    return SparseIndex(corpus_path).search(query, k)

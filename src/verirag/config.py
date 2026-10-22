@@ -49,6 +49,15 @@ class Settings(BaseSettings):
     # --- Sparse index (BM25) ---
     bm25_corpus_path: str = "./data/processed/bm25_corpus.jsonl"
 
+    # --- Hybrid retrieval ---
+    retrieval_dense_top_k: int = 20
+    retrieval_sparse_top_k: int = 20
+    retrieval_rrf_k: int = 60
+    # Cap the candidate set handed to the cross-encoder; reranking is the
+    # expensive stage on CPU, so this bounds latency.
+    retrieval_rerank_candidate_cap: int = 20
+    retrieval_final_top_k: int = 5
+
     # --- Critic / corrective loop ---
     max_critic_iterations: int = 2
     per_query_cost_ceiling_usd: float = 0.50
