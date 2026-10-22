@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     # --- Critic / corrective loop ---
     max_critic_iterations: int = 2
     per_query_cost_ceiling_usd: float = 0.50
+    # Loose call-count proxy for the cost ceiling, used as a safety bound on
+    # the graph's loops. Precise token-based dollar cost tracking is Phase
+    # 10's job; this just guarantees a query cannot spin indefinitely.
+    max_llm_calls_per_query: int = 10
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

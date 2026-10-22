@@ -10,6 +10,7 @@ rather than duplicates.
 from __future__ import annotations
 
 import logging
+from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -46,16 +47,11 @@ def _build_doc_text(documents: list[Document]) -> str:
     )
 
 
-def ingest_file(path: str | Path, force: bool = False) -> IngestResult:
-    """Load, chunk, contextualize, embed, and store one file into both stores."""
-    documents = load_document(path)
-    if not documents:
-        logger.warning("No Documents loaded from %s; nothing to ingest.", path)
-        return IngestResult(compute_doc_id(path), 0, 0, skipped=False)
-
-    doc_id = documents[0].metadata["doc_id"]
-
-    # Dedup: skip an already-ingested file unless forced.
+def _ingest_group(
+    doc_id: str, documents: list[Document], force: bool = False
+) -> IngestResult:
+    """Chunk, contextualize, embed, and store one source document's Documents."""
+    # Dedup: skip an already-ingested source unless forced.
     if not force and vector_store.exists_doc_id(doc_id):
         logger.info("doc_id=%s already ingested; skipping (use force=True).", doc_id)
         return IngestResult(doc_id, 0, 0, skipped=True)
@@ -91,6 +87,43 @@ def ingest_file(path: str | Path, force: bool = False) -> IngestResult:
         doc_id, num_text, num_figure,
     )
     return IngestResult(doc_id, num_text, num_figure, skipped=False)
+
+
+def ingest_file(path: str | Path, force: bool = False) -> IngestResult:
+    """Load, chunk, contextualize, embed, and store one file into both stores."""
+    documents = load_document(path)
+    if not documents:
+        logger.warning("No Documents loaded from %s; nothing to ingest.", path)
+        return IngestResult(compute_doc_id(path), 0, 0, skipped=False)
+    return _ingest_group(documents[0].metadata["doc_id"], documents, force=force)
+
+
+def ingest_documents(
+    documents: list[Document], force: bool = False
+) -> list[IngestResult]:
+    """Ingest already-loaded Documents (e.g. returned by an external fetch).
+
+    Documents are grouped by doc_id so each source is ingested as one unit,
+    exactly as ingest_file does for a local file. The graph's external-fetch
+    node uses this so fetched material becomes searchable immediately.
+    """
+    if not documents:
+        return []
+
+    groups: "OrderedDict[str, list[Document]]" = OrderedDict()
+    for document in documents:
+        doc_id = document.metadata.get("doc_id")
+        if not doc_id:
+            logger.warning(
+                "Skipping fetched Document with no doc_id in metadata: %r",
+                document.page_content[:80],
+            )
+            continue
+        groups.setdefault(doc_id, []).append(document)
+
+    return [
+        _ingest_group(doc_id, docs, force=force) for doc_id, docs in groups.items()
+    ]
 
 
 def ingest_directory(dir_path: str | Path, force: bool = False) -> list[IngestResult]:

@@ -69,6 +69,15 @@ Rules you must follow:
   example: "The provided documents do not contain this information.") rather
   than guessing or filling in gaps."""
 
+_AVOID_CLAIMS_INSTRUCTION = """\
+
+Your previous answer made claims that could not be verified against the \
+sources:
+{claims}
+
+Do not repeat them. Be conservative -- omit a point rather than assert it \
+without clear support."""
+
 _FORMAT_INSTRUCTIONS: dict[AnswerFormat, str] = {
     AnswerFormat.CONCISE: "Answer directly in 2-4 sentences.",
     AnswerFormat.DETAILED: (
@@ -155,9 +164,20 @@ def generate_answer(
     query: str,
     hits: list[SearchHit],
     format: AnswerFormat,  # noqa: A002 - matches the documented public API
+    avoid_claims: list[str] | None = None,
 ) -> GeneratedAnswer:
-    """Generate a cited answer for ``query`` from the retrieved ``hits``."""
+    """Generate a cited answer for ``query`` from the retrieved ``hits``.
+
+    ``avoid_claims`` is used by the corrective loop: passing the claim texts
+    that Gate 2 could not verify tells the model not to repeat them and to
+    prefer omission over unsupported assertion.
+    """
     context_block, citations = build_context_block(hits)
+
+    system_prompt = _SYSTEM_PROMPT
+    if avoid_claims:
+        bulleted = "\n".join(f"- {claim}" for claim in avoid_claims)
+        system_prompt += _AVOID_CLAIMS_INSTRUCTION.format(claims=bulleted)
 
     user_message = (
         f"Context passages:\n\n{context_block}\n\n"
@@ -167,7 +187,7 @@ def generate_answer(
 
     answer_text = chat_completion(
         messages=[
-            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
         ],
         temperature=0.2,
