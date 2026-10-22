@@ -24,7 +24,18 @@ logger = logging.getLogger(__name__)
 _TOKEN_RE = re.compile(r"\w+")
 
 # Lightweight metadata persisted per row for downstream filtering/deletion.
-_ROW_METADATA_KEYS = ("doc_id", "source_path", "format", "content_type", "page")
+# "source_type" is essential, not cosmetic: without it, a hit arriving via
+# BM25 looks local, which silently defeats both the external ranking penalty
+# and corpus-only filtering. (Local Documents have no source_type key, so the
+# stored value is None and reads back as local, which is correct.)
+_ROW_METADATA_KEYS = (
+    "doc_id",
+    "source_path",
+    "format",
+    "content_type",
+    "page",
+    "source_type",
+)
 
 
 def _tokenize(text: str) -> list[str]:
