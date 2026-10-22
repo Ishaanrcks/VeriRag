@@ -19,7 +19,9 @@ from typing import Literal
 
 from langchain_core.documents import Document
 
-FormatLiteral = Literal["pdf", "docx", "pptx", "txt", "md"]
+# "external_web" is not a local file type -- it tags content fetched from the
+# web by external/fetcher.py, which has no file extension to map from.
+FormatLiteral = Literal["pdf", "docx", "pptx", "txt", "md", "external_web"]
 ContentType = Literal["text", "figure_caption"]
 
 # Maps a (lower-cased) file extension to its canonical format label.

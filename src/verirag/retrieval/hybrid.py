@@ -16,6 +16,25 @@ from verirag.retrieval.types import SearchHit
 from verirag.retrieval.vector_store import dense_search
 
 
+def _apply_external_penalty(hits: list[SearchHit]) -> list[SearchHit]:
+    """Discount external hits' rerank_score, then re-sort.
+
+    Keeps untrusted web content from silently outranking the user's own
+    documents when both are comparably relevant. This only DISCOUNTS -- it
+    never excludes -- so external material can still surface and win when it
+    is genuinely the only relevant evidence, which is the whole point of the
+    fallback. A missing ``source_type`` means local (see external/fetcher.py).
+    """
+    penalty = settings.external_source_score_penalty
+    for hit in hits:
+        if (
+            hit.metadata.get("source_type") == "external"
+            and hit.rerank_score is not None
+        ):
+            hit.rerank_score *= penalty
+    return sorted(hits, key=lambda h: h.rerank_score or 0.0, reverse=True)
+
+
 def hybrid_retrieve(query: str) -> list[SearchHit]:
     """Retrieve the final top-k chunks for a query via the full pipeline."""
     dense_hits = dense_search(query, settings.retrieval_dense_top_k)
@@ -28,4 +47,5 @@ def hybrid_retrieve(query: str) -> list[SearchHit]:
     # Cap before reranking -- the cross-encoder is the expensive stage.
     capped = fused[: settings.retrieval_rerank_candidate_cap]
 
-    return rerank(query, capped, settings.retrieval_final_top_k)
+    reranked = rerank(query, capped, settings.retrieval_final_top_k)
+    return _apply_external_penalty(reranked)

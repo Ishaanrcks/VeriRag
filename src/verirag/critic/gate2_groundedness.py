@@ -7,6 +7,21 @@ parent_text runs up to ``parent_text_max_chars`` (6000), which would be
 silently truncated mid-premise. Chunks are already bounded by
 ``chunk_max_tokens``, so they fit properly.
 
+EXTERNAL CORROBORATION POLICY: evidence from the user's own local documents
+grounds a claim on its own, unchanged. Evidence consisting ONLY of fetched web
+content must be corroborated by at least two DISTINCT source URLs (two chunks
+off the same page are one source, not two). A claim resting on a single
+unverified web result is reported as ``external_unsupported``, which blocks
+grounding just like ``not_supported``.
+
+The reasoning is worth being able to defend rather than treating as an
+arbitrary rule: web results vary widely in reliability and recency, so one
+page clearing an entailment threshold is weak evidence that a fact is true --
+the NLI model only confirms the page *says* it. Independent agreement across
+multiple sources, or any agreement with the user's own documents, is a
+defensible trust bar for an MVP. It is deliberately asymmetric: we trust the
+corpus the user chose over arbitrary pages we fetched for them.
+
 MODEL INDEPENDENCE: entailment is scored by a local encoder-only model
 (DeBERTa, via critic/nli.py), which is a different model family from the
 DeepSeek decoder LLM used for generation and claim extraction. The verifier
@@ -28,6 +43,7 @@ from verirag.config import settings
 from verirag.critic.claims import extract_claims
 from verirag.critic.nli import check_entailment
 from verirag.generation.generator import GeneratedAnswer
+from verirag.retrieval.types import SearchHit
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +51,41 @@ ClaimVerdictLabel = Literal[
     "supported_single",
     "supported_combination",
     "not_supported",
+    "external_unsupported",
     "absence_unverified",
     "meta_excluded",
 ]
+
+# Verdicts that block grounding. "external_unsupported" is reported as its own
+# label for transparency but counts against grounding exactly like
+# "not_supported", so it triggers regeneration and eventual abstention.
+_BLOCKING_VERDICTS = {"not_supported", "external_unsupported"}
+
+
+def _is_external(chunk_id: str, hit_by_chunk_id: dict[str, SearchHit]) -> bool:
+    """True only for web-fetched evidence.
+
+    A missing ``source_type`` -- or a chunk we cannot resolve -- is treated as
+    local, matching the convention set in external/fetcher.py.
+    """
+    hit = hit_by_chunk_id.get(chunk_id)
+    return bool(hit and hit.metadata.get("source_type") == "external")
+
+
+def _distinct_external_urls(
+    chunk_ids: list[str], hit_by_chunk_id: dict[str, SearchHit]
+) -> set[str]:
+    """Distinct external source URLs behind these chunks.
+
+    Keyed on ``source_path`` rather than chunk_id on purpose: two chunks taken
+    from the SAME fetched page are one source, not two corroborating ones.
+    """
+    urls: set[str] = set()
+    for chunk_id in chunk_ids:
+        hit = hit_by_chunk_id.get(chunk_id)
+        if hit and hit.metadata.get("source_type") == "external":
+            urls.add(str(hit.metadata.get("source_path") or chunk_id))
+    return urls
 
 
 @dataclass
@@ -85,6 +133,7 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
     claims = extract_claims(answer)
     citation_by_number = {c.number: c for c in answer.citations}
     text_by_chunk_id = {h.chunk_id: h.raw_text for h in answer.hits_used}
+    hit_by_chunk_id = {h.chunk_id: h for h in answer.hits_used}
 
     verdicts: list[ClaimVerdict] = []
 
@@ -146,25 +195,65 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
 
         threshold = settings.gate2_entailment_threshold
         best_prob: float | None = None
-        single_support: tuple[str, float] | None = None
+        supporting: list[tuple[str, float]] = []
 
-        # (b) each contributing chunk on its own first.
+        # (b) each contributing chunk on its own first. We stop as soon as a
+        # LOCAL chunk clears the bar (local evidence is sufficient by itself),
+        # but keep scanning while only external chunks have cleared, because
+        # the corroboration rule below needs the full set of supporting
+        # sources to count distinct URLs.
         for chunk_id, premise in resolved:
             result = check_entailment(premise, claim.text)
             if best_prob is None or result.entailment_prob > best_prob:
                 best_prob = result.entailment_prob
             if result.entailment_prob >= threshold:
-                single_support = (chunk_id, result.entailment_prob)
-                break
+                supporting.append((chunk_id, result.entailment_prob))
+                if not _is_external(chunk_id, hit_by_chunk_id):
+                    break
 
-        if single_support is not None:
+        all_chunk_ids = [chunk_id for chunk_id, _ in resolved]
+
+        if supporting:
+            local_supporting = [
+                (chunk_id, prob)
+                for chunk_id, prob in supporting
+                if not _is_external(chunk_id, hit_by_chunk_id)
+            ]
+            if local_supporting:
+                # Any local support grounds the claim outright.
+                best_local = max(local_supporting, key=lambda pair: pair[1])
+                verdicts.append(
+                    ClaimVerdict(
+                        claim_text=claim.text,
+                        claim_type=claim.claim_type,
+                        verdict="supported_single",
+                        evidence_chunk_ids=[best_local[0]],
+                        entailment_prob=best_local[1],
+                    )
+                )
+                continue
+
+            # External-only support -> corroboration rule applies.
+            supporting_ids = [chunk_id for chunk_id, _ in supporting]
+            urls = _distinct_external_urls(supporting_ids, hit_by_chunk_id)
+            corroborated = len(urls) >= 2
+            if not corroborated:
+                logger.info(
+                    "Claim supported only by %d external source(s); "
+                    "needs 2 distinct URLs to ground: %r",
+                    len(urls), claim.text[:100],
+                )
             verdicts.append(
                 ClaimVerdict(
                     claim_text=claim.text,
                     claim_type=claim.claim_type,
-                    verdict="supported_single",
-                    evidence_chunk_ids=[single_support[0]],
-                    entailment_prob=single_support[1],
+                    verdict=(
+                        "supported_combination"
+                        if corroborated
+                        else "external_unsupported"
+                    ),
+                    evidence_chunk_ids=supporting_ids,
+                    entailment_prob=max(prob for _, prob in supporting),
                 )
             )
             continue
@@ -173,7 +262,6 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
         # Skipped when there is only one chunk: the combined premise would be
         # that same text (or a truncation of it), so the probability cannot
         # exceed what step (b) already measured.
-        all_chunk_ids = [chunk_id for chunk_id, _ in resolved]
         if len(resolved) > 1:
             combined = "\n\n".join(text for _, text in resolved)[
                 : settings.gate2_combination_max_chars
@@ -182,11 +270,20 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
             if best_prob is None or combined_result.entailment_prob > best_prob:
                 best_prob = combined_result.entailment_prob
             if combined_result.entailment_prob >= threshold:
+                has_local = any(
+                    not _is_external(chunk_id, hit_by_chunk_id)
+                    for chunk_id in all_chunk_ids
+                )
+                urls = _distinct_external_urls(all_chunk_ids, hit_by_chunk_id)
                 verdicts.append(
                     ClaimVerdict(
                         claim_text=claim.text,
                         claim_type=claim.claim_type,
-                        verdict="supported_combination",
+                        verdict=(
+                            "supported_combination"
+                            if (has_local or len(urls) >= 2)
+                            else "external_unsupported"
+                        ),
                         evidence_chunk_ids=all_chunk_ids,
                         entailment_prob=combined_result.entailment_prob,
                     )
@@ -204,9 +301,11 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
             )
         )
 
-    unsupported = [v for v in verdicts if v.verdict == "not_supported"]
+    # Both not_supported and external_unsupported block grounding, so both
+    # feed the corrective loop's avoid_claims and the abstention message.
     # absence_unverified and meta_excluded deliberately do NOT count against
     # grounding.
+    unsupported = [v for v in verdicts if v.verdict in _BLOCKING_VERDICTS]
     return Gate2Verdict(
         overall_grounded=not unsupported,
         claims=verdicts,

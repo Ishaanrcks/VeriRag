@@ -49,6 +49,14 @@ class Settings(BaseSettings):
     # --- Sparse index (BM25) ---
     bm25_corpus_path: str = "./data/processed/bm25_corpus.jsonl"
 
+    # --- External fallback (web search) ---
+    external_max_results: int = 3
+    tavily_search_depth: str = "basic"
+    # Multiplicative discount applied to external hits' rerank_score so
+    # untrusted web content does not outrank the user's own documents when
+    # both are relevant. Discounts only -- never excludes.
+    external_source_score_penalty: float = 0.9
+
     # --- Hybrid retrieval ---
     retrieval_dense_top_k: int = 20
     retrieval_sparse_top_k: int = 20
