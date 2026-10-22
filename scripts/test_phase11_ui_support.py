@@ -103,32 +103,28 @@ def main() -> None:
                 f"{hit.chunk_id}{flag}"
             )
 
+    # NOTE: external exclusion is now the DEFAULT for every query, not just
+    # corpus-only ones (see _exclude_external). Persisted external content is
+    # scoped to the query that fetched it; a fresh fetch reaches generation
+    # in-memory instead. So BOTH modes must exclude it here.
     open_hits = hybrid_retrieve(QUERY, corpus_only=False)
     print(f"  corpus_only=False -> {len(open_hits)} hits")
     _show(open_hits)
     open_external = _external_hits(open_hits)
-    print(f"  external hits present: {len(open_external)} "
-          f"(expected >= 1 so the filter has something to remove)")
 
     filtered_hits = hybrid_retrieve(QUERY, corpus_only=True)
     print(f"  corpus_only=True  -> {len(filtered_hits)} hits")
     _show(filtered_hits)
     filtered_external = _external_hits(filtered_hits)
 
-    # The penalty must also survive the sparse path: an external hit's score
-    # should be strictly below its un-penalized value.
-    penalized_ok = all(
-        h.metadata.get("source_type") == "external" for h in open_external
-    )
-
-    print(f"  RESULT external excluded under corpus_only=True : "
+    print(f"  RESULT external excluded under corpus_only=True  : "
           f"{len(filtered_external) == 0}")
-    print(f"  RESULT external retrievable under corpus_only=False: "
-          f"{len(open_external) >= 1}")
+    print(f"  RESULT external excluded under corpus_only=False : "
+          f"{len(open_external) == 0} (now the default, not just corpus-only)")
     print(f"  RESULT local hits still returned in corpus-only  : "
           f"{len(filtered_hits) > 0}")
-    print(f"  RESULT external hits carry source_type metadata   : "
-          f"{penalized_ok} (needed for the penalty to apply)")
+    print(f"  RESULT local hits still returned otherwise       : "
+          f"{len(open_hits) > 0}")
 
     _rule("TEST 2 - list_ingested_documents()")
     rows = list_ingested_documents()

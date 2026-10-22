@@ -39,6 +39,10 @@ class VeriRAGState(TypedDict, total=False):
 
     # --- retrieval ---
     hits: list[SearchHit]
+    # Freshly fetched external chunks, scoped to THIS query only. Retrieval
+    # always excludes persisted external content, so a legitimate fallback
+    # reaches generation through here rather than through the store.
+    external_hits: list[SearchHit]
 
     # --- Gate 1 ---
     gate1_verdict: Gate1Verdict | None

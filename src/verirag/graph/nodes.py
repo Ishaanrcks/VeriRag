@@ -33,7 +33,7 @@ from verirag.retrieval.doc_resolver import (
     resolve_document_references,
     strip_document_references,
 )
-from verirag.retrieval.hybrid import hybrid_retrieve
+from verirag.retrieval.hybrid import hybrid_retrieve, score_external_hits
 from verirag.retrieval.types import SearchHit
 from verirag.retrieval.vector_store import (
     get_chunks_by_doc_id,
@@ -348,13 +348,29 @@ def retrieve_node(state: VeriRAGState) -> VeriRAGState:
     hits = hybrid_retrieve(
         search_query, corpus_only=corpus_only, doc_id_filter=doc_id_filter
     )
+    local_count = len(hits)
+
+    # Merge in any external material fetched for THIS query. Retrieval itself
+    # never returns persisted external chunks, so this is the only route by
+    # which a fresh fallback reaches generation -- and it cannot leak into a
+    # later query, because the state is per-run.
+    external_hits = state.get("external_hits") or []
+    if external_hits and not corpus_only:
+        hits = sorted(
+            hits + external_hits,
+            key=lambda hit: hit.rerank_score or 0.0,
+            reverse=True,
+        )[: settings.retrieval_final_top_k]
+
     top = hits[0].rerank_score if hits else None
     return {
         "hits": hits,
         "trace": [
-            f"retrieve: {len(hits)} hits"
+            f"retrieve: {len(hits)} hits ({local_count} local"
+            + (f" + {len(external_hits)} freshly fetched" if external_hits else "")
+            + ")"
             + (f", top rerank_score={top:.6f}" if top is not None else "")
-            + (" (corpus-only: external content excluded)" if corpus_only else "")
+            + (" (corpus-only)" if corpus_only else "")
             + (f" (scoped to doc_id={doc_id_filter})" if doc_id_filter else "")
         ],
     }
@@ -397,13 +413,19 @@ def fetch_external_node(state: VeriRAGState) -> VeriRAGState:
     verdict = state.get("gate1_verdict")
     pre_fetch_max_score = verdict.max_rerank_score if verdict else 0.0
 
-    documents = fetch_external(state["query"])
+    # Search with the filename-stripped query: sending the raw text is what
+    # fetched pages about summarizing emails for "summarize this paper
+    # please: <file>.pdf" and polluted the store.
+    search_query = state.get("search_query") or state["query"]
+    documents = fetch_external(search_query)
     trace = [f"fetch_external: returned {len(documents)} document(s)"]
 
+    external_hits: list[SearchHit] = []
     if documents:
-        # Push fetched material through the normal ingestion pipeline so it is
-        # chunked, contextualized, embedded and stored like any local file.
-        # No-op with the Phase 8 stub, but wired for Phase 9.
+        # Still ingested, which chunks/contextualizes/embeds them and doubles
+        # as the URL-keyed dedup cache. Retrieval will never surface them
+        # again, so they are also pulled back by doc_id right here and scored
+        # for this query only.
         results = ingest_documents(documents)
         ingested_chunks = sum(
             r.num_text_chunks + r.num_figure_chunks for r in results
@@ -413,9 +435,21 @@ def fetch_external_node(state: VeriRAGState) -> VeriRAGState:
             f"{ingested_chunks} chunk(s)"
         )
 
+        candidates: list[SearchHit] = []
+        for result in results:
+            candidates.extend(get_chunks_by_doc_id(result.doc_id))
+        external_hits = score_external_hits(search_query, candidates)
+        if external_hits:
+            best = external_hits[0].rerank_score or 0.0
+            trace.append(
+                f"fetch_external: scored {len(external_hits)} external chunk(s) "
+                f"in-memory for this query (best rerank_score={best:.6f})"
+            )
+
     return {
         "external_fetch_attempted": True,
         "pre_fetch_max_score": pre_fetch_max_score,
+        "external_hits": external_hits,
         "trace": trace,
     }
 

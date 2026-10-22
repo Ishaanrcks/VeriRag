@@ -193,6 +193,7 @@ def _initial_state(
         "answer_format": answer_format,
         "corpus_only": corpus_only,
         "hits": [],
+        "external_hits": [],
         "gate1_verdict": None,
         "external_fetch_attempted": False,
         "pre_fetch_max_score": None,

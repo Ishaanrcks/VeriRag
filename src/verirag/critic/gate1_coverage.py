@@ -57,7 +57,23 @@ Retrieved passages:
 {passages}
 
 Decide whether these passages, taken together, contain enough information to \
-answer the question.
+answer the question. Apply these tests strictly:
+
+1. ON-TOPIC: the passages must be about the question's actual subject, not \
+merely about something in the same general category. Two things can both be \
+called a "taxonomy" (or a "model", a "dataset", a "framework") and still be \
+completely different things -- a passage about Bloom's educational taxonomy \
+does NOT help answer a question about a taxonomy of graph neural networks. \
+Shared vocabulary is not shared subject matter.
+2. SPECIFIC: the passages must support the specific thing being asked, not \
+just the broad area. If the question asks for a number, a method, or a \
+named entity, the passages must actually contain it.
+3. PRESUPPOSITION: if the question assumes something the passages do not \
+establish, that is INSUFFICIENT -- say which assumption fails.
+
+Answer INSUFFICIENT whenever a correct answer would require knowledge you \
+have but the passages do not contain. Do not credit a passage for being \
+plausibly related.
 
 Respond in EXACTLY this format and nothing else:
 Line 1: the single word SUFFICIENT or INSUFFICIENT

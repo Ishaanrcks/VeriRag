@@ -17,13 +17,18 @@ from verirag.retrieval.vector_store import dense_search
 
 
 def _exclude_external(hits: list[SearchHit]) -> list[SearchHit]:
-    """Drop web-fetched hits entirely (corpus-only mode).
+    """Drop web-fetched hits from retrieval. Applied to EVERY query.
 
-    Applied to each retriever's output BEFORE fusion, so external chunks never
-    enter the ranking at all. Blocking a new fetch is not sufficient on its
-    own: web content ingested during an earlier query persists in the stores
-    and would otherwise still be retrievable, which would break the
-    privacy/determinism guarantee corpus-only mode exists to provide.
+    External content is scoped to the query that fetched it. Web pages pulled
+    in to answer one question were persisting in the shared store and then
+    surfacing for later, unrelated questions -- a query about "summarize this
+    paper" fetched a page about summarizing emails, which then competed for
+    relevance on every subsequent query.
+
+    So external chunks never enter the ranking at all. A fresh fetch instead
+    reaches generation in-memory for that one run (see
+    ``fetch_external_node``), and what remains in the store serves only as a
+    URL-keyed dedup cache for ``fetch_external``.
     """
     return [
         hit for hit in hits if hit.metadata.get("source_type") != "external"
@@ -59,6 +64,23 @@ def _apply_external_penalty(hits: list[SearchHit]) -> list[SearchHit]:
     return sorted(hits, key=lambda h: h.rerank_score or 0.0, reverse=True)
 
 
+def score_external_hits(
+    query: str, hits: list[SearchHit], top_k: int | None = None
+) -> list[SearchHit]:
+    """Rank freshly fetched external chunks for in-memory use in one query.
+
+    Fresh external material deliberately bypasses retrieval, which always
+    excludes persisted external content, so it is scored here with the same
+    cross-encoder and the same external penalty the normal path would apply.
+    That keeps a legitimate fallback working for the query that fetched it
+    without letting the material leak into later, unrelated queries.
+    """
+    if not hits:
+        return []
+    limit = top_k if top_k is not None else settings.retrieval_final_top_k
+    return _apply_external_penalty(rerank(query, hits, limit))
+
+
 def hybrid_retrieve(
     query: str,
     corpus_only: bool = False,
@@ -66,17 +88,18 @@ def hybrid_retrieve(
 ) -> list[SearchHit]:
     """Retrieve the final top-k chunks for a query via the full pipeline.
 
-    With ``corpus_only=True``, previously-ingested external content is
-    excluded from the ranking entirely (see :func:`_exclude_external`).
-    With ``doc_id_filter`` set, only that document's chunks are ranked
-    (see :func:`_filter_by_doc_id`).
+    Persisted external content is ALWAYS excluded from the ranking, for every
+    query (see :func:`_exclude_external`) -- a fresh fetch reaches the current
+    query in-memory instead. ``corpus_only`` is retained because it also
+    blocks a new fetch upstream in the graph's router, and it makes the
+    intent explicit at the call site. With ``doc_id_filter`` set, only that
+    document's chunks are ranked (see :func:`_filter_by_doc_id`).
     """
     dense_hits = dense_search(query, settings.retrieval_dense_top_k)
     sparse_hits = sparse_search(query, settings.retrieval_sparse_top_k)
 
-    if corpus_only:
-        dense_hits = _exclude_external(dense_hits)
-        sparse_hits = _exclude_external(sparse_hits)
+    dense_hits = _exclude_external(dense_hits)
+    sparse_hits = _exclude_external(sparse_hits)
 
     if doc_id_filter:
         dense_hits = _filter_by_doc_id(dense_hits, doc_id_filter)
