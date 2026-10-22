@@ -1,0 +1,193 @@
+"""Answer generation with inline citations over small-to-big context.
+
+Retrieval matches on small chunks, but generation reads the *parent* text of
+each retrieved chunk (``metadata['parent_text']``, set per-document during
+ingestion). Because parent_text is per-document and identical across every
+chunk from that document, retrieved hits very often share it -- so hits are
+deduped by parent_text and each unique parent gets one citation number.
+
+The prompt instructs the model to answer only from the numbered context and to
+cite every claim. That is a *prompt-level* instruction only: actual enforcement
+(support checking and answer-relevance checking) is Gate 1 / Gate 2 in later
+phases, not implemented here.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from enum import Enum
+
+from verirag.llm.client import chat_completion
+from verirag.retrieval.types import SearchHit
+
+logger = logging.getLogger(__name__)
+
+GENERATION_FAILED_MESSAGE = (
+    "Generation failed - could not reach the language model."
+)
+
+
+class AnswerFormat(str, Enum):
+    """How verbose the generated answer should be."""
+
+    CONCISE = "concise"
+    DETAILED = "detailed"
+
+
+@dataclass
+class Citation:
+    """One numbered source passage referenced by the answer as ``[number]``."""
+
+    number: int
+    parent_text: str
+    source_path: str
+    doc_id: str
+    pages: list[int | None] = field(default_factory=list)
+    contributing_chunk_ids: list[str] = field(default_factory=list)
+
+
+@dataclass
+class GeneratedAnswer:
+    """A generated answer plus the citations and hits it was built from."""
+
+    answer_text: str
+    citations: list[Citation]
+    format_used: AnswerFormat
+    hits_used: list[SearchHit]
+
+
+_SYSTEM_PROMPT = """\
+You are a careful document question-answering assistant.
+
+Rules you must follow:
+- Answer ONLY using the numbered context passages provided. Do not use any
+  outside knowledge, and do not infer facts the passages do not state.
+- Cite every factual claim with the bracketed number of the passage it came
+  from, e.g. [1]. If a claim draws on several passages, cite each, e.g. [1][2].
+- If the provided context does not support an answer, say so plainly (for
+  example: "The provided documents do not contain this information.") rather
+  than guessing or filling in gaps."""
+
+_FORMAT_INSTRUCTIONS: dict[AnswerFormat, str] = {
+    AnswerFormat.CONCISE: "Answer directly in 2-4 sentences.",
+    AnswerFormat.DETAILED: (
+        "Answer thoroughly across multiple paragraphs, using structure "
+        "(short headings or bullet points) where it helps the reader."
+    ),
+}
+
+_MAX_TOKENS: dict[AnswerFormat, int] = {
+    AnswerFormat.CONCISE: 400,
+    AnswerFormat.DETAILED: 1200,
+}
+
+
+def _format_pages(pages: list[int | None]) -> str:
+    known = [str(p) for p in pages if p is not None]
+    return ", ".join(known) if known else "n/a"
+
+
+def build_context_block(hits: list[SearchHit]) -> tuple[str, list[Citation]]:
+    """Build the numbered context block and its Citations from ranked hits.
+
+    Hits are deduped by ``parent_text`` (falling back to chunk_id when a hit
+    has no parent_text), numbered in the order the hits appear -- i.e. rerank
+    order, best first -- and rendered one block per unique parent.
+    """
+    citations: list[Citation] = []
+    by_key: dict[str, Citation] = {}
+    # Retrieved passages missing from their parent_text, per citation number.
+    extra_passages: dict[int, list[str]] = {}
+
+    for hit in hits:
+        parent_text = hit.metadata.get("parent_text") or ""
+        # Dedupe on the parent text itself; chunk_id is the fallback identity.
+        key = parent_text or hit.chunk_id
+
+        citation = by_key.get(key)
+        if citation is None:
+            citation = Citation(
+                number=len(citations) + 1,
+                # With no parent_text we can still cite the chunk's own text.
+                parent_text=parent_text or hit.raw_text,
+                source_path=hit.metadata.get("source_path", "unknown"),
+                doc_id=hit.metadata.get("doc_id", "unknown"),
+            )
+            by_key[key] = citation
+            citations.append(citation)
+            extra_passages[citation.number] = []
+
+        citation.contributing_chunk_ids.append(hit.chunk_id)
+        page = hit.metadata.get("page")
+        if page not in citation.pages:
+            citation.pages.append(page)
+
+        # SAFETY CHECK: parent_text is truncated to parent_text_max_chars, so a
+        # chunk from later in a long document may not appear inside it. Surface
+        # the retrieved passage explicitly so it is never lost to truncation.
+        # MVP limitation: a windowed parent-text-around-the-chunk approach would
+        # be more robust for long documents (future work). Note that the extra
+        # passage is added to the context block but not to Citation.parent_text,
+        # so Gate 1/Gate 2 should consider both when checking support.
+        if hit.raw_text and hit.raw_text not in citation.parent_text:
+            if hit.raw_text not in extra_passages[citation.number]:
+                extra_passages[citation.number].append(hit.raw_text)
+
+    blocks: list[str] = []
+    for citation in citations:
+        block = (
+            f"[{citation.number}] (source: {citation.source_path}, "
+            f"page(s): {_format_pages(citation.pages)})\n"
+            f"{citation.parent_text}"
+        )
+        for passage in extra_passages[citation.number]:
+            block += (
+                f"\n\n[{citation.number}] additional retrieved passage "
+                f"(not present in the text above):\n{passage}"
+            )
+        blocks.append(block)
+
+    return "\n\n".join(blocks), citations
+
+
+def generate_answer(
+    query: str,
+    hits: list[SearchHit],
+    format: AnswerFormat,  # noqa: A002 - matches the documented public API
+) -> GeneratedAnswer:
+    """Generate a cited answer for ``query`` from the retrieved ``hits``."""
+    context_block, citations = build_context_block(hits)
+
+    user_message = (
+        f"Context passages:\n\n{context_block}\n\n"
+        f"Question: {query}\n\n"
+        f"{_FORMAT_INSTRUCTIONS[format]}"
+    )
+
+    answer_text = chat_completion(
+        messages=[
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ],
+        temperature=0.2,
+        max_tokens=_MAX_TOKENS[format],
+    )
+
+    if answer_text is None:
+        logger.warning(
+            "Generation failed for query=%r; returning failure message.", query
+        )
+        return GeneratedAnswer(
+            answer_text=GENERATION_FAILED_MESSAGE,
+            citations=[],
+            format_used=format,
+            hits_used=hits,
+        )
+
+    return GeneratedAnswer(
+        answer_text=answer_text.strip(),
+        citations=citations,
+        format_used=format,
+        hits_used=hits,
+    )
