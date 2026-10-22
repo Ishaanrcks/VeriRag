@@ -13,6 +13,9 @@ data/chroma/*
 eval/results/*
 !eval/results/.gitkeep
 
+# Isolated eval stores (vector DB + index binaries); reports/traces are tracked
+eval_store/
+
 # Python
 __pycache__/
 *.pyc
