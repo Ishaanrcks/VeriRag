@@ -33,14 +33,21 @@ class Settings(BaseSettings):
     # Images smaller than this (in either dimension, px) are treated as
     # logos/icons/bullets and skipped rather than captioned.
     min_figure_dimension_px: int = 150
+    # Parent ("big") text attached to each chunk for small-to-big generation,
+    # truncated to this many characters.
+    parent_text_max_chars: int = 6000
 
     # --- Chunking ---
     chunk_min_tokens: int = 150
     chunk_max_tokens: int = 500
     chunk_overlap_tokens: int = 50
 
-    # --- Vector store ---
+    # --- Vector store (dense) ---
     chroma_persist_dir: str = "./data/chroma"
+    chroma_collection_name: str = "verirag_chunks"
+
+    # --- Sparse index (BM25) ---
+    bm25_corpus_path: str = "./data/processed/bm25_corpus.jsonl"
 
     # --- Critic / corrective loop ---
     max_critic_iterations: int = 2
