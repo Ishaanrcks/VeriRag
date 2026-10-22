@@ -1,0 +1,3 @@
+VeriRAG is a self-verifying document question-answering system. It combines retrieval-augmented generation with a two-gate verification critic that checks answers against retrieved evidence.
+
+This plain-text fixture exists so the .txt loader can be exercised end to end without a real corpus. It contains two short paragraphs of ordinary prose.

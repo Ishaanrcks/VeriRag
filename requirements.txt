@@ -20,8 +20,8 @@ python-docx==1.2.0
 python-pptx==1.0.2
 
 # LLM / vision / observability
+# openai client is pointed at DeepSeek's OpenAI-compatible API (not OpenAI)
 openai==3.36.0
-anthropic==2.0.0
 langsmith==0.14.11
 # ragas is DEFERRED (see note below): every current ragas release (<=0.4.3)
 # hard-imports `langchain_community.chat_models.vertexai`, a module removed in
@@ -39,5 +39,6 @@ streamlit==1.66.1
 tenacity==9.2.1
 numpy==2.4.6
 
-# Dev tooling
+# Dev tooling / test fixtures
 pre-commit==4.7.0
+matplotlib==3.11.2  # used only to generate synthetic test fixtures (tests/fixtures)

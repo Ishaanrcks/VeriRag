@@ -13,9 +13,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Typed application settings sourced from the environment / ``.env``."""
 
-    # --- API keys / credentials ---
-    openai_api_key: str
-    anthropic_api_key: str | None = None
+    # --- LLM provider (DeepSeek via OpenAI-compatible API) ---
+    deepseek_api_key: str
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_chat_model: str = "deepseek-chat"
+    deepseek_vision_model: str = "deepseek-v4-flash-vision-exp"
+
+    # --- Other credentials ---
     langsmith_api_key: str | None = None
     langsmith_project: str = "verirag"
     tavily_api_key: str | None = None
@@ -24,6 +28,11 @@ class Settings(BaseSettings):
     embedding_model: str = "BAAI/bge-base-en-v1.5"
     reranker_model: str = "BAAI/bge-reranker-base"
     nli_model: str = "cross-encoder/nli-deberta-v3-base"
+
+    # --- Document loading / figures ---
+    # Images smaller than this (in either dimension, px) are treated as
+    # logos/icons/bullets and skipped rather than captioned.
+    min_figure_dimension_px: int = 150
 
     # --- Chunking ---
     chunk_min_tokens: int = 150
