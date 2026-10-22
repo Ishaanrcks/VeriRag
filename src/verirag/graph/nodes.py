@@ -60,13 +60,15 @@ def _timed(
 @_timed("retrieve")
 def retrieve_node(state: VeriRAGState) -> VeriRAGState:
     """Hybrid-retrieve for the query (dense + sparse -> RRF -> rerank)."""
-    hits = hybrid_retrieve(state["query"])
+    corpus_only = bool(state.get("corpus_only"))
+    hits = hybrid_retrieve(state["query"], corpus_only=corpus_only)
     top = hits[0].rerank_score if hits else None
     return {
         "hits": hits,
         "trace": [
             f"retrieve: {len(hits)} hits"
             + (f", top rerank_score={top:.6f}" if top is not None else "")
+            + (" (corpus-only: external content excluded)" if corpus_only else "")
         ],
     }
 

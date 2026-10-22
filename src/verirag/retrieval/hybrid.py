@@ -16,6 +16,20 @@ from verirag.retrieval.types import SearchHit
 from verirag.retrieval.vector_store import dense_search
 
 
+def _exclude_external(hits: list[SearchHit]) -> list[SearchHit]:
+    """Drop web-fetched hits entirely (corpus-only mode).
+
+    Applied to each retriever's output BEFORE fusion, so external chunks never
+    enter the ranking at all. Blocking a new fetch is not sufficient on its
+    own: web content ingested during an earlier query persists in the stores
+    and would otherwise still be retrievable, which would break the
+    privacy/determinism guarantee corpus-only mode exists to provide.
+    """
+    return [
+        hit for hit in hits if hit.metadata.get("source_type") != "external"
+    ]
+
+
 def _apply_external_penalty(hits: list[SearchHit]) -> list[SearchHit]:
     """Discount external hits' rerank_score, then re-sort.
 
@@ -35,10 +49,18 @@ def _apply_external_penalty(hits: list[SearchHit]) -> list[SearchHit]:
     return sorted(hits, key=lambda h: h.rerank_score or 0.0, reverse=True)
 
 
-def hybrid_retrieve(query: str) -> list[SearchHit]:
-    """Retrieve the final top-k chunks for a query via the full pipeline."""
+def hybrid_retrieve(query: str, corpus_only: bool = False) -> list[SearchHit]:
+    """Retrieve the final top-k chunks for a query via the full pipeline.
+
+    With ``corpus_only=True``, previously-ingested external content is
+    excluded from the ranking entirely (see :func:`_exclude_external`).
+    """
     dense_hits = dense_search(query, settings.retrieval_dense_top_k)
     sparse_hits = sparse_search(query, settings.retrieval_sparse_top_k)
+
+    if corpus_only:
+        dense_hits = _exclude_external(dense_hits)
+        sparse_hits = _exclude_external(sparse_hits)
 
     fused = reciprocal_rank_fusion(
         dense_hits, sparse_hits, settings.retrieval_rrf_k

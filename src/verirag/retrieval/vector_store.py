@@ -126,6 +126,40 @@ def dense_search(
     return hits
 
 
+def list_ingested_documents(
+    collection: "chromadb.Collection | None" = None,
+) -> list[dict]:
+    """One row per distinct source document currently in the store.
+
+    Chroma has no DISTINCT, so metadatas are deduped by doc_id client-side.
+    Reads the persistent collection directly, so the UI can show the real
+    corpus across restarts.
+    """
+    if collection is None:
+        collection = get_collection()
+    if collection.count() == 0:
+        return []
+
+    result = collection.get(include=["metadatas"])
+
+    documents: dict[str, dict] = {}
+    for metadata in result.get("metadatas") or []:
+        if not metadata:
+            continue
+        doc_id = str(metadata.get("doc_id") or "")
+        if not doc_id or doc_id in documents:
+            continue
+        documents[doc_id] = {
+            "doc_id": doc_id,
+            "source_path": metadata.get("source_path", "unknown"),
+            "format": metadata.get("format", "unknown"),
+            # A missing source_type means local (see external/fetcher.py).
+            "source_type": metadata.get("source_type", "local"),
+        }
+
+    return sorted(documents.values(), key=lambda row: row["source_path"])
+
+
 def exists_doc_id(
     doc_id: str, collection: "chromadb.Collection | None" = None
 ) -> bool:
