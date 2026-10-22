@@ -80,6 +80,12 @@ class Settings(BaseSettings):
     # jointly support a claim (the NLI model has a ~512-token input limit).
     gate2_combination_max_chars: int = 2000
 
+    # --- Whole-document summarization ---
+    # If a document's full ordered text fits in this many characters it is
+    # summarized in a single call; beyond it, map-reduce over ordered batches.
+    summarization_context_max_chars: int = 24000
+    summarization_batch_max_chars: int = 12000
+
     # --- Observability ---
     metrics_db_path: str = "./data/metrics.db"
     # Rough MVP placeholder for the per-query cost estimate. This should be

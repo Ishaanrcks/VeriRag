@@ -20,10 +20,25 @@ from verirag.config import settings
 from verirag.critic.gate1_coverage import check_coverage
 from verirag.critic.gate2_groundedness import check_groundedness
 from verirag.external.fetcher import fetch_external
-from verirag.generation.generator import generate_answer
+from verirag.generation.generator import (
+    GeneratedAnswer,
+    build_context_block,
+    generate_answer,
+)
 from verirag.graph.state import VeriRAGState
 from verirag.ingest import ingest_documents
+from verirag.llm.client import chat_completion
+from verirag.retrieval.doc_resolver import (
+    detect_summarization_intent,
+    resolve_document_references,
+    strip_document_references,
+)
 from verirag.retrieval.hybrid import hybrid_retrieve
+from verirag.retrieval.types import SearchHit
+from verirag.retrieval.vector_store import (
+    get_chunks_by_doc_id,
+    list_ingested_documents,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -57,11 +72,282 @@ def _timed(
     return decorator
 
 
+_SUMMARY_SYSTEM_PROMPT = """\
+You are summarizing a single source document for a reader who has not read it.
+
+Rules you must follow:
+- Summarize ONLY what the document actually says. Do not add outside
+  knowledge, and do not infer conclusions the document does not state.
+- Every statement you make comes from this one document, which is numbered
+  [1]. End each sentence or bullet with [1] so each claim is attributable.
+- Be faithful over fluent: if the document is unclear on something, say so
+  rather than smoothing it over."""
+
+_SUMMARY_SINGLE_PASS = """\
+Summarize the document below.
+
+<document>
+{document_text}
+</document>
+
+Write a structured summary: what the document is about, its main
+contributions or points, and any key findings or conclusions. Use short
+headings or bullets. Remember to end each sentence or bullet with [1]."""
+
+_SUMMARY_MAP = """\
+Below is one consecutive section of a longer document.
+
+<section>
+{section_text}
+</section>
+
+Write a dense, factual digest of this section's content. Capture specifics
+(definitions, findings, numbers, names) rather than writing generalities. Do
+not add citation markers; this digest is an intermediate note."""
+
+_SUMMARY_REDUCE = """\
+Below are ordered digests of consecutive sections of one document.
+
+<digests>
+{digest_text}
+</digests>
+
+Write a single structured summary of the whole document from these digests:
+what it is about, its main contributions or points, and key findings. Use
+short headings or bullets. Remember to end each sentence or bullet with [1]."""
+
+_SUMMARY_FAILED_MESSAGE = (
+    "Could not summarize this document - the language model was unreachable."
+)
+
+
+def _ordered_batches(chunks: list[SearchHit], max_chars: int) -> list[str]:
+    """Group chunks, in reading order, into batches under a character budget."""
+    batches: list[str] = []
+    current: list[str] = []
+    current_len = 0
+    for chunk in chunks:
+        text = chunk.raw_text or ""
+        if current and current_len + len(text) > max_chars:
+            batches.append("\n\n".join(current))
+            current, current_len = [], 0
+        current.append(text)
+        current_len += len(text)
+    if current:
+        batches.append("\n\n".join(current))
+    return batches
+
+
+@_timed("resolve_intent")
+def resolve_intent_node(state: VeriRAGState) -> VeriRAGState:
+    """Detect named documents and summarization intent before retrieving.
+
+    Runs before retrieval because "read this whole document" and "search for
+    content matching this question" are different operations, and a filename
+    plus an instruction makes a terrible search query.
+    """
+    query = state["query"]
+    try:
+        ingested = list_ingested_documents()
+    except Exception as exc:  # noqa: BLE001 - never block a query on this
+        logger.warning("Could not list ingested documents (%s): %s",
+                       type(exc).__name__, exc)
+        ingested = []
+
+    resolved = resolve_document_references(query, ingested)
+    is_summarization = detect_summarization_intent(query)
+
+    # Strip the filename out of the text used for search, so it does not
+    # pollute the query embedding. Document scoping is handled by the filter.
+    search_query = (
+        strip_document_references(query, ingested) if resolved else query
+    )
+
+    trace = [
+        f"resolve_intent: {len(resolved)} named document(s), "
+        f"summarization_intent={is_summarization}"
+    ]
+    if resolved:
+        trace.append(f"resolve_intent: resolved doc_ids={resolved}")
+        if search_query != query:
+            trace.append(f"resolve_intent: search query -> {search_query!r}")
+
+    return {
+        "resolved_doc_ids": resolved,
+        "is_summarization_intent": is_summarization,
+        "search_query": search_query,
+        "trace": trace,
+    }
+
+
+@_timed("summarize_document")
+def summarize_document_node(state: VeriRAGState) -> VeriRAGState:
+    """Summarize one whole document, reading every chunk in order.
+
+    Gate 1 is skipped on this path: when the request is "summarize this
+    document", coverage is self-evident by construction. Gate 2 is NOT
+    skipped -- the summary's claims are still checked against the actual
+    source chunks, preserving the "never return unverified" invariant.
+    """
+    doc_ids = state.get("resolved_doc_ids") or []
+    doc_id = doc_ids[0]
+    chunks = get_chunks_by_doc_id(doc_id)
+
+    trace = [
+        f"summarize_document: doc_id={doc_id}, {len(chunks)} chunk(s) "
+        "in reading order"
+    ]
+    llm_calls = state.get("llm_call_count", 0)
+
+    if not chunks:
+        logger.warning("No chunks found for doc_id=%s; cannot summarize.", doc_id)
+        trace.append("summarize_document: no chunks found")
+        return {
+            "generated_answer": GeneratedAnswer(
+                answer_text=(
+                    "Could not summarize this document - no stored content was "
+                    "found for it."
+                ),
+                citations=[],
+                format_used=state["answer_format"],
+                hits_used=[],
+            ),
+            "llm_call_count": llm_calls,
+            "trace": trace,
+        }
+
+    # One citation per document: every chunk shares the same parent_text, so
+    # build_context_block collapses them into [1] with all chunk_ids attached,
+    # which is exactly the provenance Gate 2 needs.
+    _, citations = build_context_block(chunks)
+    ordered_text = "\n\n".join(chunk.raw_text for chunk in chunks)
+
+    # Reserve one call for Gate 2's claim extraction.
+    available_calls = max(
+        0, settings.max_llm_calls_per_query - llm_calls - 1
+    )
+    partial_note = ""
+    summary: str | None = None
+
+    if available_calls < 1:
+        logger.warning(
+            "No LLM call budget left for summarization (used %d of %d).",
+            llm_calls, settings.max_llm_calls_per_query,
+        )
+        trace.append("summarize_document: call budget exhausted before starting")
+    elif len(ordered_text) <= settings.summarization_context_max_chars:
+        trace.append(
+            f"summarize_document: single pass ({len(ordered_text)} chars)"
+        )
+        summary = chat_completion(
+            messages=[
+                {"role": "system", "content": _SUMMARY_SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": _SUMMARY_SINGLE_PASS.format(
+                        document_text=ordered_text
+                    ),
+                },
+            ],
+            temperature=0.2,
+            max_tokens=1200,
+        )
+        llm_calls += 1
+    else:
+        batches = _ordered_batches(
+            chunks, settings.summarization_batch_max_chars
+        )
+        # Each batch costs one call, plus one for the reduce step.
+        if len(batches) + 1 > available_calls:
+            affordable = max(1, available_calls - 1)
+            logger.warning(
+                "Summarization needs %d calls but only %d are available; "
+                "summarizing the first %d of %d sections.",
+                len(batches) + 1, available_calls, affordable, len(batches),
+            )
+            partial_note = (
+                f"*(Partial summary: only the first {affordable} of "
+                f"{len(batches)} sections of this document were processed "
+                f"within the per-query call budget.)*\n\n"
+            )
+            batches = batches[:affordable]
+
+        trace.append(
+            f"summarize_document: map-reduce over {len(batches)} ordered "
+            f"section(s) ({len(ordered_text)} chars total)"
+        )
+
+        digests: list[str] = []
+        for i, batch in enumerate(batches, start=1):
+            digest = chat_completion(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": _SUMMARY_MAP.format(section_text=batch),
+                    }
+                ],
+                temperature=0.2,
+                max_tokens=700,
+            )
+            llm_calls += 1
+            if digest:
+                digests.append(f"[section {i}]\n{digest}")
+            else:
+                logger.warning("Section %d digest failed; skipping it.", i)
+
+        if digests:
+            summary = chat_completion(
+                messages=[
+                    {"role": "system", "content": _SUMMARY_SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": _SUMMARY_REDUCE.format(
+                            digest_text="\n\n".join(digests)
+                        ),
+                    },
+                ],
+                temperature=0.2,
+                max_tokens=1200,
+            )
+            llm_calls += 1
+            trace.append(
+                f"summarize_document: reduced {len(digests)} section digest(s)"
+            )
+
+    if summary is None:
+        trace.append("summarize_document: summarization failed")
+        answer_text = _SUMMARY_FAILED_MESSAGE
+        used_citations: list = []
+    else:
+        answer_text = f"{partial_note}{summary.strip()}"
+        used_citations = citations
+
+    return {
+        "generated_answer": GeneratedAnswer(
+            answer_text=answer_text,
+            citations=used_citations,
+            format_used=state["answer_format"],
+            hits_used=chunks,
+        ),
+        "llm_call_count": llm_calls,
+        "trace": trace,
+    }
+
+
 @_timed("retrieve")
 def retrieve_node(state: VeriRAGState) -> VeriRAGState:
     """Hybrid-retrieve for the query (dense + sparse -> RRF -> rerank)."""
     corpus_only = bool(state.get("corpus_only"))
-    hits = hybrid_retrieve(state["query"], corpus_only=corpus_only)
+    resolved = state.get("resolved_doc_ids") or []
+    # Scope to a single named document only when exactly one was resolved;
+    # zero or several means search the whole corpus, so cross-document
+    # comparison questions still see everything.
+    doc_id_filter = resolved[0] if len(resolved) == 1 else None
+    search_query = state.get("search_query") or state["query"]
+
+    hits = hybrid_retrieve(
+        search_query, corpus_only=corpus_only, doc_id_filter=doc_id_filter
+    )
     top = hits[0].rerank_score if hits else None
     return {
         "hits": hits,
@@ -69,6 +355,7 @@ def retrieve_node(state: VeriRAGState) -> VeriRAGState:
             f"retrieve: {len(hits)} hits"
             + (f", top rerank_score={top:.6f}" if top is not None else "")
             + (" (corpus-only: external content excluded)" if corpus_only else "")
+            + (f" (scoped to doc_id={doc_id_filter})" if doc_id_filter else "")
         ],
     }
 

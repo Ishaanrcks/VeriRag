@@ -28,6 +28,15 @@ class VeriRAGState(TypedDict, total=False):
     # When True, the external-fetch branch is blocked entirely.
     corpus_only: bool
 
+    # --- document-reference resolution (runs before retrieval) ---
+    # doc_ids explicitly named in the query, and whether the query reads as
+    # "summarize this" rather than a content question.
+    resolved_doc_ids: list[str]
+    is_summarization_intent: bool
+    # The query with any named filenames stripped out, used for dense/sparse
+    # search so a bare filename does not pollute the embedding.
+    search_query: str | None
+
     # --- retrieval ---
     hits: list[SearchHit]
 

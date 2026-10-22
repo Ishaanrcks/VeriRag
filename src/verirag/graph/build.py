@@ -2,7 +2,10 @@
 
 Control flow:
 
-    START -> retrieve -> gate1
+    START -> resolve_intent
+      summarize intent + exactly 1 named doc -> summarize_document -> gate2
+      otherwise                              -> retrieve
+    retrieve -> gate1
       gate1 sufficient                  -> generate
       gate1 insufficient + can fetch    -> fetch_external -> retrieve (once)
       gate1 insufficient + cannot fetch -> abstain_insufficient_coverage
@@ -38,7 +41,9 @@ from verirag.graph.nodes import (
     gate2_node,
     generate_node,
     regenerate_node,
+    resolve_intent_node,
     retrieve_node,
+    summarize_document_node,
 )
 from verirag.graph.state import VeriRAGState
 from verirag.observability.metrics import QueryMetricsRecord, log_query_metrics
@@ -60,6 +65,19 @@ class VeriRAGResult:
     abstention_reason: str | None = None
     trace: list[str] = field(default_factory=list)
     regeneration_count: int = 0
+
+
+def _route_after_resolve_intent(state: VeriRAGState) -> str:
+    """Summarize a named document, or fall through to normal retrieval.
+
+    Whole-document summarization requires BOTH summarization intent and
+    exactly one resolved document. Two named documents is a comparison
+    question, not a summarization one, so it takes the retrieval path.
+    """
+    resolved = state.get("resolved_doc_ids") or []
+    if state.get("is_summarization_intent") and len(resolved) == 1:
+        return "summarize_document"
+    return "retrieve"
 
 
 def _route_after_gate1(state: VeriRAGState) -> str:
@@ -84,6 +102,13 @@ def _route_after_gate2(state: VeriRAGState) -> str:
     if verdict is not None and verdict.overall_grounded:
         return "finalize_verified"
 
+    # No regeneration on the summarization path: regenerate_node runs the
+    # question-answering generator, which would silently replace a summary
+    # with a Q&A answer. An ungrounded summary abstains instead, preserving
+    # the "never return unverified" invariant.
+    if state.get("is_summarization_intent"):
+        return "abstain_ungrounded"
+
     if (
         state.get("regeneration_count", 0) < settings.max_critic_iterations
         and state.get("llm_call_count", 0) < settings.max_llm_calls_per_query
@@ -95,6 +120,8 @@ def _route_after_gate2(state: VeriRAGState) -> str:
 def _build_graph() -> StateGraph:
     graph = StateGraph(VeriRAGState)
 
+    graph.add_node("resolve_intent", resolve_intent_node)
+    graph.add_node("summarize_document", summarize_document_node)
     graph.add_node("retrieve", retrieve_node)
     graph.add_node("gate1", gate1_node)
     graph.add_node("fetch_external", fetch_external_node)
@@ -107,7 +134,18 @@ def _build_graph() -> StateGraph:
     )
     graph.add_node("abstain_ungrounded", abstain_ungrounded_node)
 
-    graph.add_edge(START, "retrieve")
+    graph.add_edge(START, "resolve_intent")
+    graph.add_conditional_edges(
+        "resolve_intent",
+        _route_after_resolve_intent,
+        {
+            "summarize_document": "summarize_document",
+            "retrieve": "retrieve",
+        },
+    )
+    # Summarization skips Gate 1 (coverage is self-evident) but NOT Gate 2.
+    graph.add_edge("summarize_document", "gate2")
+
     graph.add_edge("retrieve", "gate1")
 
     graph.add_conditional_edges(
@@ -168,6 +206,9 @@ def _initial_state(
         "abstention_reason": None,
         "trace": [],
         "node_timings": [],
+        "resolved_doc_ids": [],
+        "is_summarization_intent": False,
+        "search_query": None,
     }
 
 

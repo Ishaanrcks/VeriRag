@@ -30,6 +30,16 @@ def _exclude_external(hits: list[SearchHit]) -> list[SearchHit]:
     ]
 
 
+def _filter_by_doc_id(hits: list[SearchHit], doc_id: str) -> list[SearchHit]:
+    """Keep only hits belonging to one source document.
+
+    Applied to each retriever's output before fusion, like
+    :func:`_exclude_external`, so a doc-scoped question ranks only within that
+    document instead of competing against the whole corpus.
+    """
+    return [hit for hit in hits if hit.metadata.get("doc_id") == doc_id]
+
+
 def _apply_external_penalty(hits: list[SearchHit]) -> list[SearchHit]:
     """Discount external hits' rerank_score, then re-sort.
 
@@ -49,11 +59,17 @@ def _apply_external_penalty(hits: list[SearchHit]) -> list[SearchHit]:
     return sorted(hits, key=lambda h: h.rerank_score or 0.0, reverse=True)
 
 
-def hybrid_retrieve(query: str, corpus_only: bool = False) -> list[SearchHit]:
+def hybrid_retrieve(
+    query: str,
+    corpus_only: bool = False,
+    doc_id_filter: str | None = None,
+) -> list[SearchHit]:
     """Retrieve the final top-k chunks for a query via the full pipeline.
 
     With ``corpus_only=True``, previously-ingested external content is
     excluded from the ranking entirely (see :func:`_exclude_external`).
+    With ``doc_id_filter`` set, only that document's chunks are ranked
+    (see :func:`_filter_by_doc_id`).
     """
     dense_hits = dense_search(query, settings.retrieval_dense_top_k)
     sparse_hits = sparse_search(query, settings.retrieval_sparse_top_k)
@@ -61,6 +77,10 @@ def hybrid_retrieve(query: str, corpus_only: bool = False) -> list[SearchHit]:
     if corpus_only:
         dense_hits = _exclude_external(dense_hits)
         sparse_hits = _exclude_external(sparse_hits)
+
+    if doc_id_filter:
+        dense_hits = _filter_by_doc_id(dense_hits, doc_id_filter)
+        sparse_hits = _filter_by_doc_id(sparse_hits, doc_id_filter)
 
     fused = reciprocal_rank_fusion(
         dense_hits, sparse_hits, settings.retrieval_rrf_k

@@ -126,6 +126,46 @@ def dense_search(
     return hits
 
 
+def get_chunks_by_doc_id(
+    doc_id: str, collection: "chromadb.Collection | None" = None
+) -> list[SearchHit]:
+    """Every chunk of one document, in reading order.
+
+    This is a METADATA lookup, not a similarity search: whole-document
+    summarization must see all the chunks in order, not the top-k most
+    query-similar ones. Ordering uses the ``chunk_index`` the chunker assigns
+    at creation time; any chunk missing it sorts last rather than silently
+    landing at position 0.
+    """
+    if collection is None:
+        collection = get_collection()
+
+    result = collection.get(
+        where={"doc_id": doc_id}, include=["documents", "metadatas"]
+    )
+
+    hits: list[SearchHit] = []
+    for chunk_id, document, metadata in zip(
+        result.get("ids") or [],
+        result.get("documents") or [],
+        result.get("metadatas") or [],
+    ):
+        hits.append(
+            SearchHit(
+                chunk_id=chunk_id,
+                raw_text=document or "",
+                metadata=dict(metadata or {}),
+            )
+        )
+
+    def _order(hit: SearchHit) -> int:
+        index = hit.metadata.get("chunk_index")
+        return index if isinstance(index, int) else 10**9
+
+    hits.sort(key=_order)
+    return hits
+
+
 def list_ingested_documents(
     collection: "chromadb.Collection | None" = None,
 ) -> list[dict]:
