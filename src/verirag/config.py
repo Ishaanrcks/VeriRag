@@ -65,6 +65,13 @@ class Settings(BaseSettings):
     gate1_high_threshold: float = 0.5
     gate1_low_threshold: float = 0.05
 
+    # --- Critic: Gate 2 (groundedness) ---
+    # Also a PLACEHOLDER, calibrated in Phase 12 alongside the Gate 1 bands.
+    gate2_entailment_threshold: float = 0.5
+    # Cap on the combined premise text when testing whether several chunks
+    # jointly support a claim (the NLI model has a ~512-token input limit).
+    gate2_combination_max_chars: int = 2000
+
     # --- Critic / corrective loop ---
     max_critic_iterations: int = 2
     per_query_cost_ceiling_usd: float = 0.50
