@@ -58,6 +58,13 @@ class Settings(BaseSettings):
     retrieval_rerank_candidate_cap: int = 20
     retrieval_final_top_k: int = 5
 
+    # --- Critic: Gate 1 (coverage) ---
+    # PLACEHOLDER thresholds for the MVP build. These get properly calibrated
+    # in Phase 12 against the labeled critic-calibration set -- deliberately
+    # NOT tuned by eyeballing fixture data now.
+    gate1_high_threshold: float = 0.5
+    gate1_low_threshold: float = 0.05
+
     # --- Critic / corrective loop ---
     max_critic_iterations: int = 2
     per_query_cost_ceiling_usd: float = 0.50
