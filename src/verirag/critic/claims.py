@@ -31,9 +31,9 @@ from verirag.llm.client import chat_completion
 
 logger = logging.getLogger(__name__)
 
-ClaimType = Literal["factual", "absence", "meta"]
+ClaimType = Literal["factual", "absence", "meta", "unscorable"]
 
-_VALID_CLAIM_TYPES: set[str] = {"factual", "absence", "meta"}
+_VALID_CLAIM_TYPES: set[str] = {"factual", "absence", "meta", "unscorable"}
 _CITATION_RE = re.compile(r"\[(\d+)\]")
 
 
@@ -52,6 +52,11 @@ Decompose the answer below into atomic, independently checkable claims.
 For each claim produce an object with these keys:
 - "text": the claim as a single self-contained sentence. Resolve pronouns so it
   stands alone. Do NOT include the [n] citation markers inside this text.
+  State the claim as a BARE PROPOSITION. Strip any attributive wrapper: write
+  "ExpressGNN combines Markov Logic Networks and graph neural networks", NOT
+  "The paper states that ExpressGNN combines...". The wrapper turns the claim
+  into a statement about the text rather than about the subject, which the
+  verifier cannot check.
 - "claim_type": exactly one of:
     - "factual": a concrete statement about document content that could be
       checked against a source passage.
@@ -61,6 +66,11 @@ For each claim produce an object with these keys:
       what they do not describe, or the limits of the available context --
       rather than a fact drawn from them. Example: "The passages do not
       describe how the gates are implemented."
+    - "unscorable": content that is not a checkable proposition at all -- a
+      formula or equation ("H = GNN(X, E)"), or a pointer to a figure, table
+      or section rather than a statement of fact ("Figure 3 reports the token
+      budget"). Use this whenever the claim's substance is an artifact in the
+      document rather than an assertion about the world.
 - "cited_numbers": a JSON array of integers, the citation numbers taken from
   the [n] markers attached to that claim in the answer. Use [] if it has none.
 

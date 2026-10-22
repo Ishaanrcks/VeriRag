@@ -80,6 +80,28 @@ class Settings(BaseSettings):
     # jointly support a claim (the NLI model has a ~512-token input limit).
     gate2_combination_max_chars: int = 2000
 
+    # Premise windowing. The NLI cross-encoder is trained on sentence pairs,
+    # so a full ~2000-char chunk swamps the signal and collapses to "neutral"
+    # for true and false claims alike. Measured on the QueensLand corpus: the
+    # same true claim scored entailment 0.0042 against a 2068-char chunk and
+    # 0.6769 against a 400-char window of it. Claims are therefore scored
+    # against sentence windows within each chunk, taking the best window.
+    gate2_premise_window_sentences: int = 3
+    gate2_max_windows_per_chunk: int = 16
+
+    # Aggregation stays STRICT: every scoreable claim must be supported. A
+    # fractional tolerance was considered and deliberately not adopted -- with
+    # the premise bug fixed, windowing alone recovered recall (2/6 -> 4/6 on a
+    # labeled battery) with zero false positives, so relaxing the rule was not
+    # needed to fix the false negatives and would have made the tolerance the
+    # only precision guard. A contradiction-based hard-fail was also rejected:
+    # measured, TRUE claims reach contradiction 0.998 because an irrelevant
+    # window inside the same chunk "contradicts" them, so the signal cannot be
+    # trusted with this checkpoint. Revisit both only with measurement.
+    # Fraction of chars of a claim's tokens that must appear in the evidence
+    # for an unscorable claim (formula / figure reference) to count as present.
+    gate2_presence_overlap_fraction: float = 0.7
+
     # --- Whole-document summarization ---
     # If a document's full ordered text fits in this many characters it is
     # summarized in a single call; beyond it, map-reduce over ordered batches.

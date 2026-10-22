@@ -18,6 +18,7 @@ softmax is applied here.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Literal
@@ -107,6 +108,188 @@ def _softmax(logits: np.ndarray) -> np.ndarray:
     shifted = logits - np.max(logits)
     exponentiated = np.exp(shifted)
     return exponentiated / exponentiated.sum()
+
+
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def normalize_premise(text: str) -> str:
+    """Clean PDF-extraction noise that degrades NLI scoring.
+
+    Chunks lifted from academic PDFs carry hyphenated line breaks
+    ("incorpor-\\nate"), hard newlines mid-sentence, and ligatures. Left in,
+    they push an already out-of-distribution premise further from the short,
+    clean sentence pairs the checkpoint was trained on.
+    """
+    cleaned = text.replace("ﬁ", "fi").replace("ﬂ", "fl")
+    cleaned = re.sub(r"-\s*\n\s*", "", cleaned)  # rejoin hyphenated breaks
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip()
+
+
+def premise_windows(
+    premise: str, window_sentences: int, max_windows: int
+) -> list[str]:
+    """Split a premise into overlapping sentence windows, best-effort.
+
+    Returns the windows a claim should be scored against. Always includes at
+    least one window so a short premise still gets checked.
+    """
+    normalized = normalize_premise(premise)
+    if not normalized:
+        return []
+
+    sentences = [s for s in _SENTENCE_SPLIT_RE.split(normalized) if s.strip()]
+    if len(sentences) <= window_sentences:
+        return [normalized]
+
+    # The whole premise is always a candidate alongside the windows. Without
+    # it, windowing could SCORE WORSE than the unwindowed premise for a claim
+    # whose support is spread across more sentences than one window spans
+    # (measured: a true claim scored 0.9558 on the full chunk but only 0.1840
+    # on its best 3-sentence window). Including it makes the windowed result
+    # greater than or equal to the old behaviour by construction.
+    windows: list[str] = [normalized]
+    for start in range(len(sentences) - window_sentences + 1):
+        windows.append(" ".join(sentences[start : start + window_sentences]))
+        if len(windows) > max_windows:
+            break
+    return windows
+
+
+def check_entailment_windowed(
+    premise: str,
+    hypothesis: str,
+    window_sentences: int | None = None,
+    max_windows: int | None = None,
+) -> EntailmentResult:
+    """Score a hypothesis against the BEST sentence window of a premise.
+
+    A long premise dilutes the signal: the relevant sentence is averaged in
+    with a dozen irrelevant ones and the model answers "neutral". Scoring
+    windows separately and keeping the strongest result recovers the signal,
+    and all windows go through the model in one batched call so this stays
+    cheaper than it looks.
+    """
+    windows = premise_windows(
+        premise,
+        window_sentences
+        if window_sentences is not None
+        else settings.gate2_premise_window_sentences,
+        max_windows
+        if max_windows is not None
+        else settings.gate2_max_windows_per_chunk,
+    )
+    if not windows:
+        return EntailmentResult(
+            label="neutral",
+            entailment_prob=0.0,
+            all_probs={"entailment": 0.0, "neutral": 1.0, "contradiction": 0.0},
+        )
+
+    index_to_label = _index_to_label()
+    raw = np.asarray(
+        get_nli_model().predict([(window, hypothesis) for window in windows]),
+        dtype=np.float64,
+    )
+    if raw.ndim == 1:
+        raw = raw.reshape(1, -1)
+
+    best: EntailmentResult | None = None
+    for row in raw:
+        probabilities = _softmax(row)
+        all_probs = {
+            index_to_label[i]: float(probabilities[i])
+            for i in range(len(probabilities))
+        }
+        candidate = EntailmentResult(
+            label=max(all_probs, key=lambda key: all_probs[key]),  # type: ignore[arg-type]
+            entailment_prob=all_probs["entailment"],
+            all_probs=all_probs,
+        )
+        # "Best" means most entailed; ties on entailment break toward the
+        # window that is most confidently contradicting, so an actual
+        # contradiction is not hidden behind a neutral window.
+        if (
+            best is None
+            or candidate.entailment_prob > best.entailment_prob
+            or (
+                candidate.entailment_prob == best.entailment_prob
+                and candidate.all_probs["contradiction"]
+                > best.all_probs["contradiction"]
+            )
+        ):
+            best = candidate
+
+    assert best is not None
+    return best
+
+
+def _neutral_result() -> EntailmentResult:
+    return EntailmentResult(
+        label="neutral",
+        entailment_prob=0.0,
+        all_probs={"entailment": 0.0, "neutral": 1.0, "contradiction": 0.0},
+    )
+
+
+def score_claim_against_premises(
+    hypothesis: str, premises: list[str]
+) -> list[EntailmentResult]:
+    """Score one claim against several premises in ONE batched model call.
+
+    Every sentence window of every premise goes through the cross-encoder
+    together, and the best-entailing window per premise is returned, aligned
+    with ``premises``. Windowing multiplies the number of forward passes by
+    roughly the window count, so batching across premises (rather than one
+    call per chunk) is what keeps Gate 2's latency manageable.
+
+    NOTE on contradiction: each result carries its best window's full
+    probabilities, but the maximum contradiction ACROSS windows is not
+    reported, and must not be used as a hallucination signal. Measured on this
+    corpus, true claims reach contradiction 0.998 simply because some
+    unrelated sentence in the same chunk contradicts them.
+    """
+    if not premises:
+        return []
+
+    pairs: list[tuple[str, str]] = []
+    owners: list[int] = []
+    for index, premise in enumerate(premises):
+        windows = premise_windows(
+            premise,
+            settings.gate2_premise_window_sentences,
+            settings.gate2_max_windows_per_chunk,
+        )
+        for window in windows:
+            pairs.append((window, hypothesis))
+            owners.append(index)
+
+    if not pairs:
+        return [_neutral_result() for _ in premises]
+
+    index_to_label = _index_to_label()
+    raw = np.asarray(get_nli_model().predict(pairs), dtype=np.float64)
+    if raw.ndim == 1:
+        raw = raw.reshape(1, -1)
+
+    best: list[EntailmentResult | None] = [None] * len(premises)
+    for row, owner in zip(raw, owners):
+        probabilities = _softmax(row)
+        all_probs = {
+            index_to_label[i]: float(probabilities[i])
+            for i in range(len(probabilities))
+        }
+        candidate = EntailmentResult(
+            label=max(all_probs, key=lambda key: all_probs[key]),  # type: ignore[arg-type]
+            entailment_prob=all_probs["entailment"],
+            all_probs=all_probs,
+        )
+        current = best[owner]
+        if current is None or candidate.entailment_prob > current.entailment_prob:
+            best[owner] = candidate
+
+    return [result or _neutral_result() for result in best]
 
 
 @traceable(name="check_entailment")

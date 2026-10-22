@@ -36,6 +36,7 @@ Phase 8's LangGraph loop.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -43,7 +44,11 @@ from langsmith import traceable
 
 from verirag.config import settings
 from verirag.critic.claims import extract_claims
-from verirag.critic.nli import check_entailment
+from verirag.critic.nli import (
+    check_entailment_windowed,
+    normalize_premise,
+    score_claim_against_premises,
+)
 from verirag.generation.generator import GeneratedAnswer
 from verirag.retrieval.types import SearchHit
 
@@ -52,11 +57,50 @@ logger = logging.getLogger(__name__)
 ClaimVerdictLabel = Literal[
     "supported_single",
     "supported_combination",
+    "supported_presence",
     "not_supported",
     "external_unsupported",
     "absence_unverified",
     "meta_excluded",
 ]
+
+_TOKEN_RE = re.compile(r"\w{3,}")
+# Words that carry no evidential weight, so requiring them in the evidence
+# would only add noise to the presence check.
+_PRESENCE_STOPWORDS = frozenset(
+    """the and for that with this from are was were has have had its their
+    paper document passage states state describes describe shows show
+    reports report figure table section appendix equation which while
+    where when what how many does did not only also been being""".split()
+)
+
+
+def all_chunk_ids_for(resolved: list[tuple[str, str]]) -> list[str]:
+    return [chunk_id for chunk_id, _ in resolved]
+
+
+def _presence_supported(claim_text: str, premises: list[str]) -> tuple[bool, float]:
+    """Token-overlap check for claims NLI cannot score.
+
+    Formulas ("H = GNN(X, E)") and figure/table references are not
+    propositions, so entailment is meaningless for them -- the checkpoint
+    expects a declarative sentence pair. Verifying that the claim's
+    distinctive tokens actually occur in the cited evidence is cheap and is
+    the right question for this claim type: does the source really contain
+    this artifact?
+    """
+    tokens = {
+        token.lower()
+        for token in _TOKEN_RE.findall(claim_text)
+        if token.lower() not in _PRESENCE_STOPWORDS
+    }
+    if not tokens:
+        return False, 0.0
+
+    evidence = normalize_premise(" ".join(premises)).lower()
+    evidence_tokens = set(_TOKEN_RE.findall(evidence))
+    overlap = len(tokens & evidence_tokens) / len(tokens)
+    return overlap >= settings.gate2_presence_overlap_fraction, overlap
 
 # Verdicts that block grounding. "external_unsupported" is reported as its own
 # label for transparency but counts against grounding exactly like
@@ -196,23 +240,41 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
             )
             continue
 
-        threshold = settings.gate2_entailment_threshold
-        best_prob: float | None = None
-        supporting: list[tuple[str, float]] = []
+        if claim.claim_type == "unscorable":
+            # Formula / figure-reference claims: verify the artifact really
+            # occurs in the cited evidence instead of asking NLI to entail it.
+            present, overlap = _presence_supported(
+                claim.text, [premise for _, premise in resolved]
+            )
+            verdicts.append(
+                ClaimVerdict(
+                    claim_text=claim.text,
+                    claim_type=claim.claim_type,
+                    verdict="supported_presence" if present else "not_supported",
+                    evidence_chunk_ids=all_chunk_ids_for(resolved),
+                    entailment_prob=overlap,
+                )
+            )
+            continue
 
-        # (b) each contributing chunk on its own first. We stop as soon as a
-        # LOCAL chunk clears the bar (local evidence is sufficient by itself),
-        # but keep scanning while only external chunks have cleared, because
-        # the corroboration rule below needs the full set of supporting
-        # sources to count distinct URLs.
-        for chunk_id, premise in resolved:
-            result = check_entailment(premise, claim.text)
-            if best_prob is None or result.entailment_prob > best_prob:
-                best_prob = result.entailment_prob
-            if result.entailment_prob >= threshold:
-                supporting.append((chunk_id, result.entailment_prob))
-                if not _is_external(chunk_id, hit_by_chunk_id):
-                    break
+        threshold = settings.gate2_entailment_threshold
+
+        # (b) score the claim against every contributing chunk in ONE batched
+        # call, each chunk scored on its best sentence window. Scoring all of
+        # them (rather than breaking at the first success) also gives the
+        # external corroboration rule below the complete set of supporting
+        # sources, which an early break used to hide.
+        results = score_claim_against_premises(
+            claim.text, [premise for _, premise in resolved]
+        )
+        best_prob = max(
+            (result.entailment_prob for result in results), default=None
+        )
+        supporting = [
+            (chunk_id, result.entailment_prob)
+            for (chunk_id, _), result in zip(resolved, results)
+            if result.entailment_prob >= threshold
+        ]
 
         all_chunk_ids = [chunk_id for chunk_id, _ in resolved]
 
@@ -269,7 +331,7 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
             combined = "\n\n".join(text for _, text in resolved)[
                 : settings.gate2_combination_max_chars
             ]
-            combined_result = check_entailment(combined, claim.text)
+            combined_result = check_entailment_windowed(combined, claim.text)
             if best_prob is None or combined_result.entailment_prob > best_prob:
                 best_prob = combined_result.entailment_prob
             if combined_result.entailment_prob >= threshold:
