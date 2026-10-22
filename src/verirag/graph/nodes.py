@@ -11,7 +11,10 @@ a local encoder, not an LLM), and generation/regeneration count one each.
 
 from __future__ import annotations
 
+import functools
 import logging
+import time
+from collections.abc import Callable
 
 from verirag.config import settings
 from verirag.critic.gate1_coverage import check_coverage
@@ -25,6 +28,36 @@ from verirag.retrieval.hybrid import hybrid_retrieve
 logger = logging.getLogger(__name__)
 
 
+def _timed(
+    node_name: str,
+) -> Callable[[Callable[[VeriRAGState], VeriRAGState]], Callable[
+    [VeriRAGState], VeriRAGState
+]]:
+    """Time a node and attach ``(node_name, elapsed_ms)`` to its update.
+
+    Applied as a decorator so the timer wraps each node body exactly once,
+    rather than being repeated (and eventually forgotten) in nine places. The
+    state's reducer concatenates the entries, so repeat visits accumulate.
+    """
+
+    def decorator(
+        func: Callable[[VeriRAGState], VeriRAGState],
+    ) -> Callable[[VeriRAGState], VeriRAGState]:
+        @functools.wraps(func)
+        def wrapper(state: VeriRAGState) -> VeriRAGState:
+            start = time.perf_counter()
+            update = dict(func(state))
+            update["node_timings"] = [
+                (node_name, (time.perf_counter() - start) * 1000.0)
+            ]
+            return update
+
+        return wrapper
+
+    return decorator
+
+
+@_timed("retrieve")
 def retrieve_node(state: VeriRAGState) -> VeriRAGState:
     """Hybrid-retrieve for the query (dense + sparse -> RRF -> rerank)."""
     hits = hybrid_retrieve(state["query"])
@@ -38,6 +71,7 @@ def retrieve_node(state: VeriRAGState) -> VeriRAGState:
     }
 
 
+@_timed("gate1")
 def gate1_node(state: VeriRAGState) -> VeriRAGState:
     """Gate 1: does the retrieved evidence cover the query at all?"""
     verdict = check_coverage(state["query"], state.get("hits", []))
@@ -68,6 +102,7 @@ def gate1_node(state: VeriRAGState) -> VeriRAGState:
     return {"gate1_verdict": verdict, "llm_call_count": llm_calls, "trace": trace}
 
 
+@_timed("fetch_external")
 def fetch_external_node(state: VeriRAGState) -> VeriRAGState:
     """Fetch external material once and make it searchable."""
     verdict = state.get("gate1_verdict")
@@ -96,6 +131,7 @@ def fetch_external_node(state: VeriRAGState) -> VeriRAGState:
     }
 
 
+@_timed("generate")
 def generate_node(state: VeriRAGState) -> VeriRAGState:
     """Generate a cited answer from the retrieved hits."""
     answer = generate_answer(
@@ -112,6 +148,7 @@ def generate_node(state: VeriRAGState) -> VeriRAGState:
     }
 
 
+@_timed("gate2")
 def gate2_node(state: VeriRAGState) -> VeriRAGState:
     """Gate 2: is every factual claim entailed by its cited evidence?"""
     answer = state["generated_answer"]
@@ -128,6 +165,7 @@ def gate2_node(state: VeriRAGState) -> VeriRAGState:
     }
 
 
+@_timed("regenerate")
 def regenerate_node(state: VeriRAGState) -> VeriRAGState:
     """Regenerate, explicitly steering away from the unverified claims."""
     verdict = state["gate2_verdict"]
@@ -151,6 +189,7 @@ def regenerate_node(state: VeriRAGState) -> VeriRAGState:
     }
 
 
+@_timed("finalize_verified")
 def finalize_verified_node(state: VeriRAGState) -> VeriRAGState:
     """Accept the verified answer as final."""
     answer = state["generated_answer"]
@@ -165,6 +204,7 @@ def finalize_verified_node(state: VeriRAGState) -> VeriRAGState:
     }
 
 
+@_timed("abstain_insufficient_coverage")
 def abstain_insufficient_coverage_node(state: VeriRAGState) -> VeriRAGState:
     """Abstain because the corpus does not cover the question."""
     verdict = state.get("gate1_verdict")
@@ -182,7 +222,20 @@ def abstain_insufficient_coverage_node(state: VeriRAGState) -> VeriRAGState:
     if state.get("corpus_only"):
         reason += " External sources were not consulted (corpus-only mode)."
     elif state.get("external_fetch_attempted"):
-        reason += " An external search was attempted and added no new material."
+        # Distinguish "the search found nothing" from "it found material that
+        # still did not answer the question" -- claiming the former when
+        # coverage measurably improved would be misleading.
+        pre_fetch = state.get("pre_fetch_max_score")
+        post_fetch = verdict.max_rerank_score if verdict else 0.0
+        if pre_fetch is not None and post_fetch > pre_fetch:
+            reason += (
+                " An external search was attempted; the material it found did "
+                "not answer the question."
+            )
+        else:
+            reason += (
+                " An external search was attempted and added no new material."
+            )
 
     return {
         "abstained": True,
@@ -193,6 +246,7 @@ def abstain_insufficient_coverage_node(state: VeriRAGState) -> VeriRAGState:
     }
 
 
+@_timed("abstain_ungrounded")
 def abstain_ungrounded_node(state: VeriRAGState) -> VeriRAGState:
     """Abstain because claims stayed unverified after exhausting retries."""
     verdict = state.get("gate2_verdict")

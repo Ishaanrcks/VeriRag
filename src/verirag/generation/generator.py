@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
 
+from langsmith import traceable
+
 from verirag.llm.client import chat_completion
 from verirag.retrieval.types import SearchHit
 
@@ -178,6 +180,7 @@ def build_context_block(hits: list[SearchHit]) -> tuple[str, list[Citation]]:
     return "\n\n".join(blocks), citations
 
 
+@traceable(name="generate_answer")
 def generate_answer(
     query: str,
     hits: list[SearchHit],

@@ -80,6 +80,13 @@ class Settings(BaseSettings):
     # jointly support a claim (the NLI model has a ~512-token input limit).
     gate2_combination_max_chars: int = 2000
 
+    # --- Observability ---
+    metrics_db_path: str = "./data/metrics.db"
+    # Rough MVP placeholder for the per-query cost estimate. This should be
+    # checked against DeepSeek's actual current API pricing rather than
+    # trusted as precise; real token-level accounting is out of scope here.
+    estimated_cost_per_llm_call_usd: float = 0.002
+
     # --- Critic / corrective loop ---
     max_critic_iterations: int = 2
     per_query_cost_ceiling_usd: float = 0.50
@@ -92,3 +99,18 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def configured_secret(value: str | None) -> str | None:
+    """Return a secret only when it looks like a real value.
+
+    ``.env`` files are routinely copied from ``.env.example``, which leaves
+    literal placeholders such as ``tvly-...`` or ``lsv2_...`` behind. Those are
+    truthy, so a plain truthiness check would treat them as configured and the
+    failure would surface later as a confusing auth error instead of an honest
+    "not configured". Shared by the Tavily fetcher and LangSmith tracing.
+    """
+    cleaned = (value or "").strip()
+    if not cleaned or "..." in cleaned:
+        return None
+    return cleaned

@@ -24,6 +24,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Literal
 
+from langsmith import traceable
+
 from verirag.generation.generator import GeneratedAnswer
 from verirag.llm.client import chat_completion
 
@@ -134,6 +136,7 @@ def _coerce_claim(item: object) -> Claim | None:
     )
 
 
+@traceable(name="extract_claims")
 def extract_claims(answer: GeneratedAnswer) -> list[Claim]:
     """Split ``answer`` into atomic classified claims (one LLM call)."""
     if not answer.answer_text.strip():

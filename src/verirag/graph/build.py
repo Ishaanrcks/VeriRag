@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from langgraph.graph import END, START, StateGraph
 
@@ -40,8 +41,13 @@ from verirag.graph.nodes import (
     retrieve_node,
 )
 from verirag.graph.state import VeriRAGState
+from verirag.observability.metrics import QueryMetricsRecord, log_query_metrics
+from verirag.observability.tracing import init_tracing
 
 logger = logging.getLogger(__name__)
+
+# Activate tracing before any query can run. No-op without a real API key.
+init_tracing()
 
 
 @dataclass
@@ -161,7 +167,57 @@ def _initial_state(
         "abstained": False,
         "abstention_reason": None,
         "trace": [],
+        "node_timings": [],
     }
+
+
+def _derive_outcome(final_state: VeriRAGState) -> str:
+    """Classify how the query ended, from the state rather than message text."""
+    if not final_state.get("abstained"):
+        return "verified"
+    # Coverage abstention happens before generation, so gate2 never ran.
+    gate2_verdict = final_state.get("gate2_verdict")
+    if gate2_verdict is not None and not gate2_verdict.overall_grounded:
+        return "abstained_ungrounded"
+    return "abstained_insufficient"
+
+
+def _log_metrics(
+    query: str,
+    answer_format: AnswerFormat,
+    corpus_only: bool,
+    final_state: VeriRAGState,
+) -> None:
+    """Record one query's metrics. Never raises -- metrics are not the product."""
+    try:
+        node_timings = [
+            (str(name), float(elapsed))
+            for name, elapsed in (final_state.get("node_timings") or [])
+        ]
+        llm_call_count = final_state.get("llm_call_count", 0)
+        log_query_metrics(
+            QueryMetricsRecord(
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                query=query,
+                answer_format=answer_format.value,
+                corpus_only=corpus_only,
+                outcome=_derive_outcome(final_state),  # type: ignore[arg-type]
+                regeneration_count=final_state.get("regeneration_count", 0),
+                external_fetch_attempted=bool(
+                    final_state.get("external_fetch_attempted")
+                ),
+                llm_call_count=llm_call_count,
+                total_latency_ms=sum(elapsed for _, elapsed in node_timings),
+                node_timings=node_timings,
+                estimated_cost_usd=(
+                    llm_call_count * settings.estimated_cost_per_llm_call_usd
+                ),
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 - never break a user-facing query
+        logger.warning(
+            "Failed to log query metrics (%s): %s", type(exc).__name__, exc
+        )
 
 
 def run_query(
@@ -173,6 +229,7 @@ def run_query(
     final_state = COMPILED_GRAPH.invoke(
         _initial_state(query, answer_format, corpus_only)
     )
+    _log_metrics(query, answer_format, corpus_only, final_state)
     return VeriRAGResult(
         answer=final_state.get("final_answer"),
         citations=final_state.get("final_citations") or [],

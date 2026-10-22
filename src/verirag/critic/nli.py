@@ -25,6 +25,8 @@ from typing import Literal
 import numpy as np
 from sentence_transformers import CrossEncoder
 
+from langsmith import traceable
+
 from verirag.config import settings
 
 logger = logging.getLogger(__name__)
@@ -107,6 +109,7 @@ def _softmax(logits: np.ndarray) -> np.ndarray:
     return exponentiated / exponentiated.sum()
 
 
+@traceable(name="check_entailment")
 def check_entailment(premise: str, hypothesis: str) -> EntailmentResult:
     """Score whether ``premise`` entails ``hypothesis``."""
     index_to_label = _index_to_label()

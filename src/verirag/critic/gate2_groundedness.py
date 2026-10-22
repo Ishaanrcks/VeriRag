@@ -39,6 +39,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Literal
 
+from langsmith import traceable
+
 from verirag.config import settings
 from verirag.critic.claims import extract_claims
 from verirag.critic.nli import check_entailment
@@ -128,6 +130,7 @@ def _contributing_chunk_ids(
     return chunk_ids
 
 
+@traceable(name="check_groundedness")
 def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
     """Verify every factual claim in ``answer`` against its cited chunks."""
     claims = extract_claims(answer)

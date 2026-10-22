@@ -54,3 +54,8 @@ class VeriRAGState(TypedDict, total=False):
 
     # --- observability ---
     trace: Annotated[list[str], operator.add]
+    # (node_name, elapsed_ms) per node visit, accumulated the same way as
+    # trace. A node visited twice (gate2/regenerate in a loop) contributes two
+    # entries under the same name, which is what we want for the latency
+    # distribution.
+    node_timings: Annotated[list[tuple[str, float]], operator.add]

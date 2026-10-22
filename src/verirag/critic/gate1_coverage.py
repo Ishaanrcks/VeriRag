@@ -21,6 +21,8 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+from langsmith import traceable
+
 from verirag.config import settings
 from verirag.llm.client import chat_completion
 from verirag.retrieval.types import SearchHit
@@ -128,6 +130,7 @@ def _llm_judge_coverage(query: str, hits: list[SearchHit]) -> tuple[Verdict, str
     )
 
 
+@traceable(name="check_coverage")
 def check_coverage(query: str, hits: list[SearchHit]) -> Gate1Verdict:
     """Judge whether ``hits`` cover ``query`` well enough to answer it."""
     if not hits:

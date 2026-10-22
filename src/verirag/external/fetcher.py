@@ -23,9 +23,10 @@ import re
 from functools import lru_cache
 
 from langchain_core.documents import Document
+from langsmith import traceable
 from tavily import TavilyClient
 
-from verirag.config import settings
+from verirag.config import configured_secret, settings
 
 logger = logging.getLogger(__name__)
 
@@ -55,17 +56,8 @@ def _strip_html(text: str) -> str:
 
 
 def _configured_api_key() -> str | None:
-    """Return a usable Tavily key, or None if it is unset or a placeholder.
-
-    ``.env`` files are routinely copied from ``.env.example``, leaving the
-    literal ``tvly-...`` placeholder behind. That value is truthy, so a plain
-    truthiness check would sail past it and surface as a confusing auth error
-    instead of "not configured".
-    """
-    key = (settings.tavily_api_key or "").strip()
-    if not key or "..." in key:
-        return None
-    return key
+    """Return a usable Tavily key, or None if it is unset or a placeholder."""
+    return configured_secret(settings.tavily_api_key)
 
 
 @lru_cache(maxsize=1)
@@ -73,6 +65,7 @@ def _client(api_key: str) -> TavilyClient:
     return TavilyClient(api_key=api_key)
 
 
+@traceable(name="fetch_external")
 def fetch_external(query: str) -> list[Document]:
     """Search the web for ``query`` and return it as ingestible Documents."""
     api_key = _configured_api_key()
