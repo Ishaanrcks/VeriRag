@@ -57,7 +57,7 @@ Retrieved passages:
 {passages}
 
 Decide whether these passages, taken together, contain enough information to \
-answer the question. Apply these tests strictly:
+answer the question. Apply these tests:
 
 1. ON-TOPIC: the passages must be about the question's actual subject, not \
 merely about something in the same general category. Two things can both be \
@@ -65,15 +65,20 @@ called a "taxonomy" (or a "model", a "dataset", a "framework") and still be \
 completely different things -- a passage about Bloom's educational taxonomy \
 does NOT help answer a question about a taxonomy of graph neural networks. \
 Shared vocabulary is not shared subject matter.
-2. SPECIFIC: the passages must support the specific thing being asked, not \
-just the broad area. If the question asks for a number, a method, or a \
-named entity, the passages must actually contain it.
-3. PRESUPPOSITION: if the question assumes something the passages do not \
+2. PRESUPPOSITION: if the question assumes something the passages do not \
 establish, that is INSUFFICIENT -- say which assumption fails.
+3. PARTIAL ANSWERS COUNT: answer SUFFICIENT if the passages support ANY \
+correct answer, even an incomplete one. If the passages state the thing being \
+asked about -- a definition, a count, a name, a method -- that is SUFFICIENT \
+even if they do not elaborate on it further.
 
-Answer INSUFFICIENT whenever a correct answer would require knowledge you \
-have but the passages do not contain. Do not credit a passage for being \
-plausibly related.
+Answer INSUFFICIENT only when the passages are about a DIFFERENT subject than \
+the question, or contain nothing from which any correct partial answer could \
+be constructed. Do NOT answer INSUFFICIENT merely because the passages omit \
+some detail a fuller answer might include, or because you personally know \
+more about the topic than they state -- an incomplete but correct answer is \
+still an answer, and this gate only decides whether answering is possible at \
+all.
 
 Respond in EXACTLY this format and nothing else:
 Line 1: the single word SUFFICIENT or INSUFFICIENT
