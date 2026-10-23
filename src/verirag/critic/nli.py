@@ -18,6 +18,7 @@ softmax is applied here.
 from __future__ import annotations
 
 import logging
+import math
 import re
 from dataclasses import dataclass
 from functools import lru_cache
@@ -149,15 +150,47 @@ def premise_windows(
     # (measured: a true claim scored 0.9558 on the full chunk but only 0.1840
     # on its best 3-sentence window). Including it makes the windowed result
     # greater than or equal to the old behaviour by construction.
-    windows: list[str] = [normalized]
-    for start in range(len(sentences) - window_sentences + 1):
-        windows.append(" ".join(sentences[start : start + window_sentences]))
-        if len(windows) > max_windows:
-            break
-    return windows
+    starts = list(range(len(sentences) - window_sentences + 1))
+    # Spread the windows across the WHOLE premise when there are more possible
+    # starts than budget, instead of taking the first N and never looking at
+    # the rest of the chunk. Windowing multiplies forward passes, so the budget
+    # is what keeps Gate 2's latency usable.
+    budget = max(1, max_windows - 1)  # one slot reserved for the full premise
+    if len(starts) > budget:
+        stride = math.ceil(len(starts) / budget)
+        starts = starts[::stride]
+
+    return [normalized] + [
+        " ".join(sentences[start : start + window_sentences]) for start in starts
+    ]
 
 
-def check_entailment_windowed(
+def _predict_probs(pairs: list[tuple[str, str]]) -> list[dict[str, float]]:
+    """Softmaxed label probabilities for a batch of (premise, hypothesis)."""
+    if not pairs:
+        return []
+    index_to_label = _index_to_label()
+    raw = np.asarray(get_nli_model().predict(pairs), dtype=np.float64)
+    if raw.ndim == 1:
+        raw = raw.reshape(1, -1)
+    return [
+        {
+            index_to_label[i]: float(value)
+            for i, value in enumerate(_softmax(row))
+        }
+        for row in raw
+    ]
+
+
+def _as_result(all_probs: dict[str, float]) -> EntailmentResult:
+    return EntailmentResult(
+        label=max(all_probs, key=lambda key: all_probs[key]),  # type: ignore[arg-type]
+        entailment_prob=all_probs["entailment"],
+        all_probs=all_probs,
+    )
+
+
+def _legacy_check_entailment_windowed(
     premise: str,
     hypothesis: str,
     window_sentences: int | None = None,
@@ -253,43 +286,52 @@ def score_claim_against_premises(
     if not premises:
         return []
 
-    pairs: list[tuple[str, str]] = []
-    owners: list[int] = []
+    # Long and short premises MUST NOT share a batch. predict() pads every pair
+    # to the longest in the batch, so mixing one full-chunk premise in with the
+    # short windows pads all of them to the model's 512-token limit. Measured:
+    # 5.7 ms/pair for short pairs alone, versus 747 ms/pair once a single
+    # full-chunk pair joins the batch -- a 120x penalty. They are therefore
+    # bucketed and predicted separately.
+    full_pairs: list[tuple[str, str]] = []
+    full_owners: list[int] = []
+    window_pairs: list[tuple[str, str]] = []
+    window_owners: list[int] = []
+
     for index, premise in enumerate(premises):
         windows = premise_windows(
             premise,
             settings.gate2_premise_window_sentences,
             settings.gate2_max_windows_per_chunk,
         )
-        for window in windows:
-            pairs.append((window, hypothesis))
-            owners.append(index)
-
-    if not pairs:
-        return [_neutral_result() for _ in premises]
-
-    index_to_label = _index_to_label()
-    raw = np.asarray(get_nli_model().predict(pairs), dtype=np.float64)
-    if raw.ndim == 1:
-        raw = raw.reshape(1, -1)
+        if not windows:
+            continue
+        # premise_windows() returns the whole premise first, then the windows.
+        full_pairs.append((windows[0], hypothesis))
+        full_owners.append(index)
+        for window in windows[1:]:
+            window_pairs.append((window, hypothesis))
+            window_owners.append(index)
 
     best: list[EntailmentResult | None] = [None] * len(premises)
-    for row, owner in zip(raw, owners):
-        probabilities = _softmax(row)
-        all_probs = {
-            index_to_label[i]: float(probabilities[i])
-            for i in range(len(probabilities))
-        }
-        candidate = EntailmentResult(
-            label=max(all_probs, key=lambda key: all_probs[key]),  # type: ignore[arg-type]
-            entailment_prob=all_probs["entailment"],
-            all_probs=all_probs,
-        )
-        current = best[owner]
-        if current is None or candidate.entailment_prob > current.entailment_prob:
-            best[owner] = candidate
+    for pairs, owners in ((window_pairs, window_owners), (full_pairs, full_owners)):
+        for all_probs, owner in zip(_predict_probs(pairs), owners):
+            candidate = _as_result(all_probs)
+            current = best[owner]
+            if (
+                current is None
+                or candidate.entailment_prob > current.entailment_prob
+            ):
+                best[owner] = candidate
 
     return [result or _neutral_result() for result in best]
+
+
+def check_entailment_windowed(
+    premise: str, hypothesis: str
+) -> EntailmentResult:
+    """Best-window entailment for a single premise (see the batched version)."""
+    results = score_claim_against_premises(hypothesis, [premise])
+    return results[0] if results else _neutral_result()
 
 
 @traceable(name="check_entailment")

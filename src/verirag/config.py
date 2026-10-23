@@ -87,7 +87,7 @@ class Settings(BaseSettings):
     # 0.6769 against a 400-char window of it. Claims are therefore scored
     # against sentence windows within each chunk, taking the best window.
     gate2_premise_window_sentences: int = 3
-    gate2_max_windows_per_chunk: int = 16
+    gate2_max_windows_per_chunk: int = 8
 
     # Aggregation stays STRICT: every scoreable claim must be supported. A
     # fractional tolerance was considered and deliberately not adopted -- with
