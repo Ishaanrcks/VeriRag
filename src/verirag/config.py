@@ -64,7 +64,12 @@ class Settings(BaseSettings):
     # Cap the candidate set handed to the cross-encoder; reranking is the
     # expensive stage on CPU, so this bounds latency.
     retrieval_rerank_candidate_cap: int = 20
-    retrieval_final_top_k: int = 5
+    retrieval_final_top_k: int = 8
+    # No single source document may contribute more than this many chunks to
+    # the final set, so a multi-paper corpus (or two copies of one paper) does
+    # not let one document crowd out the rest. Backfilled if the cap cannot
+    # fill retrieval_final_top_k.
+    retrieval_max_chunks_per_doc: int = 3
 
     # --- Critic: Gate 1 (coverage) ---
     # PLACEHOLDER thresholds for the MVP build. These get properly calibrated

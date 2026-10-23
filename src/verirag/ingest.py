@@ -21,7 +21,11 @@ from verirag.chunking.contextualize import add_context_to_chunks
 from verirag.config import settings
 from verirag.embeddings.embedder import embed_passages
 from verirag.loaders import load_document
-from verirag.loaders.base import EXTENSION_TO_FORMAT, compute_doc_id
+from verirag.loaders.base import (
+    EXTENSION_TO_FORMAT,
+    compute_doc_id,
+    compute_duplicate_group_id,
+)
 from verirag.retrieval import vector_store
 from verirag.retrieval.sparse_index import SparseIndex
 
@@ -47,6 +51,24 @@ def _build_doc_text(documents: list[Document]) -> str:
     )
 
 
+def _existing_doc_in_group(group_id: str, doc_id: str) -> str | None:
+    """A different already-ingested doc_id sharing this duplicate group, if any."""
+    try:
+        collection = vector_store.get_collection()
+        if collection.count() == 0:
+            return None
+        result = collection.get(
+            where={"duplicate_group_id": group_id}, include=["metadatas"]
+        )
+        for metadata in result.get("metadatas") or []:
+            other = str((metadata or {}).get("doc_id") or "")
+            if other and other != doc_id:
+                return other
+    except Exception as exc:  # noqa: BLE001 - advisory only, never block ingest
+        logger.debug("Duplicate-group lookup failed: %s", exc)
+    return None
+
+
 def _ingest_group(
     doc_id: str, documents: list[Document], force: bool = False
 ) -> IngestResult:
@@ -70,8 +92,23 @@ def _ingest_group(
 
     # Attach the parent ("big") text for later small-to-big generation.
     parent_text = doc_text[: settings.parent_text_max_chars]
+    # Tag near-duplicates so citation building can merge two copies of the
+    # same work (e.g. a camera-ready and an arXiv version) into one citation.
+    group_id = compute_duplicate_group_id(doc_text[:300])
     for chunk in chunks:
         chunk.metadata["parent_text"] = parent_text
+        if group_id:
+            chunk.metadata["duplicate_group_id"] = group_id
+
+    if group_id:
+        existing = _existing_doc_in_group(group_id, doc_id)
+        if existing:
+            logger.warning(
+                "doc_id=%s looks like the same document as already-ingested "
+                "doc_id=%s (shared duplicate_group_id=%s); their citations "
+                "will be merged.",
+                doc_id, existing, group_id,
+            )
 
     embeddings = embed_passages([c.page_content for c in chunks])
 

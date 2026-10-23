@@ -64,6 +64,40 @@ def _apply_external_penalty(hits: list[SearchHit]) -> list[SearchHit]:
     return sorted(hits, key=lambda h: h.rerank_score or 0.0, reverse=True)
 
 
+def _select_diverse(
+    hits: list[SearchHit], top_k: int, max_per_doc: int
+) -> list[SearchHit]:
+    """Take the final top-k, but stop one document from dominating it.
+
+    Cross-paper questions were failing because five chunks drawn from a
+    400-chunk, multi-paper corpus cannot hold facts from two papers at once,
+    and near-duplicate copies of one paper made it worse (one observed answer
+    returned five citations that were all the same paper). Capping each
+    doc_id's contribution spreads the budget across distinct sources.
+
+    ``hits`` must already be sorted best-first. If the cap cannot fill top_k
+    (a single-document corpus, say), the remainder is backfilled from the
+    held-back hits so this never returns fewer results than before.
+    """
+    selected: list[SearchHit] = []
+    overflow: list[SearchHit] = []
+    per_doc: dict[str, int] = {}
+
+    for hit in hits:
+        if len(selected) >= top_k:
+            break
+        doc_id = str(hit.metadata.get("doc_id", ""))
+        if per_doc.get(doc_id, 0) < max_per_doc:
+            selected.append(hit)
+            per_doc[doc_id] = per_doc.get(doc_id, 0) + 1
+        else:
+            overflow.append(hit)
+
+    if len(selected) < top_k:
+        selected.extend(overflow[: top_k - len(selected)])
+    return selected
+
+
 def score_external_hits(
     query: str, hits: list[SearchHit], top_k: int | None = None
 ) -> list[SearchHit]:
@@ -112,5 +146,11 @@ def hybrid_retrieve(
     # Cap before reranking -- the cross-encoder is the expensive stage.
     capped = fused[: settings.retrieval_rerank_candidate_cap]
 
-    reranked = rerank(query, capped, settings.retrieval_final_top_k)
-    return _apply_external_penalty(reranked)
+    # Score every capped candidate, then choose the final set with a
+    # per-document cap rather than simply taking the top-k.
+    reranked = _apply_external_penalty(rerank(query, capped, len(capped)))
+    return _select_diverse(
+        reranked,
+        settings.retrieval_final_top_k,
+        settings.retrieval_max_chunks_per_doc,
+    )

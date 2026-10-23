@@ -195,6 +195,7 @@ def list_ingested_documents(
             "format": metadata.get("format", "unknown"),
             # A missing source_type means local (see external/fetcher.py).
             "source_type": metadata.get("source_type", "local"),
+            "duplicate_group_id": metadata.get("duplicate_group_id", ""),
         }
 
     return sorted(documents.values(), key=lambda row: row["source_path"])

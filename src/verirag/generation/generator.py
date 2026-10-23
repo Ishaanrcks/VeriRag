@@ -125,8 +125,15 @@ def build_context_block(hits: list[SearchHit]) -> tuple[str, list[Citation]]:
 
     for hit in hits:
         parent_text = hit.metadata.get("parent_text") or ""
-        # Dedupe on the parent text itself; chunk_id is the fallback identity.
-        key = parent_text or hit.chunk_id
+        # Dedupe on the duplicate group when present, so two copies of the
+        # same work (camera-ready plus arXiv, say) collapse into ONE citation
+        # instead of consuming several slots. Otherwise dedupe on the parent
+        # text, with chunk_id as the last-resort identity.
+        key = (
+            hit.metadata.get("duplicate_group_id")
+            or parent_text
+            or hit.chunk_id
+        )
 
         citation = by_key.get(key)
         if citation is None:

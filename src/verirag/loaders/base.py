@@ -14,6 +14,7 @@ retrieval, the critic) can rely on it:
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -32,6 +33,25 @@ EXTENSION_TO_FORMAT: dict[str, FormatLiteral] = {
     ".txt": "txt",
     ".md": "md",
 }
+
+
+def compute_duplicate_group_id(leading_text: str) -> str:
+    """Group id shared by documents that appear to be the same work.
+
+    Derived from a normalized prefix of the document's own opening text (title
+    and byline), reduced to lowercase alphanumerics so that layout differences
+    collapse: the same paper's camera-ready and arXiv versions break the title
+    across lines differently and hash to different doc_ids, but normalize to
+    the same prefix here.
+
+    Using the normalized title AS the group id means two copies share a group
+    automatically, with no need to go back and rewrite the metadata of a
+    document that was ingested earlier.
+    """
+    normalized = re.sub(r"[^a-z0-9]", "", (leading_text or "").lower())
+    if not normalized:
+        return ""
+    return hashlib.sha256(normalized[:80].encode("utf-8")).hexdigest()[:12]
 
 
 def compute_doc_id(path: str | Path) -> str:
