@@ -128,6 +128,14 @@ def _ingest_group(
 
 def ingest_file(path: str | Path, force: bool = False) -> IngestResult:
     """Load, chunk, contextualize, embed, and store one file into both stores."""
+    # Dedup BEFORE loading. doc_id is a hash of the file bytes, so it can be
+    # computed without parsing, and loading a PDF runs figure captioning --
+    # paying for vision calls on a document we are about to skip.
+    doc_id = compute_doc_id(path)
+    if not force and vector_store.exists_doc_id(doc_id):
+        logger.info("doc_id=%s already ingested; skipping (use force=True).", doc_id)
+        return IngestResult(doc_id, 0, 0, skipped=True)
+
     documents = load_document(path)
     if not documents:
         logger.warning("No Documents loaded from %s; nothing to ingest.", path)
