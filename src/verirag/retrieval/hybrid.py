@@ -75,26 +75,41 @@ def _select_diverse(
     returned five citations that were all the same paper). Capping each
     doc_id's contribution spreads the budget across distinct sources.
 
-    ``hits`` must already be sorted best-first. If the cap cannot fill top_k
-    (a single-document corpus, say), the remainder is backfilled from the
-    held-back hits so this never returns fewer results than before.
-    """
-    selected: list[SearchHit] = []
-    overflow: list[SearchHit] = []
-    per_doc: dict[str, int] = {}
+    ``hits`` must already be sorted best-first.
 
-    for hit in hits:
+    Diversity is spent on the EXTRA slots only. The best-scoring
+    ``guaranteed`` hits are taken unconditionally first, because capping from
+    the top instead costs single-document questions their most relevant
+    chunks: measured, a per-document cap applied from rank 1 dropped a true
+    claim from supported to 0.23 by excluding the chunk that stated it. The
+    remaining slots then prefer documents not already represented, so
+    cross-paper questions gain coverage without single-paper questions losing
+    any. Leftovers backfill, so this never returns fewer hits than before.
+    """
+    guaranteed = min(settings.retrieval_guaranteed_top_k, top_k)
+    selected: list[SearchHit] = list(hits[:guaranteed])
+    per_doc: dict[str, int] = {}
+    for hit in selected:
+        key = str(hit.metadata.get("doc_id", ""))
+        per_doc[key] = per_doc.get(key, 0) + 1
+
+    remaining = [hit for hit in hits[guaranteed:]]
+
+    # First pass over the extra slots: only documents under the cap.
+    held_back: list[SearchHit] = []
+    for hit in remaining:
         if len(selected) >= top_k:
-            break
+            held_back.append(hit)
+            continue
         doc_id = str(hit.metadata.get("doc_id", ""))
         if per_doc.get(doc_id, 0) < max_per_doc:
             selected.append(hit)
             per_doc[doc_id] = per_doc.get(doc_id, 0) + 1
         else:
-            overflow.append(hit)
+            held_back.append(hit)
 
     if len(selected) < top_k:
-        selected.extend(overflow[: top_k - len(selected)])
+        selected.extend(held_back[: top_k - len(selected)])
     return selected
 
 

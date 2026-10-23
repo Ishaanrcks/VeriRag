@@ -313,7 +313,8 @@ def score_claim_against_premises(
             window_owners.append(index)
 
     best: list[EntailmentResult | None] = [None] * len(premises)
-    for pairs, owners in ((window_pairs, window_owners), (full_pairs, full_owners)):
+
+    def _absorb(pairs: list[tuple[str, str]], owners: list[int]) -> None:
         for all_probs, owner in zip(_predict_probs(pairs), owners):
             candidate = _as_result(all_probs)
             current = best[owner]
@@ -322,6 +323,9 @@ def score_claim_against_premises(
                 or candidate.entailment_prob > current.entailment_prob
             ):
                 best[owner] = candidate
+
+    _absorb(window_pairs, window_owners)
+    _absorb(full_pairs, full_owners)
 
     return [result or _neutral_result() for result in best]
 

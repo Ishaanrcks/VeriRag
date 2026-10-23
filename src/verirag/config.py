@@ -69,7 +69,11 @@ class Settings(BaseSettings):
     # the final set, so a multi-paper corpus (or two copies of one paper) does
     # not let one document crowd out the rest. Backfilled if the cap cannot
     # fill retrieval_final_top_k.
-    retrieval_max_chunks_per_doc: int = 3
+    retrieval_max_chunks_per_doc: int = 4
+    # The best-scoring hits taken before any per-document cap applies, so
+    # single-document questions never lose their most relevant chunks to
+    # diversity. Diversity is spent on the slots beyond this.
+    retrieval_guaranteed_top_k: int = 5
 
     # --- Critic: Gate 1 (coverage) ---
     # PLACEHOLDER thresholds for the MVP build. These get properly calibrated
