@@ -13,7 +13,7 @@ from verirag.retrieval.fusion import reciprocal_rank_fusion
 from verirag.retrieval.reranker import rerank
 from verirag.retrieval.sparse_index import sparse_search
 from verirag.retrieval.types import SearchHit
-from verirag.retrieval.vector_store import dense_search
+from verirag.retrieval.vector_store import dense_search, hydrate_metadata
 
 
 def _exclude_external(hits: list[SearchHit]) -> list[SearchHit]:
@@ -145,7 +145,13 @@ def hybrid_retrieve(
     document's chunks are ranked (see :func:`_filter_by_doc_id`).
     """
     dense_hits = dense_search(query, settings.retrieval_dense_top_k)
-    sparse_hits = sparse_search(query, settings.retrieval_sparse_top_k)
+    # Hydrate sparse hits from Chroma: the BM25 index persists only a subset
+    # of chunk metadata, and downstream logic (external penalty, corpus-only
+    # filter, duplicate citation merging, small-to-big parent text) all read
+    # fields it does not keep.
+    sparse_hits = hydrate_metadata(
+        sparse_search(query, settings.retrieval_sparse_top_k)
+    )
 
     dense_hits = _exclude_external(dense_hits)
     sparse_hits = _exclude_external(sparse_hits)

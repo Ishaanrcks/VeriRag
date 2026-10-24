@@ -126,6 +126,50 @@ def dense_search(
     return hits
 
 
+def hydrate_metadata(
+    hits: list[SearchHit], collection: "chromadb.Collection | None" = None
+) -> list[SearchHit]:
+    """Fill in metadata that the BM25 index does not persist.
+
+    The sparse index keeps only a small allowlist of each chunk's metadata,
+    and that list has silently dropped a field three times now --
+    ``source_type`` (breaking the external penalty and corpus-only filter),
+    then ``duplicate_group_id`` and ``parent_text`` (breaking duplicate
+    citation merging and small-to-big context). Each time the symptom was
+    invisible on the dense path and wrong on the sparse one.
+
+    So rather than extend the allowlist a fourth time, sparse-path hits are
+    hydrated here from Chroma, which is the single source of truth for chunk
+    metadata, in ONE batched get(). Any field added in future is picked up
+    automatically. Values already on the hit are preserved, so a sparse row
+    can never be overwritten with something staler.
+    """
+    if not hits:
+        return hits
+    if collection is None:
+        collection = get_collection()
+
+    result = collection.get(
+        ids=[hit.chunk_id for hit in hits], include=["metadatas"]
+    )
+    stored_by_id = {
+        chunk_id: (metadata or {})
+        for chunk_id, metadata in zip(
+            result.get("ids") or [], result.get("metadatas") or []
+        )
+    }
+
+    for hit in hits:
+        stored = stored_by_id.get(hit.chunk_id)
+        if not stored:
+            continue
+        merged = dict(stored)
+        # Keep whatever the hit already carries (never None-out a real value).
+        merged.update({k: v for k, v in hit.metadata.items() if v is not None})
+        hit.metadata = merged
+    return hits
+
+
 def get_chunks_by_doc_id(
     doc_id: str, collection: "chromadb.Collection | None" = None
 ) -> list[SearchHit]:
