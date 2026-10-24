@@ -16,6 +16,9 @@ eval/results/*
 # Isolated eval stores (vector DB + index binaries); reports/traces are tracked
 eval_store/
 
+# Transient per-question eval checkpoint, rewritten during a run
+eval_results/*_PARTIAL.json
+
 # Python
 __pycache__/
 *.pyc

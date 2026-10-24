@@ -76,14 +76,18 @@ class Settings(BaseSettings):
     retrieval_guaranteed_top_k: int = 5
 
     # --- Critic: Gate 1 (coverage) ---
-    # PLACEHOLDER thresholds for the MVP build. These get properly calibrated
-    # in Phase 12 against the labeled critic-calibration set -- deliberately
-    # NOT tuned by eyeballing fixture data now.
+    # HAND-SET development defaults, not calibrated values. Gate 1 compares
+    # max_rerank_score against these two numbers directly; there is no
+    # fitted decision function behind them. The architecture doc specifies a
+    # logistic regression over three features (max score, rank-1 margin,
+    # top-k entropy) reported as a risk-coverage curve; that is NOT what is
+    # implemented. Fitting it is future work, and the 59-question stratified
+    # eval is the labeled set that would make it possible.
     gate1_high_threshold: float = 0.5
     gate1_low_threshold: float = 0.05
 
     # --- Critic: Gate 2 (groundedness) ---
-    # Also a PLACEHOLDER, calibrated in Phase 12 alongside the Gate 1 bands.
+    # Also HAND-SET, for the same reason as the Gate 1 bands above.
     gate2_entailment_threshold: float = 0.5
     # Cap on the combined premise text when testing whether several chunks
     # jointly support a claim (the NLI model has a ~512-token input limit).
