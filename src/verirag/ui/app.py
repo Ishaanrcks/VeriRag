@@ -7,6 +7,10 @@ Run from the project root:
 NOTE: unlike the test scripts, this runs against the REAL persistent stores
 configured in settings (chroma_persist_dir, bm25_corpus_path), so anything
 uploaded here accumulates in your actual corpus.
+
+This module is presentation only. Every number it shows is read from what the
+pipeline already computed -- nothing here re-scores, re-ranks, or re-derives
+anything.
 """
 
 from __future__ import annotations
@@ -21,21 +25,33 @@ from verirag.config import settings
 from verirag.generation.generator import AnswerFormat
 from verirag.graph.build import run_query
 from verirag.ingest import ingest_file
+from verirag.observability.metrics import summarize_metrics
 from verirag.retrieval.vector_store import list_ingested_documents
 
 logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = Path("./data/raw/uploads")
 SUPPORTED_TYPES = ["pdf", "docx", "pptx", "txt", "md"]
+QUERY_KEY = "query_input"
 
 FORMAT_LABELS: dict[str, AnswerFormat] = {
     "Concise": AnswerFormat.CONCISE,
     "Detailed": AnswerFormat.DETAILED,
 }
 
+# Generic enough to work against any research-paper corpus; the first one is
+# built from whatever is actually ingested.
+STATIC_EXAMPLES = [
+    "What datasets are used for evaluation?",
+    "What are the main contributions?",
+]
+
 st.set_page_config(page_title="VeriRAG", page_icon="🔎", layout="wide")
 
 
+# --------------------------------------------------------------------------
+# ingestion / corpus
+# --------------------------------------------------------------------------
 def _save_upload(uploaded_file) -> Path:
     """Write an uploaded file to UPLOAD_DIR, avoiding filename collisions."""
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -43,8 +59,6 @@ def _save_upload(uploaded_file) -> Path:
 
     target = UPLOAD_DIR / uploaded_file.name
     if target.exists():
-        # Same name, possibly different content -- disambiguate with a short
-        # content hash rather than silently overwriting the earlier upload.
         digest = hashlib.sha256(bytes(data)).hexdigest()[:8]
         target = target.with_name(f"{target.stem}-{digest}{target.suffix}")
 
@@ -53,13 +67,43 @@ def _save_upload(uploaded_file) -> Path:
 
 
 def _refresh_corpus() -> None:
-    """Re-read the corpus listing from the persistent store into session."""
     try:
         st.session_state["corpus"] = list_ingested_documents()
     except Exception as exc:  # noqa: BLE001 - UI must survive a store error
         logger.warning("Could not list corpus: %s", exc)
         st.session_state["corpus"] = []
-        st.session_state["corpus_error"] = str(exc)
+
+
+def _render_system_stats() -> None:
+    """Aggregate metrics across every query logged so far."""
+    with st.sidebar.expander("System stats"):
+        try:
+            summary = summarize_metrics()
+        except Exception as exc:  # noqa: BLE001
+            st.caption(f"Metrics unavailable: {exc}")
+            return
+
+        if not summary.total_queries:
+            st.caption(
+                "No queries logged yet. Ask something and these fill in."
+            )
+            return
+
+        st.caption(f"Across {summary.total_queries} logged quer"
+                   f"{'y' if summary.total_queries == 1 else 'ies'}")
+        st.metric("Abstention rate", f"{summary.abstention_rate:.0%}")
+        st.metric("Self-correction triggered", f"{summary.loop_trigger_rate:.0%}")
+        st.metric("Avg cost / query", f"${summary.avg_cost_per_query_usd:.4f}")
+
+        if summary.p95_latency_by_node:
+            st.caption("p95 latency by stage (ms)")
+            slowest = sorted(
+                summary.p95_latency_by_node.items(),
+                key=lambda kv: kv[1],
+                reverse=True,
+            )
+            for node, value in slowest[:6]:
+                st.text(f"{node:28} {value:9.0f}")
 
 
 def _render_sidebar() -> None:
@@ -107,47 +151,184 @@ def _render_sidebar() -> None:
             icon = "🌐" if row["source_type"] == "external" else "📄"
             name = Path(str(row["source_path"])).name or row["source_path"]
             st.sidebar.markdown(
-                f"{icon} **{name}**  \n"
-                f"`{row['doc_id'][:20]}` · {row['format']}"
+                f"{icon} **{name}**  \n`{row['doc_id'][:20]}` · {row['format']}"
             )
 
     if st.sidebar.button("Refresh corpus list"):
         _refresh_corpus()
 
+    _render_system_stats()
+
+
+# --------------------------------------------------------------------------
+# result rendering
+# --------------------------------------------------------------------------
+def _render_verification_row(result) -> None:
+    """Gate badges plus the cost/latency row, from values already computed."""
+    gate1 = "Gate 1 coverage ✓" if result.gate1_verdict and \
+        result.gate1_verdict.verdict == "sufficient" else "Gate 1 coverage"
+    gate2 = "Gate 2 groundedness ✓" if result.gate2_verdict and \
+        result.gate2_verdict.overall_grounded else "Gate 2 groundedness"
+    st.markdown(
+        f"<span style='background:#1b5e20;color:#fff;padding:3px 9px;"
+        f"border-radius:11px;font-size:0.82em'>{gate1}</span>"
+        f"<span style='color:#888;margin:0 8px'>&rarr;</span>"
+        f"<span style='background:#1b5e20;color:#fff;padding:3px 9px;"
+        f"border-radius:11px;font-size:0.82em'>{gate2}</span>",
+        unsafe_allow_html=True,
+    )
+
+    corrections = result.regeneration_count
+    plural = "" if corrections == 1 else "s"
+    st.caption(
+        f"**Verified ✓** · {result.total_latency_ms / 1000:.1f}s · "
+        f"{corrections} self-correction{plural} · "
+        f"~${result.estimated_cost_usd:.4f}"
+    )
+
+
+def _provenance_label(content_types: list[str]) -> str:
+    """How the cited text came to exist: extracted, or model-written."""
+    if not content_types:
+        return "📄 text"
+    labels = []
+    if "text" in content_types:
+        labels.append("📄 text")
+    if "figure_caption" in content_types:
+        labels.append("🖼️ figure (AI-generated description)")
+    return " + ".join(labels) if labels else "📄 text"
+
+
+def _page_list(pages) -> str:
+    """Pages as a sorted, de-duplicated string.
+
+    Citation.pages follows rerank order, which reads as broken once a citation
+    spans many chunks ("page(s) 1, 23, 3, 4"). Sorted for display only -- the
+    underlying order is left alone, since it reflects retrieval ranking.
+    """
+    known = sorted({p for p in pages if p is not None})
+    return ", ".join(str(p) for p in known)
+
 
 def _render_sources(citations) -> None:
     st.subheader("Sources")
     for citation in citations:
+        provenance = _provenance_label(citation.content_types)
         if citation.source_type == "external":
             st.markdown(
                 f"**[{citation.number}]** 🌐 *external* — "
-                f"[{citation.url}]({citation.url})"
+                f"[{citation.url}]({citation.url}) · {provenance}"
             )
         else:
-            pages = [p for p in citation.pages if p is not None]
-            page_text = f" · page(s) {', '.join(map(str, pages))}" if pages else ""
+            pages = _page_list(citation.pages)
+            page_text = f" · page(s) {pages}" if pages else ""
             st.markdown(
                 f"**[{citation.number}]** 📄 *local* — "
-                f"`{citation.source_path}`{page_text}"
+                f"`{citation.source_path}`{page_text} · {provenance}"
             )
 
 
-def _render_result(result) -> None:
+def _answer_markdown(query: str, result) -> str:
+    """The answer and its citations as a self-contained markdown file."""
+    lines = [f"# {query}", "", result.answer or "", "", "## Sources", ""]
+    for citation in result.citations:
+        where = (
+            citation.url
+            if citation.source_type == "external"
+            else citation.source_path
+        )
+        pages = _page_list(citation.pages)
+        page_text = f", page(s) {pages}" if pages else ""
+        lines.append(
+            f"- **[{citation.number}]** {where}{page_text} "
+            f"({citation.source_type}, {_provenance_label(citation.content_types)})"
+        )
+    lines += [
+        "",
+        "---",
+        "",
+        f"Verified by VeriRAG · {result.regeneration_count} self-correction(s) "
+        f"· {result.total_latency_ms / 1000:.1f}s · "
+        f"~${result.estimated_cost_usd:.4f}",
+    ]
+    return "\n".join(lines)
+
+
+def _render_abstention(result) -> None:
+    """Say WHICH kind of abstention this is, in plain English."""
+    if result.outcome == "abstained_ungrounded":
+        st.warning(
+            "**Could not verify the answer.** VeriRAG found relevant material "
+            "and drafted an answer, but at least one claim could not be "
+            "verified against the sources, so the answer was withheld rather "
+            "than shown unverified."
+        )
+    elif result.outcome == "abstained_insufficient":
+        st.warning(
+            "**Not enough relevant information.** VeriRAG could not find "
+            "material in the corpus that addresses this question, so it "
+            "declined rather than answering from general knowledge."
+        )
+    else:
+        st.warning("VeriRAG declined to answer.")
+
+    with st.expander("Why", expanded=True):
+        st.write(result.abstention_reason or "No reason recorded.")
+
+
+def _render_result(query: str, result) -> None:
     if result.abstained:
-        st.warning(result.abstention_reason or "VeriRAG abstained.")
+        _render_abstention(result)
     else:
         st.subheader("Answer")
         st.markdown(result.answer or "")
+        _render_verification_row(result)
         if result.citations:
             _render_sources(result.citations)
+        st.download_button(
+            "Download answer + sources (.md)",
+            data=_answer_markdown(query, result),
+            file_name="verirag-answer.md",
+            mime="text/markdown",
+        )
 
     with st.expander("Show reasoning trace"):
         st.caption(
             f"{len(result.trace)} step(s) · "
-            f"{result.regeneration_count} regeneration(s)"
+            f"{result.regeneration_count} regeneration(s) · "
+            f"{result.llm_call_count} LLM call(s)"
         )
         for i, step in enumerate(result.trace, start=1):
             st.text(f"{i:2}. {step}")
+
+
+# --------------------------------------------------------------------------
+# main panel
+# --------------------------------------------------------------------------
+def _example_questions() -> list[str]:
+    """Examples that actually fit whatever is ingested right now."""
+    corpus = st.session_state.get("corpus") or []
+    examples: list[str] = []
+    local = [r for r in corpus if r.get("source_type") != "external"]
+    if local:
+        name = Path(str(local[0]["source_path"])).name
+        examples.append(f"Summarize {name}")
+    return examples + STATIC_EXAMPLES
+
+
+def _render_examples() -> None:
+    corpus = st.session_state.get("corpus") or []
+    if not corpus:
+        st.info("Upload a document in the sidebar to get started.")
+        return
+
+    st.caption("Try an example:")
+    examples = _example_questions()
+    for column, example in zip(st.columns(len(examples)), examples):
+        with column:
+            if st.button(example, key=f"ex_{example}", use_container_width=True):
+                st.session_state[QUERY_KEY] = example
+                st.rerun()
 
 
 def _render_main() -> None:
@@ -157,8 +338,12 @@ def _render_main() -> None:
         "critic. It answers from your documents with citations, or abstains."
     )
 
+    _render_examples()
+
     query = st.text_input(
-        "Question", placeholder="What does the Q4 revenue chart show?"
+        "Question",
+        key=QUERY_KEY,
+        placeholder="What does the Q4 revenue chart show?",
     )
 
     left, right = st.columns([1, 2])
@@ -174,7 +359,7 @@ def _render_main() -> None:
             ),
         )
 
-    if st.button("Ask", type="primary", disabled=not query.strip()):
+    if st.button("Ask", type="primary", disabled=not (query or "").strip()):
         with st.spinner("Thinking..."):
             try:
                 result = run_query(
@@ -187,9 +372,13 @@ def _render_main() -> None:
                 st.error(f"Query failed: {exc}")
                 return
         st.session_state["last_result"] = result
+        st.session_state["last_query"] = query.strip()
 
     if st.session_state.get("last_result") is not None:
-        _render_result(st.session_state["last_result"])
+        _render_result(
+            st.session_state.get("last_query", ""),
+            st.session_state["last_result"],
+        )
 
 
 def main() -> None:

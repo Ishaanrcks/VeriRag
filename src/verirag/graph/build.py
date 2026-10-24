@@ -31,6 +31,8 @@ from datetime import datetime, timezone
 from langgraph.graph import END, START, StateGraph
 
 from verirag.config import settings
+from verirag.critic.gate1_coverage import Gate1Verdict
+from verirag.critic.gate2_groundedness import Gate2Verdict
 from verirag.generation.generator import AnswerFormat, Citation
 from verirag.graph.nodes import (
     abstain_insufficient_coverage_node,
@@ -65,6 +67,15 @@ class VeriRAGResult:
     abstention_reason: str | None = None
     trace: list[str] = field(default_factory=list)
     regeneration_count: int = 0
+
+    # Presentation-only. These are the SAME values already computed for the
+    # metrics row, surfaced so the UI need not recompute or re-derive them.
+    outcome: str = "verified"
+    total_latency_ms: float = 0.0
+    llm_call_count: int = 0
+    estimated_cost_usd: float = 0.0
+    gate1_verdict: Gate1Verdict | None = None
+    gate2_verdict: Gate2Verdict | None = None
 
 
 def _route_after_resolve_intent(state: VeriRAGState) -> str:
@@ -224,6 +235,28 @@ def _derive_outcome(final_state: VeriRAGState) -> str:
     return "abstained_insufficient"
 
 
+def _derived_values(final_state: VeriRAGState) -> dict:
+    """Values derived from the final state, computed once.
+
+    Both the metrics row and VeriRAGResult read this, so the number the UI
+    shows and the number logged to SQLite cannot drift apart.
+    """
+    node_timings = [
+        (str(name), float(elapsed))
+        for name, elapsed in (final_state.get("node_timings") or [])
+    ]
+    llm_call_count = final_state.get("llm_call_count", 0)
+    return dict(
+        node_timings=node_timings,
+        total_latency_ms=sum(elapsed for _, elapsed in node_timings),
+        llm_call_count=llm_call_count,
+        estimated_cost_usd=(
+            llm_call_count * settings.estimated_cost_per_llm_call_usd
+        ),
+        outcome=_derive_outcome(final_state),
+    )
+
+
 def _log_metrics(
     query: str,
     answer_format: AnswerFormat,
@@ -232,28 +265,22 @@ def _log_metrics(
 ) -> None:
     """Record one query's metrics. Never raises -- metrics are not the product."""
     try:
-        node_timings = [
-            (str(name), float(elapsed))
-            for name, elapsed in (final_state.get("node_timings") or [])
-        ]
-        llm_call_count = final_state.get("llm_call_count", 0)
+        derived = _derived_values(final_state)
         log_query_metrics(
             QueryMetricsRecord(
                 timestamp=datetime.now(timezone.utc).isoformat(),
                 query=query,
                 answer_format=answer_format.value,
                 corpus_only=corpus_only,
-                outcome=_derive_outcome(final_state),  # type: ignore[arg-type]
+                outcome=derived["outcome"],  # type: ignore[arg-type]
                 regeneration_count=final_state.get("regeneration_count", 0),
                 external_fetch_attempted=bool(
                     final_state.get("external_fetch_attempted")
                 ),
-                llm_call_count=llm_call_count,
-                total_latency_ms=sum(elapsed for _, elapsed in node_timings),
-                node_timings=node_timings,
-                estimated_cost_usd=(
-                    llm_call_count * settings.estimated_cost_per_llm_call_usd
-                ),
+                llm_call_count=derived["llm_call_count"],
+                total_latency_ms=derived["total_latency_ms"],
+                node_timings=derived["node_timings"],
+                estimated_cost_usd=derived["estimated_cost_usd"],
             )
         )
     except Exception as exc:  # noqa: BLE001 - never break a user-facing query
@@ -272,6 +299,7 @@ def run_query(
         _initial_state(query, answer_format, corpus_only)
     )
     _log_metrics(query, answer_format, corpus_only, final_state)
+    derived = _derived_values(final_state)
     return VeriRAGResult(
         answer=final_state.get("final_answer"),
         citations=final_state.get("final_citations") or [],
@@ -279,4 +307,10 @@ def run_query(
         abstention_reason=final_state.get("abstention_reason"),
         trace=final_state.get("trace") or [],
         regeneration_count=final_state.get("regeneration_count", 0),
+        outcome=derived["outcome"],
+        total_latency_ms=derived["total_latency_ms"],
+        llm_call_count=derived["llm_call_count"],
+        estimated_cost_usd=derived["estimated_cost_usd"],
+        gate1_verdict=final_state.get("gate1_verdict"),
+        gate2_verdict=final_state.get("gate2_verdict"),
     )
