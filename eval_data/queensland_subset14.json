@@ -1,0 +1,193 @@
+{
+  "name": "queensland_subset14",
+  "corpus": "/Users/ishanyashpatel/Documents/QueensLand",
+  "scope_note": "The 14-question subset from queensland_subset_eval_2026-10-23.md, in harness format, used to sanity-check the harness.",
+  "questions": [
+    {
+      "id": 1,
+      "group": "single",
+      "question": "How many parameters does the GFM-RAG graph foundation model have?",
+      "ground_truth": "8M parameters.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "8M",
+          "8 million"
+        ]
+      ]
+    },
+    {
+      "id": 2,
+      "group": "single",
+      "question": "How many knowledge graphs, triples and documents was GFM-RAG trained on?",
+      "ground_truth": "60 knowledge graphs, over 14M triples, 700k documents.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "60"
+        ],
+        [
+          "14M",
+          "14 million"
+        ],
+        [
+          "700k",
+          "700,000"
+        ]
+      ]
+    },
+    {
+      "id": 3,
+      "group": "single",
+      "question": "How many parameters does the G-reasoner graph foundation model have?",
+      "ground_truth": "34M parameters.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "34M",
+          "34 million"
+        ]
+      ]
+    },
+    {
+      "id": 4,
+      "group": "single",
+      "question": "What is QuadGraph and how many layers does it have?",
+      "ground_truth": "A standardized four-layer abstraction unifying heterogeneous graph-structured knowledge into one representation.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "four",
+          "4"
+        ],
+        [
+          "layer"
+        ]
+      ]
+    },
+    {
+      "id": 6,
+      "group": "single",
+      "question": "What two model families does ExpressGNN combine, and what does it use graph neural networks for?",
+      "ground_truth": "Markov Logic Networks and GNNs; GNNs perform variational inference in the MLN.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "Markov Logic",
+          "MLN"
+        ],
+        [
+          "variational inference"
+        ]
+      ]
+    },
+    {
+      "id": 8,
+      "group": "single",
+      "question": "What architecture does QpiGNN use to separate prediction from uncertainty estimation?",
+      "ground_truth": "A dual-head architecture that decouples prediction and uncertainty, trained with a quantile-free joint loss.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "dual-head",
+          "dual head"
+        ]
+      ]
+    },
+    {
+      "id": 9,
+      "group": "single",
+      "question": "Which Qwen3 model sizes are used in the OPSD experiments?",
+      "ground_truth": "Qwen3-1.7B, Qwen3-4B and Qwen3-8B (instruct-tuned).",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "1.7B"
+        ],
+        [
+          "4B"
+        ],
+        [
+          "8B"
+        ]
+      ]
+    },
+    {
+      "id": 11,
+      "group": "single",
+      "question": "What generation token caps are used for OPSD compared with GRPO?",
+      "ground_truth": "1024 tokens for OPSD, 16k for GRPO.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "1024"
+        ],
+        [
+          "16k",
+          "16,000",
+          "16000"
+        ]
+      ]
+    },
+    {
+      "id": 13,
+      "group": "synthesis",
+      "question": "How does G-reasoner's parameter count compare with GFM-RAG's, and what limitation of GFM-RAG does G-reasoner set out to address?",
+      "ground_truth": "34M vs 8M. G-reasoner states GFM-RAG is limited to specific knowledge graphs and cannot generalize to other graph structures.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "34M",
+          "34 million"
+        ],
+        [
+          "8M",
+          "8 million"
+        ]
+      ]
+    },
+    {
+      "id": 16,
+      "group": "synthesis",
+      "question": "Which papers in this corpus apply graph neural networks, and to what different problems does each apply them?",
+      "ground_truth": "GFM-RAG and G-reasoner (retrieval for RAG), ExpressGNN (probabilistic logic inference in MLNs), QpiGNN (uncertainty quantification for node regression).",
+      "expected_verdict": "decline"
+    },
+    {
+      "id": 18,
+      "group": "synthesis",
+      "question": "Do GFM-RAG and G-reasoner share any authors?",
+      "ground_truth": "Yes - Linhao Luo, Zicheng Zhao, Chen Gong, Gholamreza Haffari, Dinh Phung and Shirui Pan appear on both.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "Luo"
+        ],
+        [
+          "Zhao"
+        ]
+      ]
+    },
+    {
+      "id": 19,
+      "group": "synthesis",
+      "question": "Do any two documents in this corpus describe the same paper, and if so which ones?",
+      "ground_truth": "GFM RAG.pdf and 2502.01113v3.pdf are the same paper in two versions, but answering needs corpus-level aggregation the system does not perform.",
+      "expected_verdict": "decline"
+    },
+    {
+      "id": 20,
+      "group": "false_premise",
+      "question": "What uncertainty quantification method do all of these papers use to produce prediction intervals?",
+      "ground_truth": "Only QpiGNN does uncertainty quantification; the others do not produce prediction intervals. Expect abstention.",
+      "expected_verdict": "decline"
+    },
+    {
+      "id": 21,
+      "group": "false_premise",
+      "question": "How does OPSD's on-policy self-distillation improve GFM-RAG's graph retrieval performance?",
+      "ground_truth": "No such relationship exists; OPSD has no graph component and the papers are unrelated. Expect abstention.",
+      "expected_verdict": "decline"
+    }
+  ]
+}
