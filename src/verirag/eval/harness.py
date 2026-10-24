@@ -192,8 +192,15 @@ def run_question_set(
     store_path: str | Path,
     only_ids: list[int] | None = None,
     corpus_only: bool = True,
+    checkpoint_path: str | Path | None = None,
 ) -> dict:
-    """Run every (selected) question and return the full result payload."""
+    """Run every (selected) question and return the full result payload.
+
+    With ``checkpoint_path``, the payload so far is rewritten after EVERY
+    question. A long run that is interrupted -- a timeout, a laptop shutdown --
+    then still leaves usable results instead of nothing, which has already
+    cost this project two complete runs.
+    """
     import dataclasses as _dc
 
     from verirag.generation.generator import AnswerFormat
@@ -247,6 +254,22 @@ def run_question_set(
             elapsed_s=round(time.perf_counter() - started, 1),
         ))
 
+        if checkpoint_path is not None:
+            partial = dict(
+                name=question_set.get("name", "eval"),
+                date=date.today().isoformat(),
+                store=str(store),
+                corpus=question_set.get("corpus"),
+                documents=documents,
+                questions=records,
+                metrics=dataclasses.asdict(compute_metrics(records)),
+                complete=False,
+                progress=f"{len(records)}/{len(questions)}",
+            )
+            Path(checkpoint_path).write_text(
+                json.dumps(partial, indent=2, default=str)
+            )
+
         flag = "ok" if meets else "MISMATCH"
         extra = "" if correct is None else (" correct" if correct else " WRONG")
         print(f"  [Q{question['id']:>3}] {question['group']:22} "
@@ -255,6 +278,7 @@ def run_question_set(
 
     metrics = compute_metrics(records)
     return dict(
+        complete=True,
         name=question_set.get("name", "eval"),
         date=date.today().isoformat(),
         store=str(store),

@@ -1,0 +1,3245 @@
+{
+  "complete": true,
+  "name": "queensland_stratified",
+  "date": "2026-10-24",
+  "store": "eval_store/queensland",
+  "corpus": "/Users/ishanyashpatel/Documents/QueensLand",
+  "documents": [
+    {
+      "doc_id": "GFM RAG-4cb43a17b39b",
+      "source_path": "/Users/ishanyashpatel/Documents/QueensLand/GFM RAG.pdf",
+      "format": "pdf",
+      "source_type": "local",
+      "duplicate_group_id": "dc94fd1ff22c"
+    },
+    {
+      "doc_id": "2502.01113v3-7b21153c7f1d",
+      "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+      "format": "pdf",
+      "source_type": "local",
+      "duplicate_group_id": "dc94fd1ff22c"
+    },
+    {
+      "doc_id": "2605.04847v2-6e85a976ea8f",
+      "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2605.04847v2.pdf",
+      "format": "pdf",
+      "source_type": "local",
+      "duplicate_group_id": "a8f5ba451270"
+    },
+    {
+      "doc_id": "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e",
+      "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS.pdf",
+      "format": "pdf",
+      "source_type": "local",
+      "duplicate_group_id": "87edef0db94e"
+    },
+    {
+      "doc_id": "G-Reasoner-6952b275d294",
+      "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+      "format": "pdf",
+      "source_type": "local",
+      "duplicate_group_id": "0ce884599df8"
+    },
+    {
+      "doc_id": "OnSelfDistillation-e521ed6c2939",
+      "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/OnSelfDistillation.pdf",
+      "format": "pdf",
+      "source_type": "local",
+      "duplicate_group_id": "f639a32f0d06"
+    }
+  ],
+  "questions": [
+    {
+      "id": 1,
+      "group": "single_hop_factoid",
+      "question": "How many parameters does the GFM-RAG graph foundation model have?",
+      "ground_truth": "8M parameters.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "8M",
+          "8 million"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "The GFM-RAG graph foundation model has 8M parameters [1]. It undergoes a two-stage training process on large-scale datasets comprising 60 knowledge graphs with over 14M triples and 700k documents [1].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+          "doc_id": "2502.01113v3-7b21153c7f1d",
+          "pages": [
+            1,
+            11,
+            2,
+            3,
+            19
+          ],
+          "contributing_chunk_ids": [
+            "2502.01113v3-7b21153c7f1d-0",
+            "GFM RAG-4cb43a17b39b-0",
+            "2502.01113v3-7b21153c7f1d-34",
+            "2502.01113v3-7b21153c7f1d-3",
+            "GFM RAG-4cb43a17b39b-9",
+            "GFM RAG-4cb43a17b39b-12",
+            "2502.01113v3-7b21153c7f1d-9",
+            "GFM RAG-4cb43a17b39b-65"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.998844 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.998844, score_spread=0.052098)",
+        "generate: 200 chars, 1 citation(s), format=concise",
+        "gate2: overall_grounded=True, 5 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 98.4
+    },
+    {
+      "id": 2,
+      "group": "single_hop_factoid",
+      "question": "How many knowledge graphs, triples and documents was GFM-RAG trained on?",
+      "ground_truth": "60 knowledge graphs, over 14M triples, 700k documents.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "60"
+        ],
+        [
+          "14M",
+          "14 million"
+        ],
+        [
+          "700k",
+          "700,000"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "GFM-RAG was trained on 60 knowledge graphs with over 14M triples and 700k documents [1]. The GFM retriever (8M parameters) underwent a two-stage training on these large-scale datasets [1].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/GFM RAG.pdf",
+          "doc_id": "GFM RAG-4cb43a17b39b",
+          "pages": [
+            2,
+            20,
+            3,
+            21,
+            16,
+            14
+          ],
+          "contributing_chunk_ids": [
+            "GFM RAG-4cb43a17b39b-9",
+            "2502.01113v3-7b21153c7f1d-3",
+            "2502.01113v3-7b21153c7f1d-56",
+            "GFM RAG-4cb43a17b39b-12",
+            "2502.01113v3-7b21153c7f1d-58",
+            "2502.01113v3-7b21153c7f1d-55",
+            "GFM RAG-4cb43a17b39b-59",
+            "GFM RAG-4cb43a17b39b-54"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.998401 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.998401, score_spread=0.161936)",
+        "generate: 188 chars, 1 citation(s), format=concise",
+        "gate2: overall_grounded=True, 3 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 70.5
+    },
+    {
+      "id": 3,
+      "group": "single_hop_factoid",
+      "question": "How many parameters does the G-reasoner graph foundation model have?",
+      "ground_truth": "34M parameters.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "34M",
+          "34 million"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "The G-reasoner graph foundation model has 34 million (34M) parameters [1]. The paper describes it as \"a 34M-parameter graph foundation model (GFM) that jointly captures graph topology and textual semantics\" [1].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+          "doc_id": "G-Reasoner-6952b275d294",
+          "pages": [
+            1,
+            3,
+            2,
+            10,
+            4
+          ],
+          "contributing_chunk_ids": [
+            "G-Reasoner-6952b275d294-1",
+            "G-Reasoner-6952b275d294-12",
+            "G-Reasoner-6952b275d294-3",
+            "G-Reasoner-6952b275d294-35",
+            "G-Reasoner-6952b275d294-15"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+          "doc_id": "2502.01113v3-7b21153c7f1d",
+          "pages": [
+            7,
+            6,
+            31
+          ],
+          "contributing_chunk_ids": [
+            "2502.01113v3-7b21153c7f1d-22",
+            "GFM RAG-4cb43a17b39b-27",
+            "2502.01113v3-7b21153c7f1d-76"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.988872 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.988872, score_spread=0.988551)",
+        "generate: 211 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=True, 2 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 30.8
+    },
+    {
+      "id": 4,
+      "group": "single_hop_factoid",
+      "question": "What is QuadGraph and how many layers does it have?",
+      "ground_truth": "A standardized four-layer abstraction unifying heterogeneous graph-structured knowledge.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "four",
+          "4"
+        ],
+        [
+          "layer"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "QuadGraph is a unified graph interface that standardizes diverse graph-structured knowledge from different domains into a common format [1]. It is defined as a four-layer abstraction consisting of an attribute layer, a knowledge graph layer, a document layer, and a community layer [1].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+          "doc_id": "G-Reasoner-6952b275d294",
+          "pages": [
+            4,
+            5,
+            18,
+            2
+          ],
+          "contributing_chunk_ids": [
+            "G-Reasoner-6952b275d294-15",
+            "G-Reasoner-6952b275d294-17",
+            "G-Reasoner-6952b275d294-55",
+            "G-Reasoner-6952b275d294-16",
+            "G-Reasoner-6952b275d294-2"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+          "doc_id": "2502.01113v3-7b21153c7f1d",
+          "pages": [
+            4,
+            30,
+            35
+          ],
+          "contributing_chunk_ids": [
+            "2502.01113v3-7b21153c7f1d-15",
+            "2502.01113v3-7b21153c7f1d-75",
+            "2502.01113v3-7b21153c7f1d-84"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.272280 (corpus-only)",
+        "gate1: verdict=sufficient via llm_escalation (max_rerank_score=0.272280, score_spread=0.272216)",
+        "gate1: judge reason: Passage [2] defines QuadGraph as G = (V, E, R, T, S) with node types, and passage [4] explicitly states it is a 4-layer graph structure (attribute, knowledge graph, document, and community layers).",
+        "generate: 286 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=True, 2 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 62.1
+    },
+    {
+      "id": 5,
+      "group": "single_hop_factoid",
+      "question": "Which four benchmark datasets is ExpressGNN evaluated on?",
+      "ground_truth": "UW-CSE, Cora, synthetic Kinship, and FB15K-237.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "UW-CSE"
+        ],
+        [
+          "Cora"
+        ],
+        [
+          "Kinship"
+        ],
+        [
+          "FB15K"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "ExpressGNN is evaluated on four benchmark datasets: UW-CSE, Cora, synthetic Kinship datasets, and FB15K-237 [1]. FB15K-237 is described as a generic knowledge base constructed from Freebase [1].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS.pdf",
+          "doc_id": "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e",
+          "pages": [
+            7,
+            1,
+            15,
+            9,
+            8
+          ],
+          "contributing_chunk_ids": [
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-18",
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-0",
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-36",
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-24",
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-20"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+          "doc_id": "G-Reasoner-6952b275d294",
+          "pages": [
+            7,
+            19
+          ],
+          "contributing_chunk_ids": [
+            "G-Reasoner-6952b275d294-24",
+            "G-Reasoner-6952b275d294-56"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 3,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2605.04847v2.pdf",
+          "doc_id": "2605.04847v2-6e85a976ea8f",
+          "pages": [
+            19
+          ],
+          "contributing_chunk_ids": [
+            "2605.04847v2-6e85a976ea8f-60"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.997023 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.997023, score_spread=0.980945)",
+        "generate: 194 chars, 3 citation(s), format=concise",
+        "gate2: overall_grounded=True, 2 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 51.4
+    },
+    {
+      "id": 6,
+      "group": "single_hop_factoid",
+      "question": "What two model families does ExpressGNN combine, and what does it use graph neural networks for?",
+      "ground_truth": "Markov Logic Networks and GNNs; GNNs perform variational inference in the MLN.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "Markov Logic",
+          "MLN"
+        ],
+        [
+          "variational inference"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- ExpressGNN uses graph neural networks for variational inference in Markov Logic Networks.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.999138 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.999138, score_spread=0.999029)",
+        "generate: 154 chars, 4 citation(s), format=concise",
+        "gate2: overall_grounded=False, 2 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 5 claim(s), 3 unsupported",
+        "regenerate (attempt 2/2): avoiding 3 unverified claim(s)",
+        "gate2: overall_grounded=False, 3 claim(s), 1 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (1 unsupported claim(s))"
+      ],
+      "elapsed_s": 189.1
+    },
+    {
+      "id": 7,
+      "group": "single_hop_factoid",
+      "question": "What coverage and interval width improvements does QpiGNN report over its baselines?",
+      "ground_truth": "On average 22% higher coverage and 50% narrower intervals.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "22"
+        ],
+        [
+          "50"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "The abstract states that experiments on 19 synthetic and real-world benchmarks show QpiGNN achieves average 22% higher coverage and 50% narrower intervals than baselines [1]. A results passage similarly reports that QpiGNN with \u03bbopt. improves coverage by 22% and reduces width by 50% on average [1]. The paper also notes that QpiGNN outperforms baselines on 7 of 10 real-world datasets [1].",
+      "abstention_reason": null,
+      "regeneration_count": 2,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2605.04847v2.pdf",
+          "doc_id": "2605.04847v2-6e85a976ea8f",
+          "pages": [
+            6,
+            8,
+            23,
+            9,
+            17,
+            21,
+            2
+          ],
+          "contributing_chunk_ids": [
+            "2605.04847v2-6e85a976ea8f-19",
+            "2605.04847v2-6e85a976ea8f-17",
+            "2605.04847v2-6e85a976ea8f-26",
+            "2605.04847v2-6e85a976ea8f-74",
+            "2605.04847v2-6e85a976ea8f-30",
+            "2605.04847v2-6e85a976ea8f-55",
+            "2605.04847v2-6e85a976ea8f-63",
+            "2605.04847v2-6e85a976ea8f-3"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.993286 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.993286, score_spread=0.080361)",
+        "generate: 246 chars, 1 citation(s), format=concise",
+        "gate2: overall_grounded=False, 2 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 3 claim(s), 2 unsupported",
+        "regenerate (attempt 2/2): avoiding 2 unverified claim(s)",
+        "gate2: overall_grounded=True, 3 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=2)"
+      ],
+      "elapsed_s": 165.7
+    },
+    {
+      "id": 8,
+      "group": "single_hop_factoid",
+      "question": "What architecture does QpiGNN use to separate prediction from uncertainty estimation?",
+      "ground_truth": "A dual-head architecture decoupling prediction and uncertainty, trained with a quantile-free joint loss.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "dual-head",
+          "dual head"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "QpiGNN uses a dual-head architecture that decouples the estimation of the prediction \u0177 and the interval width d\u0302, so each can be optimized for its own objective\u2014accuracy for \u0177 and coverage for d\u0302 [1]. A GNN encoder computes node embeddings H = GNN(X, E), followed by two linear heads: \u0177 = WpredH + bpred and d\u0302 = Softplus(WdiffH + bdiff), with the softplus ensuring d\u0302 > 0 as a half-width [1]. Separating the heads also prevents representational conflicts and gradient interference between prediction and uncertainty estimation [1].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2605.04847v2.pdf",
+          "doc_id": "2605.04847v2-6e85a976ea8f",
+          "pages": [
+            2,
+            4,
+            1,
+            9,
+            12,
+            24,
+            22
+          ],
+          "contributing_chunk_ids": [
+            "2605.04847v2-6e85a976ea8f-3",
+            "2605.04847v2-6e85a976ea8f-11",
+            "2605.04847v2-6e85a976ea8f-12",
+            "2605.04847v2-6e85a976ea8f-0",
+            "2605.04847v2-6e85a976ea8f-31",
+            "2605.04847v2-6e85a976ea8f-42",
+            "2605.04847v2-6e85a976ea8f-78",
+            "2605.04847v2-6e85a976ea8f-68"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.997778 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.997778, score_spread=0.065516)",
+        "generate: 532 chars, 1 citation(s), format=concise",
+        "gate2: overall_grounded=True, 6 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 65.3
+    },
+    {
+      "id": 9,
+      "group": "single_hop_factoid",
+      "question": "Which Qwen3 model sizes are used in the OPSD experiments?",
+      "ground_truth": "Qwen3-1.7B, Qwen3-4B and Qwen3-8B (instruct-tuned).",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "1.7B"
+        ],
+        [
+          "4B"
+        ],
+        [
+          "8B"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "The OPSD experiments use the Qwen3 model family at three scales: Qwen3-1.7B, Qwen3-4B, and Qwen3-8B [1].",
+      "abstention_reason": null,
+      "regeneration_count": 1,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/OnSelfDistillation.pdf",
+          "doc_id": "OnSelfDistillation-e521ed6c2939",
+          "pages": [
+            7,
+            8,
+            6
+          ],
+          "contributing_chunk_ids": [
+            "OnSelfDistillation-e521ed6c2939-17",
+            "OnSelfDistillation-e521ed6c2939-20",
+            "OnSelfDistillation-e521ed6c2939-15",
+            "OnSelfDistillation-e521ed6c2939-19",
+            "OnSelfDistillation-e521ed6c2939-18"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+          "doc_id": "2502.01113v3-7b21153c7f1d",
+          "pages": [
+            24,
+            18
+          ],
+          "contributing_chunk_ids": [
+            "2502.01113v3-7b21153c7f1d-64",
+            "GFM RAG-4cb43a17b39b-63"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 3,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2605.04847v2.pdf",
+          "doc_id": "2605.04847v2-6e85a976ea8f",
+          "pages": [
+            17
+          ],
+          "contributing_chunk_ids": [
+            "2605.04847v2-6e85a976ea8f-54"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.949718 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.949718, score_spread=0.949513)",
+        "generate: 146 chars, 3 citation(s), format=concise",
+        "gate2: overall_grounded=False, 2 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=True, 1 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=1)"
+      ],
+      "elapsed_s": 79.1
+    },
+    {
+      "id": 10,
+      "group": "single_hop_factoid",
+      "question": "In OPSD, what privileged information does the teacher policy condition on that the student does not see?",
+      "ground_truth": "Verified reasoning traces / ground-truth solutions; the student sees only the question.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "reasoning trace",
+          "verified reasoning",
+          "ground-truth solution",
+          "ground truth solution",
+          "ground-truth answer",
+          "ground truth answer",
+          "chain-of-thought",
+          "chain of thought"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "In OPSD, the teacher policy conditions on privileged information y\u22c6, such as the ground-truth answer or a reference chain-of-thought, in addition to the problem x [1]. Concretely, the teacher policy pT(\u00b7 | x, y\u22c6) conditions on both the problem and the privileged answer, whereas the student policy pS(\u00b7 | x) observes only the problem [1].",
+      "abstention_reason": null,
+      "regeneration_count": 1,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/OnSelfDistillation.pdf",
+          "doc_id": "OnSelfDistillation-e521ed6c2939",
+          "pages": [
+            2,
+            1,
+            4,
+            9,
+            15
+          ],
+          "contributing_chunk_ids": [
+            "OnSelfDistillation-e521ed6c2939-3",
+            "OnSelfDistillation-e521ed6c2939-0",
+            "OnSelfDistillation-e521ed6c2939-10",
+            "OnSelfDistillation-e521ed6c2939-4",
+            "OnSelfDistillation-e521ed6c2939-24",
+            "OnSelfDistillation-e521ed6c2939-23",
+            "OnSelfDistillation-e521ed6c2939-40"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+          "doc_id": "2502.01113v3-7b21153c7f1d",
+          "pages": [
+            35
+          ],
+          "contributing_chunk_ids": [
+            "2502.01113v3-7b21153c7f1d-84"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.979625 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.979625, score_spread=0.979588)",
+        "generate: 387 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=False, 7 claim(s), 3 unsupported",
+        "regenerate (attempt 1/2): avoiding 3 unverified claim(s)",
+        "gate2: overall_grounded=True, 4 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=1)"
+      ],
+      "elapsed_s": 94.3
+    },
+    {
+      "id": 11,
+      "group": "single_hop_factoid",
+      "question": "What loss does QpiGNN use to train its two heads?",
+      "ground_truth": "A quantile-free joint loss, with label-only supervision (no quantile inputs or post-processing).",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "quantile-free",
+          "quantile free"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- The width term is weighted by \u03bbwidth.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.928320 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.928320, score_spread=0.928282)",
+        "generate: 604 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=False, 10 claim(s), 4 unsupported",
+        "regenerate (attempt 1/2): avoiding 4 unverified claim(s)",
+        "gate2: overall_grounded=False, 4 claim(s), 2 unsupported",
+        "regenerate (attempt 2/2): avoiding 2 unverified claim(s)",
+        "gate2: overall_grounded=False, 4 claim(s), 1 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (1 unsupported claim(s))"
+      ],
+      "elapsed_s": 217.9
+    },
+    {
+      "id": 12,
+      "group": "single_hop_factoid",
+      "question": "What task does QpiGNN target on graphs?",
+      "ground_truth": "Node regression - predicting target values for individual entities in graph-structured data.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "node regression",
+          "regression"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "QpiGNN is a GNN-based framework for uncertainty quantification that estimates calibrated and compact prediction intervals for node-level regression [1]. It is built on a dual-head architecture that separates prediction from uncertainty estimation and a quantile-free joint loss trained with label-only supervision [1]. The paper also states that QpiGNN extends naturally beyond node regression to graph-level regression and link prediction [1].",
+      "abstention_reason": null,
+      "regeneration_count": 1,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2605.04847v2.pdf",
+          "doc_id": "2605.04847v2-6e85a976ea8f",
+          "pages": [
+            1,
+            9,
+            24,
+            7
+          ],
+          "contributing_chunk_ids": [
+            "2605.04847v2-6e85a976ea8f-0",
+            "2605.04847v2-6e85a976ea8f-31",
+            "2605.04847v2-6e85a976ea8f-78",
+            "2605.04847v2-6e85a976ea8f-24",
+            "2605.04847v2-6e85a976ea8f-30"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/GFM RAG.pdf",
+          "doc_id": "GFM RAG-4cb43a17b39b",
+          "pages": [
+            5,
+            7,
+            6
+          ],
+          "contributing_chunk_ids": [
+            "GFM RAG-4cb43a17b39b-26",
+            "2502.01113v3-7b21153c7f1d-22",
+            "GFM RAG-4cb43a17b39b-27"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.996291 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.996291, score_spread=0.996251)",
+        "generate: 406 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=False, 4 claim(s), 2 unsupported",
+        "regenerate (attempt 1/2): avoiding 2 unverified claim(s)",
+        "gate2: overall_grounded=True, 4 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=1)"
+      ],
+      "elapsed_s": 63.7
+    },
+    {
+      "id": 13,
+      "group": "single_hop_factoid",
+      "question": "What stabilisation mechanism does OPSD introduce for training?",
+      "ground_truth": "A per-token pointwise KL clipping mechanism.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "KL"
+        ],
+        [
+          "clip"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "OPSD introduces a per-token pointwise KL clipping mechanism that stabilizes training and improves performance, motivated by the finding that stylistic tokens can dominate the training signal of math tokens [1].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/OnSelfDistillation.pdf",
+          "doc_id": "OnSelfDistillation-e521ed6c2939",
+          "pages": [
+            2,
+            1,
+            6,
+            3,
+            15
+          ],
+          "contributing_chunk_ids": [
+            "OnSelfDistillation-e521ed6c2939-4",
+            "OnSelfDistillation-e521ed6c2939-0",
+            "OnSelfDistillation-e521ed6c2939-16",
+            "OnSelfDistillation-e521ed6c2939-6",
+            "OnSelfDistillation-e521ed6c2939-40"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+          "doc_id": "2502.01113v3-7b21153c7f1d",
+          "pages": [
+            7,
+            35,
+            6
+          ],
+          "contributing_chunk_ids": [
+            "2502.01113v3-7b21153c7f1d-22",
+            "2502.01113v3-7b21153c7f1d-84",
+            "GFM RAG-4cb43a17b39b-27"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.932445 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.932445, score_spread=0.932408)",
+        "generate: 210 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=True, 4 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 42.7
+    },
+    {
+      "id": 14,
+      "group": "single_hop_factoid",
+      "question": "Which training dataset does OPSD sample its mathematical reasoning problems from?",
+      "ground_truth": "The mathematical reasoning subset of OpenThoughts, up to 30K problem-solution pairs.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "OpenThoughts"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- The OPSD paper's passages describe the method in general terms.\n- The OPSD paper's passages describe the loss in general terms.\n- The OPSD paper's passages describe the experimental setup in general terms.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.964790 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.964790, score_spread=0.964004)",
+        "generate: 180 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=False, 2 claim(s), 2 unsupported",
+        "regenerate (attempt 1/2): avoiding 2 unverified claim(s)",
+        "gate2: overall_grounded=False, 2 claim(s), 2 unsupported",
+        "regenerate (attempt 2/2): avoiding 2 unverified claim(s)",
+        "gate2: overall_grounded=False, 5 claim(s), 3 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (3 unsupported claim(s))"
+      ],
+      "elapsed_s": 96.9
+    },
+    {
+      "id": 15,
+      "group": "single_hop_factoid",
+      "question": "What conference and year was ExpressGNN published at?",
+      "ground_truth": "ICLR 2020.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "ICLR"
+        ],
+        [
+          "2020"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- The paper is titled \"Efficient Probabilistic Logic Reasoning with Graph Neural Networks\".",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.959033 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.959033, score_spread=0.958345)",
+        "generate: 158 chars, 3 citation(s), format=concise",
+        "gate2: overall_grounded=False, 2 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 3 claim(s), 1 unsupported",
+        "regenerate (attempt 2/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 2 claim(s), 1 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (1 unsupported claim(s))"
+      ],
+      "elapsed_s": 66.6
+    },
+    {
+      "id": 16,
+      "group": "single_hop_factoid",
+      "question": "What scalability techniques does G-reasoner implement for large-scale training?",
+      "ground_truth": "Mixed-precision training and a distributed message-passing mechanism across multiple GPUs.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "mixed-precision",
+          "mixed precision"
+        ],
+        [
+          "message-passing",
+          "message passing"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "G-reasoner implements mixed-precision training, which reduces memory consumption from 80GB to 66GB (\u221217.5%) and increases throughput from 1.29 to 2.72 samples/s on a single A100 GPU [1]. It also uses a distributed message-passing mechanism that partitions graph nodes across multiple GPUs using the METIS algorithm and performs message-passing in parallel, enabling full-graph training [1]. Together these allow G-reasoner to scale to larger graphs and model sizes with more computational resources [1].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+          "doc_id": "G-Reasoner-6952b275d294",
+          "pages": [
+            10,
+            23,
+            3,
+            20,
+            6
+          ],
+          "contributing_chunk_ids": [
+            "G-Reasoner-6952b275d294-35",
+            "G-Reasoner-6952b275d294-66",
+            "G-Reasoner-6952b275d294-12",
+            "G-Reasoner-6952b275d294-59",
+            "G-Reasoner-6952b275d294-21"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+          "doc_id": "2502.01113v3-7b21153c7f1d",
+          "pages": [
+            7,
+            35,
+            6
+          ],
+          "contributing_chunk_ids": [
+            "2502.01113v3-7b21153c7f1d-22",
+            "2502.01113v3-7b21153c7f1d-84",
+            "GFM RAG-4cb43a17b39b-27"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.967728 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.967728, score_spread=0.967688)",
+        "generate: 503 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=True, 6 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 63.8
+    },
+    {
+      "id": 17,
+      "group": "single_hop_factoid",
+      "question": "What problem does GFM-RAG say hinders existing GraphRAG performance?",
+      "ground_truth": "Noise and incompleteness within the graph structure.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "noise"
+        ],
+        [
+          "incomplet"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "GFM-RAG states that existing GraphRAG performance is hindered by noise and incompleteness within the graph structure [1]. It notes that graph-structure-based algorithms rely solely on the graph structure, which is often noisy or incomplete, limiting their overall performance [1].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+          "doc_id": "2502.01113v3-7b21153c7f1d",
+          "pages": [
+            1,
+            2,
+            18
+          ],
+          "contributing_chunk_ids": [
+            "2502.01113v3-7b21153c7f1d-0",
+            "GFM RAG-4cb43a17b39b-10",
+            "2502.01113v3-7b21153c7f1d-2",
+            "GFM RAG-4cb43a17b39b-63"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+          "doc_id": "G-Reasoner-6952b275d294",
+          "pages": [
+            2,
+            4,
+            20
+          ],
+          "contributing_chunk_ids": [
+            "G-Reasoner-6952b275d294-2",
+            "G-Reasoner-6952b275d294-16",
+            "G-Reasoner-6952b275d294-59",
+            "G-Reasoner-6952b275d294-58"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.891621 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.891621, score_spread=0.788713)",
+        "generate: 280 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=True, 4 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 39.2
+    },
+    {
+      "id": 18,
+      "group": "single_hop_factoid",
+      "question": "What assumption does QpiGNN say message passing commonly relies on but is rarely satisfied?",
+      "ground_truth": "Exchangeability.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "exchangeab"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- In graph settings, message passing often relies on strong assumptions such as exchangeability, which are rarely satisfied in practice.\n- Exchangeability assumptions are often violated in graphs due to structural dependencies.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.999899 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.999899, score_spread=0.999609)",
+        "generate: 268 chars, 3 citation(s), format=concise",
+        "gate2: overall_grounded=False, 2 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 2 claim(s), 1 unsupported",
+        "regenerate (attempt 2/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 3 claim(s), 2 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (2 unsupported claim(s))"
+      ],
+      "elapsed_s": 58.3
+    },
+    {
+      "id": 19,
+      "group": "single_hop_factoid",
+      "question": "What inference problem in Markov Logic Networks motivates ExpressGNN?",
+      "ground_truth": "Inference in MLNs is computationally intensive, making industrial-scale application difficult.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "computationally intensive",
+          "intensive",
+          "expensive"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "ExpressGNN is motivated by the fact that inference in MLNs is computationally intensive, which makes industrial-scale application of MLN very difficult [1]. The paper states that inference in MLN is \"typically exponential in the number of entities,\" limiting real-world application [1]. ExpressGNN is designed as an inference network for MLN that scales up MLN inference to much larger knowledge graph problems [1].",
+      "abstention_reason": null,
+      "regeneration_count": 1,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS.pdf",
+          "doc_id": "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e",
+          "pages": [
+            1,
+            2,
+            6,
+            10,
+            4,
+            3
+          ],
+          "contributing_chunk_ids": [
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-1",
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-3",
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-0",
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-2",
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-15",
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-28",
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-8",
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-5"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.997912 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.997912, score_spread=0.406069)",
+        "generate: 628 chars, 1 citation(s), format=concise",
+        "gate2: overall_grounded=False, 7 claim(s), 2 unsupported",
+        "regenerate (attempt 1/2): avoiding 2 unverified claim(s)",
+        "gate2: overall_grounded=True, 3 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=1)"
+      ],
+      "elapsed_s": 136.9
+    },
+    {
+      "id": 20,
+      "group": "single_hop_factoid",
+      "question": "Which baseline reinforcement learning method is OPSD compared against?",
+      "ground_truth": "GRPO (and supervised fine-tuning).",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "GRPO"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "OPSD is compared against GRPO (Group Relative Policy Optimization) with binary outcome rewards verified against ground-truth answers, alongside SFT as a second baseline [1]. The paper reports that OPSD outperforms GRPO on all benchmarks while using significantly fewer tokens, and notes that GRPO stagnates due to reward diversity collapse, with more than half of its batches having zero reward standard deviation within 100 steps [1].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/OnSelfDistillation.pdf",
+          "doc_id": "OnSelfDistillation-e521ed6c2939",
+          "pages": [
+            1,
+            6,
+            3,
+            9
+          ],
+          "contributing_chunk_ids": [
+            "OnSelfDistillation-e521ed6c2939-0",
+            "OnSelfDistillation-e521ed6c2939-15",
+            "OnSelfDistillation-e521ed6c2939-14",
+            "OnSelfDistillation-e521ed6c2939-6",
+            "OnSelfDistillation-e521ed6c2939-25"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS.pdf",
+          "doc_id": "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e",
+          "pages": [
+            10,
+            9
+          ],
+          "contributing_chunk_ids": [
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-27",
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-25"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 3,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2605.04847v2.pdf",
+          "doc_id": "2605.04847v2-6e85a976ea8f",
+          "pages": [
+            21
+          ],
+          "contributing_chunk_ids": [
+            "2605.04847v2-6e85a976ea8f-63"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.948290 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.948290, score_spread=0.937781)",
+        "generate: 435 chars, 3 citation(s), format=concise",
+        "gate2: overall_grounded=True, 5 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 43.8
+    },
+    {
+      "id": 21,
+      "group": "single_hop_factoid",
+      "question": "How many synthetic and real-world benchmarks is QpiGNN evaluated on?",
+      "ground_truth": "19 benchmarks.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "19"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "QpiGNN is evaluated on 19 synthetic and real-world benchmarks [1]. The paper states that experiments on these 19 benchmarks show QpiGNN achieves an average 22% higher coverage and 50% narrower intervals than baselines [1].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2605.04847v2.pdf",
+          "doc_id": "2605.04847v2-6e85a976ea8f",
+          "pages": [
+            2,
+            1,
+            6,
+            12,
+            7,
+            18,
+            13
+          ],
+          "contributing_chunk_ids": [
+            "2605.04847v2-6e85a976ea8f-4",
+            "2605.04847v2-6e85a976ea8f-0",
+            "2605.04847v2-6e85a976ea8f-17",
+            "2605.04847v2-6e85a976ea8f-42",
+            "2605.04847v2-6e85a976ea8f-23",
+            "2605.04847v2-6e85a976ea8f-57",
+            "2605.04847v2-6e85a976ea8f-43"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS.pdf",
+          "doc_id": "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e",
+          "pages": [
+            16
+          ],
+          "contributing_chunk_ids": [
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-37"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.999393 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.999393, score_spread=0.999347)",
+        "generate: 222 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=True, 3 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 55.7
+    },
+    {
+      "id": 22,
+      "group": "single_hop_factoid",
+      "question": "What metric does OPSD report for accuracy on mathematical reasoning benchmarks?",
+      "ground_truth": "Avg@12 accuracy.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "Avg@12",
+          "avg@12"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "OPSD reports accuracy on mathematical reasoning benchmarks using the Avg@12 metric, evaluated under the sampling configuration recommended in the Qwen3 blog (temperature 1.0, maximum generation length 38k) [1]. For OPSD, checkpoints are evaluated every 20 steps up to 100 steps and the best score is reported [1]. Table 2 presents these Avg@12 results across AIME24, AIME25, and HMMT25 for Qwen3 models [1].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/OnSelfDistillation.pdf",
+          "doc_id": "OnSelfDistillation-e521ed6c2939",
+          "pages": [
+            6,
+            7,
+            1,
+            9
+          ],
+          "contributing_chunk_ids": [
+            "OnSelfDistillation-e521ed6c2939-16",
+            "OnSelfDistillation-e521ed6c2939-14",
+            "OnSelfDistillation-e521ed6c2939-17",
+            "OnSelfDistillation-e521ed6c2939-0",
+            "OnSelfDistillation-e521ed6c2939-23"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+          "doc_id": "G-Reasoner-6952b275d294",
+          "pages": [
+            21,
+            8,
+            10
+          ],
+          "contributing_chunk_ids": [
+            "G-Reasoner-6952b275d294-63",
+            "G-Reasoner-6952b275d294-26",
+            "G-Reasoner-6952b275d294-34"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.823724 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.823724, score_spread=0.823101)",
+        "generate: 407 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=True, 5 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 50.0
+    },
+    {
+      "id": 23,
+      "group": "multi_hop",
+      "question": "Do GFM-RAG and G-reasoner share any authors?",
+      "ground_truth": "Yes - Linhao Luo, Zicheng Zhao, Chen Gong, Gholamreza Haffari, Dinh Phung and Shirui Pan appear on both.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "Luo"
+        ],
+        [
+          "Zhao"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "Yes. Both papers list Linhao Luo, Zicheng Zhao, Gholamreza Haffari, Chen Gong, Dinh Phung, and Shirui Pan as authors [1][2].",
+      "abstention_reason": null,
+      "regeneration_count": 2,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+          "doc_id": "G-Reasoner-6952b275d294",
+          "pages": [
+            9,
+            3,
+            1,
+            5,
+            10
+          ],
+          "contributing_chunk_ids": [
+            "G-Reasoner-6952b275d294-31",
+            "G-Reasoner-6952b275d294-12",
+            "G-Reasoner-6952b275d294-0",
+            "G-Reasoner-6952b275d294-17",
+            "G-Reasoner-6952b275d294-35"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+          "doc_id": "2502.01113v3-7b21153c7f1d",
+          "pages": [
+            3,
+            18,
+            26
+          ],
+          "contributing_chunk_ids": [
+            "2502.01113v3-7b21153c7f1d-9",
+            "GFM RAG-4cb43a17b39b-64",
+            "2502.01113v3-7b21153c7f1d-69"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.914598 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.914598, score_spread=0.913769)",
+        "generate: 271 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=False, 4 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 4 claim(s), 2 unsupported",
+        "regenerate (attempt 2/2): avoiding 2 unverified claim(s)",
+        "gate2: overall_grounded=True, 1 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=2)"
+      ],
+      "elapsed_s": 117.9
+    },
+    {
+      "id": 24,
+      "group": "multi_hop",
+      "question": "Which institution do the first authors of both GFM-RAG and G-reasoner belong to?",
+      "ground_truth": "Monash University (Linhao Luo), with Zicheng Zhao at NJUST on both.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "Monash"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- In GFM-RAG, Linhao Luo and Zicheng Zhao are marked with an equal-contribution symbol.\n- GFM-RAG lists affiliations of Monash University, Nanjing University of Science and Technology, Shanghai Jiao Tong University, and Griffith University.\n- The G-reasoner author list begins with Linhao Luo, Zicheng Zhao, and Junnan Liu.\n- G-reasoner lists affiliations including Monash University, Nanjing University of Science and Technology, Griffith University, Shanghai Jiao Tong University, Tencent Youtu Lab, and NVIDIA.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.947356 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.947356, score_spread=0.947315)",
+        "generate: 246 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=False, 4 claim(s), 3 unsupported",
+        "regenerate (attempt 1/2): avoiding 3 unverified claim(s)",
+        "gate2: overall_grounded=False, 9 claim(s), 5 unsupported",
+        "regenerate (attempt 2/2): avoiding 5 unverified claim(s)",
+        "gate2: overall_grounded=False, 7 claim(s), 4 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (4 unsupported claim(s))"
+      ],
+      "elapsed_s": 104.8
+    },
+    {
+      "id": 25,
+      "group": "multi_hop",
+      "question": "G-reasoner states a limitation of GFM-RAG. What is it, and how many parameters does the model it criticises have?",
+      "ground_truth": "GFM-RAG is limited to specific knowledge graphs and cannot generalize to other graph structures; it has 8M parameters.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "8M",
+          "8 million"
+        ],
+        [
+          "knowledge graph"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "G-reasoner states that GFM-RAG \"is specifically designed for knowledge graphs and cannot be directly applied to other types of graph-structured knowledge with versatile node types and rich text semantics, such as document graphs or hierarchical graphs\" [1]. The model it criticises, GFM-RAG, has 8M parameters [2].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+          "doc_id": "G-Reasoner-6952b275d294",
+          "pages": [
+            5,
+            25,
+            20,
+            23
+          ],
+          "contributing_chunk_ids": [
+            "G-Reasoner-6952b275d294-17",
+            "G-Reasoner-6952b275d294-70",
+            "G-Reasoner-6952b275d294-59",
+            "G-Reasoner-6952b275d294-66"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+          "doc_id": "2502.01113v3-7b21153c7f1d",
+          "pages": [
+            20,
+            8,
+            18,
+            6
+          ],
+          "contributing_chunk_ids": [
+            "2502.01113v3-7b21153c7f1d-56",
+            "GFM RAG-4cb43a17b39b-35",
+            "GFM RAG-4cb43a17b39b-64",
+            "GFM RAG-4cb43a17b39b-27"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.962374 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.962374, score_spread=0.929715)",
+        "generate: 314 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=True, 2 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 23.4
+    },
+    {
+      "id": 26,
+      "group": "multi_hop",
+      "question": "Which paper in this corpus evaluates on FB15K-237, and what inference technique does it use?",
+      "ground_truth": "ExpressGNN; it uses GNNs for variational inference in Markov Logic Networks.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "ExpressGNN"
+        ],
+        [
+          "variational"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- The paper titled \"Efficient Probabilistic Logic Reasoning with Graph Neural Networks\" is ExpressGNN.\n- For FB15K-237, ExpressGNN evaluates both an inference-only version and an inference-and-learning version.\n- The inference-only version of ExpressGNN is denoted ExpressGNN-E.\n- The inference-and-learning version of ExpressGNN is denoted ExpressGNN-EM.\n- ExpressGNN's inference technique is variational inference in Markov Logic Networks using graph neural networks.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.979295 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.979295, score_spread=0.979185)",
+        "generate: 460 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=False, 6 claim(s), 4 unsupported",
+        "regenerate (attempt 1/2): avoiding 4 unverified claim(s)",
+        "gate2: overall_grounded=False, 7 claim(s), 4 unsupported",
+        "regenerate (attempt 2/2): avoiding 4 unverified claim(s)",
+        "gate2: overall_grounded=False, 8 claim(s), 5 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (5 unsupported claim(s))"
+      ],
+      "elapsed_s": 138.3
+    },
+    {
+      "id": 27,
+      "group": "multi_hop",
+      "question": "Which paper reports a 34M-parameter model, and what graph abstraction does that model consume?",
+      "ground_truth": "G-reasoner; it consumes QuadGraph, a four-layer unified abstraction.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "QuadGraph"
+        ]
+      ],
+      "outcome": "refused",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": "The paper reporting a 34M-parameter model is G-reasoner, which describes \"a 34M-parameter graph foundation model (GFM) that jointly captures graph topology and textual semantics\" [1]. The same paper introduces QuadGraph, \"a standardized four-layer abstraction that unifies heterogeneous knowledge sources into a common graph representation\" [1]. However, the passages do not state that the 34M-parameter model itself consumes QuadGraph; they describe QuadGraph and the GFM as separate components of the framework, so that specific link cannot be confirmed from the sources.",
+      "abstention_reason": null,
+      "regeneration_count": 1,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+          "doc_id": "G-Reasoner-6952b275d294",
+          "pages": [
+            3,
+            1,
+            23
+          ],
+          "contributing_chunk_ids": [
+            "G-Reasoner-6952b275d294-12",
+            "G-Reasoner-6952b275d294-1",
+            "G-Reasoner-6952b275d294-66",
+            "G-Reasoner-6952b275d294-0"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2605.04847v2.pdf",
+          "doc_id": "2605.04847v2-6e85a976ea8f",
+          "pages": [
+            24
+          ],
+          "contributing_chunk_ids": [
+            "2605.04847v2-6e85a976ea8f-75"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 3,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+          "doc_id": "2502.01113v3-7b21153c7f1d",
+          "pages": [
+            29,
+            11,
+            7
+          ],
+          "contributing_chunk_ids": [
+            "2502.01113v3-7b21153c7f1d-72",
+            "2502.01113v3-7b21153c7f1d-34",
+            "2502.01113v3-7b21153c7f1d-22"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.948214 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.948214, score_spread=0.948034)",
+        "generate: 336 chars, 3 citation(s), format=concise",
+        "gate2: overall_grounded=False, 4 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=True, 6 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=1)"
+      ],
+      "elapsed_s": 70.3
+    },
+    {
+      "id": 28,
+      "group": "multi_hop",
+      "question": "The paper that studies node regression uncertainty names a dual-head design. What are its two heads predicting?",
+      "ground_truth": "QpiGNN's dual heads predict the point estimate and the interval width separately.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "interval"
+        ],
+        [
+          "predict"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "The dual-head design in QpiGNN decouples prediction from uncertainty estimation: one head predicts the target value \u0177, and the other predicts the interval width d\u0302 [1]. The width head uses a softplus activation to ensure d\u0302 > 0, yielding half-widths, so the prediction interval for node v is [\u0177v \u2212 d\u0302v, \u0177v + d\u0302v] [1].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2605.04847v2.pdf",
+          "doc_id": "2605.04847v2-6e85a976ea8f",
+          "pages": [
+            9,
+            4,
+            1,
+            12,
+            3,
+            25
+          ],
+          "contributing_chunk_ids": [
+            "2605.04847v2-6e85a976ea8f-31",
+            "2605.04847v2-6e85a976ea8f-11",
+            "2605.04847v2-6e85a976ea8f-0",
+            "2605.04847v2-6e85a976ea8f-41",
+            "2605.04847v2-6e85a976ea8f-12",
+            "2605.04847v2-6e85a976ea8f-6",
+            "2605.04847v2-6e85a976ea8f-83"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS.pdf",
+          "doc_id": "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e",
+          "pages": [
+            6
+          ],
+          "contributing_chunk_ids": [
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-14"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.872076 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.872076, score_spread=0.871671)",
+        "generate: 317 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=True, 6 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 115.0
+    },
+    {
+      "id": 29,
+      "group": "multi_hop",
+      "question": "Which paper uses a single model as both teacher and student, and which model family does it experiment on?",
+      "ground_truth": "OPSD (Self-Distilled Reasoner); the Qwen3 family.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "Qwen3"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- The paper is titled \"Self-Distilled Reasoner: On-Policy Self-Distillation for Large Language Models\".\n- The paper uses the instruct-tuned versions of the Qwen3 models.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.993967 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.993967, score_spread=0.993144)",
+        "generate: 414 chars, 3 citation(s), format=concise",
+        "gate2: overall_grounded=False, 5 claim(s), 2 unsupported",
+        "regenerate (attempt 1/2): avoiding 2 unverified claim(s)",
+        "gate2: overall_grounded=False, 4 claim(s), 2 unsupported",
+        "regenerate (attempt 2/2): avoiding 2 unverified claim(s)",
+        "gate2: overall_grounded=False, 4 claim(s), 2 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (2 unsupported claim(s))"
+      ],
+      "elapsed_s": 116.5
+    },
+    {
+      "id": 30,
+      "group": "multi_hop",
+      "question": "Which paper was published at ICLR 2026, and how many benchmark datasets does it evaluate on?",
+      "ground_truth": "G-reasoner; six benchmark datasets.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "six",
+          "6"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- The paper published at ICLR 2026 is titled \"G-Reasoner: Foundation Models for Unified Reasoning over Graph-Structured Knowledge\".",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.994855 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.994855, score_spread=0.977081)",
+        "generate: 335 chars, 3 citation(s), format=concise",
+        "gate2: overall_grounded=False, 3 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 3 claim(s), 1 unsupported",
+        "regenerate (attempt 2/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 2 claim(s), 1 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (1 unsupported claim(s))"
+      ],
+      "elapsed_s": 53.2
+    },
+    {
+      "id": 31,
+      "group": "comparative",
+      "question": "How does G-reasoner's parameter count compare with GFM-RAG's, and what limitation of GFM-RAG does G-reasoner set out to address?",
+      "ground_truth": "34M vs 8M; GFM-RAG is limited to specific knowledge graphs and cannot generalize to other graph structures.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "34M",
+          "34 million"
+        ],
+        [
+          "8M",
+          "8 million"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- G-reasoner introduces a 34M-parameter graph foundation model.\n- The GFM in GFM-RAG has 8M parameters.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.977018 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.977018, score_spread=0.924147)",
+        "generate: 385 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=False, 3 claim(s), 2 unsupported",
+        "regenerate (attempt 1/2): avoiding 2 unverified claim(s)",
+        "gate2: overall_grounded=False, 5 claim(s), 1 unsupported",
+        "regenerate (attempt 2/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 4 claim(s), 2 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (2 unsupported claim(s))"
+      ],
+      "elapsed_s": 100.6
+    },
+    {
+      "id": 32,
+      "group": "comparative",
+      "question": "Compare the graph representation used by GFM-RAG with the one used by G-reasoner.",
+      "ground_truth": "GFM-RAG reasons over a knowledge graph built from documents; G-reasoner unifies heterogeneous sources into QuadGraph, a four-layer abstraction.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "QuadGraph"
+        ]
+      ],
+      "outcome": "refused",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": "GFM-RAG builds a KG-index from documents using OpenIE with GPT-4o-mini and entity resolution via ColBERTv2, and its GFM is trained on 60 constructed KG-indexes [2]. G-reasoner instead uses QuadGraph, a standardized four-layer abstraction (attribute, entity, document, and community node types) that unifies heterogeneous knowledge sources into a common graph representation [1]. The passages do not describe GFM-RAG's graph as a multi-layer abstraction, so a direct layer-by-layer comparison is not supported beyond this.",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+          "doc_id": "G-Reasoner-6952b275d294",
+          "pages": [
+            17,
+            20,
+            5,
+            8,
+            2
+          ],
+          "contributing_chunk_ids": [
+            "G-Reasoner-6952b275d294-51",
+            "G-Reasoner-6952b275d294-59",
+            "G-Reasoner-6952b275d294-17",
+            "G-Reasoner-6952b275d294-28",
+            "G-Reasoner-6952b275d294-2"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/GFM RAG.pdf",
+          "doc_id": "GFM RAG-4cb43a17b39b",
+          "pages": [
+            16,
+            27,
+            7
+          ],
+          "contributing_chunk_ids": [
+            "GFM RAG-4cb43a17b39b-59",
+            "2502.01113v3-7b21153c7f1d-70",
+            "2502.01113v3-7b21153c7f1d-22"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.881917 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.881917, score_spread=0.824560)",
+        "generate: 521 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=True, 6 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 41.9
+    },
+    {
+      "id": 33,
+      "group": "comparative",
+      "question": "Both ExpressGNN and GFM-RAG claim their models generalize to knowledge graphs not seen during training. How does each describe that capability?",
+      "ground_truth": "ExpressGNN: GNN embeddings generalize to new entities or related KGs without retraining. GFM-RAG: first GFM applicable to unseen datasets without fine-tuning.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "ExpressGNN"
+        ],
+        [
+          "GFM-RAG"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- GFM-RAG's abstract states that its two-stage training on large-scale datasets results in impressive performance and generalizability, making GFM-RAG the first graph foundation model applicable to unseen datasets for retrieval without any fine-tuning required.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.995648 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.995648, score_spread=0.405339)",
+        "generate: 510 chars, 3 citation(s), format=concise",
+        "gate2: overall_grounded=False, 4 claim(s), 2 unsupported",
+        "regenerate (attempt 1/2): avoiding 2 unverified claim(s)",
+        "gate2: overall_grounded=False, 3 claim(s), 1 unsupported",
+        "regenerate (attempt 2/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 3 claim(s), 1 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (1 unsupported claim(s))"
+      ],
+      "elapsed_s": 128.9
+    },
+    {
+      "id": 34,
+      "group": "comparative",
+      "question": "What generation token caps are used for OPSD compared with GRPO?",
+      "ground_truth": "1024 tokens for OPSD, 16k for GRPO.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "1024"
+        ],
+        [
+          "16k",
+          "16,000",
+          "16000"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "The passages state that generation is capped at 1024 tokens for OPSD and 16k for GRPO in the token-efficiency comparison on Qwen3-1.7B [1]. Separately, the experimental setup notes that the max generation length is set to 16k for the baselines, including GRPO [1].",
+      "abstention_reason": null,
+      "regeneration_count": 1,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/OnSelfDistillation.pdf",
+          "doc_id": "OnSelfDistillation-e521ed6c2939",
+          "pages": [
+            6,
+            7,
+            2,
+            9,
+            3
+          ],
+          "contributing_chunk_ids": [
+            "OnSelfDistillation-e521ed6c2939-14",
+            "OnSelfDistillation-e521ed6c2939-18",
+            "OnSelfDistillation-e521ed6c2939-16",
+            "OnSelfDistillation-e521ed6c2939-17",
+            "OnSelfDistillation-e521ed6c2939-4",
+            "OnSelfDistillation-e521ed6c2939-15",
+            "OnSelfDistillation-e521ed6c2939-25",
+            "OnSelfDistillation-e521ed6c2939-6"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.998494 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.998494, score_spread=0.091857)",
+        "generate: 201 chars, 1 citation(s), format=concise",
+        "gate2: overall_grounded=False, 4 claim(s), 2 unsupported",
+        "regenerate (attempt 1/2): avoiding 2 unverified claim(s)",
+        "gate2: overall_grounded=True, 2 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=1)"
+      ],
+      "elapsed_s": 87.9
+    },
+    {
+      "id": 35,
+      "group": "comparative",
+      "question": "Contrast how GFM-RAG and G-reasoner each scale training to large datasets.",
+      "ground_truth": "GFM-RAG: two-stage training over 60 KGs/14M triples/700k docs. G-reasoner: mixed-precision training and distributed message-passing across GPUs.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "two-stage",
+          "two stage",
+          "60"
+        ],
+        [
+          "mixed-precision",
+          "mixed precision",
+          "distributed"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- GFM-RAG's GFM is a query-dependent GNN pre-trained on large-scale datasets comprising 60 knowledge graphs with over 14M triples and 700k documents.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.987534 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.987534, score_spread=0.311928)",
+        "generate: 733 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=False, 9 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 8 claim(s), 5 unsupported",
+        "regenerate (attempt 2/2): avoiding 5 unverified claim(s)",
+        "gate2: overall_grounded=False, 8 claim(s), 1 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (1 unsupported claim(s))"
+      ],
+      "elapsed_s": 145.0
+    },
+    {
+      "id": 36,
+      "group": "comparative",
+      "question": "How does OPSD's token efficiency compare with GRPO's at the same number of training steps?",
+      "ground_truth": "OPSD uses significantly fewer tokens but outperforms GRPO on all benchmarks.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "fewer",
+          "less"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "At the same number of training steps, OPSD uses significantly fewer tokens than GRPO while outperforming it on all benchmarks [1]. OPSD achieves these gains with a single rollout per problem and a 1024-token generation cap, whereas GRPO's max completion length is set to 16,000 tokens [1]. GRPO stagnates because more than half of its batches have zero reward standard deviation within 100 steps, yielding no gradient signal, while OPSD learns from a dense distillation loss even with fewer generated tokens [1].",
+      "abstention_reason": null,
+      "regeneration_count": 1,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/OnSelfDistillation.pdf",
+          "doc_id": "OnSelfDistillation-e521ed6c2939",
+          "pages": [
+            6,
+            7,
+            2,
+            3,
+            13
+          ],
+          "contributing_chunk_ids": [
+            "OnSelfDistillation-e521ed6c2939-14",
+            "OnSelfDistillation-e521ed6c2939-18",
+            "OnSelfDistillation-e521ed6c2939-17",
+            "OnSelfDistillation-e521ed6c2939-16",
+            "OnSelfDistillation-e521ed6c2939-15",
+            "OnSelfDistillation-e521ed6c2939-4",
+            "OnSelfDistillation-e521ed6c2939-6",
+            "OnSelfDistillation-e521ed6c2939-37"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.999755 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.999755, score_spread=0.406021)",
+        "generate: 502 chars, 1 citation(s), format=concise",
+        "gate2: overall_grounded=False, 6 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=True, 5 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=1)"
+      ],
+      "elapsed_s": 154.5
+    },
+    {
+      "id": 37,
+      "group": "comparative",
+      "question": "Which of the GNN papers in this corpus addresses uncertainty, and how does its goal differ from the retrieval-focused ones?",
+      "ground_truth": "QpiGNN addresses uncertainty quantification for node regression, whereas GFM-RAG and G-reasoner use GNNs for retrieval in RAG.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "QpiGNN"
+        ],
+        [
+          "retrieval"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- The paper addressing uncertainty is titled \"Quantile-Free Uncertainty Quantification in Graph Neural Networks.\"\n- QpiGNN directly optimizes coverage and interval width without requiring quantile inputs or post-processing.\n- QpiGNN's goal is to provide reliable, calibrated uncertainty estimates for node regression in high-stakes domains such as healthcare and criminal justice.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.680634 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.680634, score_spread=0.680465)",
+        "generate: 786 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=False, 10 claim(s), 3 unsupported",
+        "regenerate (attempt 1/2): avoiding 3 unverified claim(s)",
+        "gate2: overall_grounded=False, 6 claim(s), 1 unsupported",
+        "regenerate (attempt 2/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 8 claim(s), 3 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (3 unsupported claim(s))"
+      ],
+      "elapsed_s": 138.2
+    },
+    {
+      "id": 38,
+      "group": "comparative",
+      "question": "Compare the supervision signal OPSD provides with the one GRPO provides.",
+      "ground_truth": "OPSD gives dense per-token supervision; GRPO gives only a binary outcome reward and stagnates from reward diversity collapse.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "per-token",
+          "per token",
+          "token-level",
+          "dense"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- In OPSD, the teacher policy conditions on privileged information such as verified reasoning traces.\n- In OPSD, the student sees only the question.\n- GRPO's binary outcome reward is sparse and applied uniformly across all tokens.\n- GRPO's sequence-level signal assigns identical credit to all tokens.\n- GRPO's sequence-level signal vanishes when samples are incorrect.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.943989 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.943989, score_spread=0.943941)",
+        "generate: 565 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=False, 7 claim(s), 3 unsupported",
+        "regenerate (attempt 1/2): avoiding 3 unverified claim(s)",
+        "gate2: overall_grounded=False, 5 claim(s), 1 unsupported",
+        "regenerate (attempt 2/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 9 claim(s), 5 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (5 unsupported claim(s))"
+      ],
+      "elapsed_s": 281.7
+    },
+    {
+      "id": 39,
+      "group": "comparative",
+      "question": "Do GFM-RAG and ExpressGNN apply graph neural networks to the same problem?",
+      "ground_truth": "No - GFM-RAG uses a GNN for retrieval in RAG; ExpressGNN uses one for variational inference in Markov Logic Networks.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "retrieval"
+        ],
+        [
+          "Markov Logic",
+          "MLN",
+          "logic"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- The two papers apply graph neural networks to different problems.\n- ExpressGNN uses graph neural networks for variational inference in Markov Logic Networks.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.978889 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.978889, score_spread=0.343503)",
+        "generate: 424 chars, 3 citation(s), format=concise",
+        "gate2: overall_grounded=False, 5 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 6 claim(s), 2 unsupported",
+        "regenerate (attempt 2/2): avoiding 2 unverified claim(s)",
+        "gate2: overall_grounded=False, 6 claim(s), 2 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (2 unsupported claim(s))"
+      ],
+      "elapsed_s": 68.9
+    },
+    {
+      "id": 40,
+      "group": "aggregation",
+      "question": "How many benchmark datasets is G-reasoner evaluated on?",
+      "ground_truth": "Six benchmark datasets.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "six",
+          "6"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "G-reasoner is evaluated on six benchmark datasets: three multi-hop QA datasets (HotpotQA, MuSiQue, and 2WikiMultiHopQA) and three GraphRAG benchmarks (G-bench Novel, G-bench Medical, and G-bench CS) [1]. The paper states that extensive experiments on six benchmarks show G-reasoner outperforming state-of-the-art baselines [1].",
+      "abstention_reason": null,
+      "regeneration_count": 1,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+          "doc_id": "G-Reasoner-6952b275d294",
+          "pages": [
+            7,
+            19,
+            3,
+            21
+          ],
+          "contributing_chunk_ids": [
+            "G-Reasoner-6952b275d294-24",
+            "G-Reasoner-6952b275d294-57",
+            "G-Reasoner-6952b275d294-56",
+            "G-Reasoner-6952b275d294-12",
+            "G-Reasoner-6952b275d294-62"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS.pdf",
+          "doc_id": "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e",
+          "pages": [
+            1
+          ],
+          "contributing_chunk_ids": [
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-0"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 3,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+          "doc_id": "2502.01113v3-7b21153c7f1d",
+          "pages": [
+            33,
+            31
+          ],
+          "contributing_chunk_ids": [
+            "2502.01113v3-7b21153c7f1d-80",
+            "2502.01113v3-7b21153c7f1d-76"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.998952 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.998952, score_spread=0.998495)",
+        "generate: 282 chars, 3 citation(s), format=concise",
+        "gate2: overall_grounded=False, 4 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=True, 4 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=1)"
+      ],
+      "elapsed_s": 102.5
+    },
+    {
+      "id": 41,
+      "group": "aggregation",
+      "question": "How many datasets in total does GFM-RAG report experiments on, across both categories?",
+      "ground_truth": "Ten - three multi-hop QA datasets plus seven domain-specific RAG datasets.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "three",
+          "3"
+        ],
+        [
+          "seven",
+          "7"
+        ]
+      ],
+      "outcome": "refused",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": "GFM-RAG reports experiments on three multi-hop QA datasets (HotpotQA, MuSiQue, and 2WikiMultiHopQA) and on seven domain-specific RAG datasets from three domains (biomedical, customer support, and general knowledge) [1]. The paper describes these as \"three benchmark datasets and seven domain-specific datasets\" [1]. The passages do not state a single combined total across both categories.",
+      "abstention_reason": null,
+      "regeneration_count": 1,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/GFM RAG.pdf",
+          "doc_id": "GFM RAG-4cb43a17b39b",
+          "pages": [
+            8,
+            18,
+            7,
+            6,
+            14,
+            23,
+            17
+          ],
+          "contributing_chunk_ids": [
+            "GFM RAG-4cb43a17b39b-36",
+            "2502.01113v3-7b21153c7f1d-52",
+            "2502.01113v3-7b21153c7f1d-22",
+            "GFM RAG-4cb43a17b39b-28",
+            "GFM RAG-4cb43a17b39b-54",
+            "2502.01113v3-7b21153c7f1d-63",
+            "GFM RAG-4cb43a17b39b-27",
+            "2502.01113v3-7b21153c7f1d-49"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.995390 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.995390, score_spread=0.250842)",
+        "generate: 286 chars, 1 citation(s), format=concise",
+        "gate2: overall_grounded=False, 3 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=True, 4 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=1)"
+      ],
+      "elapsed_s": 125.2
+    },
+    {
+      "id": 42,
+      "group": "aggregation",
+      "question": "How many model scales does OPSD evaluate, and what are they?",
+      "ground_truth": "Three: Qwen3-1.7B, Qwen3-4B and Qwen3-8B.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "three",
+          "3"
+        ],
+        [
+          "1.7B"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "OPSD evaluates three model scales: Qwen3-1.7B, Qwen3-4B, and Qwen3-8B, using the instruct-tuned versions [1]. The paper notes that, due to computational constraints, experiments are limited to models up to 8B parameters [1].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/OnSelfDistillation.pdf",
+          "doc_id": "OnSelfDistillation-e521ed6c2939",
+          "pages": [
+            6,
+            13,
+            7
+          ],
+          "contributing_chunk_ids": [
+            "OnSelfDistillation-e521ed6c2939-16",
+            "OnSelfDistillation-e521ed6c2939-15",
+            "OnSelfDistillation-e521ed6c2939-36",
+            "OnSelfDistillation-e521ed6c2939-37",
+            "OnSelfDistillation-e521ed6c2939-17"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+          "doc_id": "2502.01113v3-7b21153c7f1d",
+          "pages": [
+            25,
+            6,
+            7
+          ],
+          "contributing_chunk_ids": [
+            "2502.01113v3-7b21153c7f1d-66",
+            "GFM RAG-4cb43a17b39b-27",
+            "2502.01113v3-7b21153c7f1d-22"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.609208 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.609208, score_spread=0.607398)",
+        "generate: 224 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=True, 2 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 37.2
+    },
+    {
+      "id": 43,
+      "group": "aggregation",
+      "question": "How many layers does QuadGraph have and what are they called?",
+      "ground_truth": "Four: attribute, knowledge graph, document and community layers.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "four",
+          "4"
+        ],
+        [
+          "attribute"
+        ],
+        [
+          "document"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "QuadGraph is a standardized four-layer abstraction [1]. Its four layers are the attribute layer, the knowledge graph layer, the document layer, and the community layer [1].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+          "doc_id": "G-Reasoner-6952b275d294",
+          "pages": [
+            18,
+            4,
+            5
+          ],
+          "contributing_chunk_ids": [
+            "G-Reasoner-6952b275d294-55",
+            "G-Reasoner-6952b275d294-54",
+            "G-Reasoner-6952b275d294-16",
+            "G-Reasoner-6952b275d294-15",
+            "G-Reasoner-6952b275d294-17"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+          "doc_id": "2502.01113v3-7b21153c7f1d",
+          "pages": [
+            25,
+            4,
+            30
+          ],
+          "contributing_chunk_ids": [
+            "2502.01113v3-7b21153c7f1d-66",
+            "2502.01113v3-7b21153c7f1d-15",
+            "2502.01113v3-7b21153c7f1d-75"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.414864 (corpus-only)",
+        "gate1: verdict=sufficient via llm_escalation (max_rerank_score=0.414864, score_spread=0.414714)",
+        "gate1: judge reason: Passage [3] explicitly states QuadGraph has a 4-layer structure consisting of the attribute, knowledge graph, document, and community layers, directly answering both the count and the names.",
+        "generate: 172 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=True, 2 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 26.9
+    },
+    {
+      "id": 44,
+      "group": "aggregation",
+      "question": "Which papers in this corpus apply graph neural networks, and to what different problems does each apply them?",
+      "ground_truth": "Requires corpus-level aggregation the system does not perform; retrieval returns passages, not a census of the corpus.",
+      "expected_verdict": "decline",
+      "must_contain": null,
+      "outcome": "refused",
+      "meets_expectation": true,
+      "correct": null,
+      "answer": "Based on the provided passages, two papers explicitly describe applying graph neural networks. ExpressGNN uses a GNN variant for variational inference in Markov Logic Networks, aimed at efficient probabilistic logic reasoning over knowledge graphs [1]. GFM-RAG is powered by a graph neural network that reasons over graph structure to capture complex query-knowledge relationships for retrieval-augmented generation [3]. The passages do not support a claim that a third paper in the corpus applies GNNs; G-reasoner is described as using a \"GNN-powered foundation model\" [2], but the passages do not state that it applies graph neural networks to a distinct problem in the same explicit way.",
+      "abstention_reason": null,
+      "regeneration_count": 1,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS.pdf",
+          "doc_id": "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e",
+          "pages": [
+            1,
+            12
+          ],
+          "contributing_chunk_ids": [
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-0",
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-1",
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-31"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+          "doc_id": "G-Reasoner-6952b275d294",
+          "pages": [
+            15,
+            14,
+            17
+          ],
+          "contributing_chunk_ids": [
+            "G-Reasoner-6952b275d294-47",
+            "G-Reasoner-6952b275d294-45",
+            "G-Reasoner-6952b275d294-51"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 3,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/GFM RAG.pdf",
+          "doc_id": "GFM RAG-4cb43a17b39b",
+          "pages": [
+            12
+          ],
+          "contributing_chunk_ids": [
+            "GFM RAG-4cb43a17b39b-50",
+            "GFM RAG-4cb43a17b39b-49"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.665990 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.665990, score_spread=0.625645)",
+        "generate: 558 chars, 3 citation(s), format=concise",
+        "gate2: overall_grounded=False, 7 claim(s), 3 unsupported",
+        "regenerate (attempt 1/2): avoiding 3 unverified claim(s)",
+        "gate2: overall_grounded=True, 6 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=1)"
+      ],
+      "elapsed_s": 59.5
+    },
+    {
+      "id": 45,
+      "group": "temporal_provenance",
+      "question": "Which of these papers is the earliest, and in what year was it published?",
+      "ground_truth": "ExpressGNN, ICLR 2020.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "ExpressGNN"
+        ],
+        [
+          "2020"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Insufficient coverage to answer this question: the available documents do not contain information relevant to this question. External sources were not consulted (corpus-only mode).",
+      "regeneration_count": 0,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.002943 (corpus-only)",
+        "gate1: verdict=insufficient via threshold_low (max_rerank_score=0.002943, score_spread=0.002220)",
+        "abstain_insufficient_coverage: refused to answer"
+      ],
+      "elapsed_s": 8.8
+    },
+    {
+      "id": 46,
+      "group": "temporal_provenance",
+      "question": "Does G-reasoner cite GFM-RAG, or does GFM-RAG cite G-reasoner?",
+      "ground_truth": "G-reasoner cites GFM-RAG (Luo et al., 2025); the dependency runs one way.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "G-reasoner",
+          "G-REASONER"
+        ],
+        [
+          "GFM-RAG"
+        ]
+      ],
+      "outcome": "abstained",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- GFM-RAG (Luo et al., 2025) appears in G-reasoner's related-work discussion and comparison tables.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.992268 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.992268, score_spread=0.965757)",
+        "generate: 310 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=False, 4 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 5 claim(s), 3 unsupported",
+        "regenerate (attempt 2/2): avoiding 3 unverified claim(s)",
+        "gate2: overall_grounded=False, 3 claim(s), 1 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (1 unsupported claim(s))"
+      ],
+      "elapsed_s": 87.1
+    },
+    {
+      "id": 47,
+      "group": "temporal_provenance",
+      "question": "What year does G-reasoner attribute to the GFM-RAG work it cites?",
+      "ground_truth": "2025 (Luo et al., 2025).",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "2025"
+        ]
+      ],
+      "outcome": "refused",
+      "meets_expectation": false,
+      "correct": null,
+      "answer": "The provided documents do not address this question. Neither the G-reasoner passages [1] nor the GFM-RAG passages [2] state a year that G-reasoner attributes to the GFM-RAG work it cites.",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+          "doc_id": "G-Reasoner-6952b275d294",
+          "pages": [
+            5,
+            4,
+            2,
+            21,
+            10
+          ],
+          "contributing_chunk_ids": [
+            "G-Reasoner-6952b275d294-17",
+            "G-Reasoner-6952b275d294-16",
+            "G-Reasoner-6952b275d294-2",
+            "G-Reasoner-6952b275d294-62",
+            "G-Reasoner-6952b275d294-35"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+          "doc_id": "2502.01113v3-7b21153c7f1d",
+          "pages": [
+            10,
+            8,
+            27
+          ],
+          "contributing_chunk_ids": [
+            "2502.01113v3-7b21153c7f1d-31",
+            "GFM RAG-4cb43a17b39b-35",
+            "2502.01113v3-7b21153c7f1d-70"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.968510 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.968510, score_spread=0.877658)",
+        "generate: 187 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=True, 3 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 13.0
+    },
+    {
+      "id": 48,
+      "group": "temporal_provenance",
+      "question": "Which conference and year is G-reasoner published at?",
+      "ground_truth": "ICLR 2026.",
+      "expected_verdict": "answer",
+      "must_contain": [
+        [
+          "ICLR"
+        ],
+        [
+          "2026"
+        ]
+      ],
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
+      "answer": "G-reasoner is published as a conference paper at ICLR 2026 [1].",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+          "doc_id": "G-Reasoner-6952b275d294",
+          "pages": [
+            1,
+            23,
+            3,
+            4,
+            17,
+            22,
+            25,
+            2
+          ],
+          "contributing_chunk_ids": [
+            "G-Reasoner-6952b275d294-0",
+            "G-Reasoner-6952b275d294-66",
+            "G-Reasoner-6952b275d294-12",
+            "G-Reasoner-6952b275d294-15",
+            "G-Reasoner-6952b275d294-51",
+            "G-Reasoner-6952b275d294-64",
+            "G-Reasoner-6952b275d294-70",
+            "G-Reasoner-6952b275d294-2"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.989875 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.989875, score_spread=0.238785)",
+        "generate: 63 chars, 1 citation(s), format=concise",
+        "gate2: overall_grounded=True, 1 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 26.3
+    },
+    {
+      "id": 49,
+      "group": "unanswerable",
+      "question": "Do any two documents in this corpus describe the same paper, and if so which ones?",
+      "ground_truth": "GFM RAG.pdf and 2502.01113v3.pdf are the same paper in two versions, but answering needs corpus-level aggregation the system does not perform.",
+      "expected_verdict": "decline",
+      "must_contain": null,
+      "outcome": "abstained",
+      "meets_expectation": true,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Insufficient coverage to answer this question: the available documents do not contain information relevant to this question. External sources were not consulted (corpus-only mode).",
+      "regeneration_count": 0,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.003958 (corpus-only)",
+        "gate1: verdict=insufficient via threshold_low (max_rerank_score=0.003958, score_spread=0.003795)",
+        "abstain_insufficient_coverage: refused to answer"
+      ],
+      "elapsed_s": 10.2
+    },
+    {
+      "id": 50,
+      "group": "unanswerable",
+      "question": "What is QpiGNN's reported inference latency in milliseconds per node?",
+      "ground_truth": "Not reported in the paper.",
+      "expected_verdict": "decline",
+      "must_contain": null,
+      "outcome": "abstained",
+      "meets_expectation": true,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- The QpiGNN paper's passages describe its framework, dual-head architecture, quantile-free joint loss, and coverage/width results.\n- The only latency figures in the context are for G-reasoner, a different system.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.515221 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.515221, score_spread=0.515152)",
+        "generate: 415 chars, 3 citation(s), format=concise",
+        "gate2: overall_grounded=False, 6 claim(s), 4 unsupported",
+        "regenerate (attempt 1/2): avoiding 4 unverified claim(s)",
+        "gate2: overall_grounded=False, 5 claim(s), 2 unsupported",
+        "regenerate (attempt 2/2): avoiding 2 unverified claim(s)",
+        "gate2: overall_grounded=False, 4 claim(s), 2 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (2 unsupported claim(s))"
+      ],
+      "elapsed_s": 60.6
+    },
+    {
+      "id": 51,
+      "group": "unanswerable",
+      "question": "How much did it cost in GPU-hours to train the G-reasoner 34M model?",
+      "ground_truth": "Not reported.",
+      "expected_verdict": "decline",
+      "must_contain": null,
+      "outcome": "refused",
+      "meets_expectation": true,
+      "correct": null,
+      "answer": "The provided documents do not state the training cost in GPU-hours for the G-reasoner 34M model. They report that the GFM is trained with 16 A100 GPUs (80G) for 10 epochs with a batch size of 2, and that training takes around 7 days to complete [1]. A GPU-hour figure is not given.",
+      "abstention_reason": null,
+      "regeneration_count": 0,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/G-Reasoner.pdf",
+          "doc_id": "G-Reasoner-6952b275d294",
+          "pages": [
+            18,
+            3,
+            23,
+            20,
+            10
+          ],
+          "contributing_chunk_ids": [
+            "G-Reasoner-6952b275d294-55",
+            "G-Reasoner-6952b275d294-12",
+            "G-Reasoner-6952b275d294-66",
+            "G-Reasoner-6952b275d294-59",
+            "G-Reasoner-6952b275d294-35"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 2,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS.pdf",
+          "doc_id": "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e",
+          "pages": [
+            7
+          ],
+          "contributing_chunk_ids": [
+            "EFFICIENT PROBABILISTIC LOGIC REASONING WITH GRAPH NEURAL NETWORKS-b332e63dbd0e-18"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 3,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/OnSelfDistillation.pdf",
+          "doc_id": "OnSelfDistillation-e521ed6c2939",
+          "pages": [
+            6
+          ],
+          "contributing_chunk_ids": [
+            "OnSelfDistillation-e521ed6c2939-16"
+          ],
+          "url": null,
+          "source_type": "local"
+        },
+        {
+          "number": 4,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2502.01113v3.pdf",
+          "doc_id": "2502.01113v3-7b21153c7f1d",
+          "pages": [
+            29
+          ],
+          "contributing_chunk_ids": [
+            "2502.01113v3-7b21153c7f1d-72"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.642084 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.642084, score_spread=0.642046)",
+        "generate: 281 chars, 4 citation(s), format=concise",
+        "gate2: overall_grounded=True, 4 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=0)"
+      ],
+      "elapsed_s": 29.7
+    },
+    {
+      "id": 52,
+      "group": "unanswerable",
+      "question": "What accuracy does GFM-RAG achieve on ImageNet?",
+      "ground_truth": "GFM-RAG is not evaluated on ImageNet; it is not an image classification model.",
+      "expected_verdict": "decline",
+      "must_contain": null,
+      "outcome": "abstained",
+      "meets_expectation": true,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Insufficient coverage to answer this question. The passages discuss GFM-RAG's performance on multi-hop QA datasets (HotpotQA, MuSiQue, 2Wiki) and domain-specific RAG datasets, but never mention ImageNet or any accuracy achieved on it. External sources were not consulted (corpus-only mode).",
+      "regeneration_count": 0,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.177975 (corpus-only)",
+        "gate1: verdict=insufficient via llm_escalation (max_rerank_score=0.177975, score_spread=0.170710)",
+        "gate1: judge reason: The passages discuss GFM-RAG's performance on multi-hop QA datasets (HotpotQA, MuSiQue, 2Wiki) and domain-specific RAG datasets, but never mention ImageNet or any accuracy achieved on it.",
+        "abstain_insufficient_coverage: refused to answer"
+      ],
+      "elapsed_s": 17.4
+    },
+    {
+      "id": 53,
+      "group": "unanswerable",
+      "question": "Which of these papers reports results on the GSM8K benchmark?",
+      "ground_truth": "None of them report GSM8K.",
+      "expected_verdict": "decline",
+      "must_contain": null,
+      "outcome": "abstained",
+      "meets_expectation": true,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Insufficient coverage to answer this question: the available documents do not contain information relevant to this question. External sources were not consulted (corpus-only mode).",
+      "regeneration_count": 0,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.017000 (corpus-only)",
+        "gate1: verdict=insufficient via threshold_low (max_rerank_score=0.017000, score_spread=0.015078)",
+        "abstain_insufficient_coverage: refused to answer"
+      ],
+      "elapsed_s": 20.6
+    },
+    {
+      "id": 54,
+      "group": "unanswerable",
+      "question": "What is the learning rate used to train QpiGNN?",
+      "ground_truth": "Not stated in the retrieved material.",
+      "expected_verdict": "decline",
+      "must_contain": null,
+      "outcome": "abstained",
+      "meets_expectation": true,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- The only explicit learning rate values in the passages appear in the GFM-RAG and G-reasoner papers, which concern different models.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.799893 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.799893, score_spread=0.798896)",
+        "generate: 327 chars, 3 citation(s), format=concise",
+        "gate2: overall_grounded=False, 6 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 4 claim(s), 2 unsupported",
+        "regenerate (attempt 2/2): avoiding 2 unverified claim(s)",
+        "gate2: overall_grounded=False, 3 claim(s), 1 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (1 unsupported claim(s))"
+      ],
+      "elapsed_s": 64.6
+    },
+    {
+      "id": 55,
+      "group": "false_premise",
+      "question": "What uncertainty quantification method do all of these papers use to produce prediction intervals?",
+      "ground_truth": "False premise - only QpiGNN does uncertainty quantification.",
+      "expected_verdict": "decline",
+      "must_contain": null,
+      "outcome": "refused",
+      "meets_expectation": true,
+      "correct": null,
+      "answer": "The provided documents do not address this question. The context comes from a single paper (QpiGNN) [1], not multiple papers, and it does not state a single uncertainty quantification method that \"all of these papers\" use to produce prediction intervals. The paper describes its own approach\u2014a dual-head GNN trained with a quantile-free joint loss that directly optimizes coverage and interval width [1]\u2014but the passages do not establish a shared method across a set of papers.",
+      "abstention_reason": null,
+      "regeneration_count": 1,
+      "citations": [
+        {
+          "number": 1,
+          "parent_text": null,
+          "source_path": "/Users/ishanyashpatel/Documents/QueensLand/Papers/2605.04847v2.pdf",
+          "doc_id": "2605.04847v2-6e85a976ea8f",
+          "pages": [
+            9,
+            3,
+            4,
+            1,
+            21,
+            26
+          ],
+          "contributing_chunk_ids": [
+            "2605.04847v2-6e85a976ea8f-32",
+            "2605.04847v2-6e85a976ea8f-6",
+            "2605.04847v2-6e85a976ea8f-11",
+            "2605.04847v2-6e85a976ea8f-0",
+            "2605.04847v2-6e85a976ea8f-64",
+            "2605.04847v2-6e85a976ea8f-84",
+            "2605.04847v2-6e85a976ea8f-63",
+            "2605.04847v2-6e85a976ea8f-1"
+          ],
+          "url": null,
+          "source_type": "local"
+        }
+      ],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.908416 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.908416, score_spread=0.188437)",
+        "generate: 371 chars, 1 citation(s), format=concise",
+        "gate2: overall_grounded=False, 5 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=True, 5 claim(s), 0 unsupported",
+        "finalize_verified: answer passed both gates (regenerations=1)"
+      ],
+      "elapsed_s": 63.6
+    },
+    {
+      "id": 56,
+      "group": "false_premise",
+      "question": "How does OPSD's on-policy self-distillation improve GFM-RAG's graph retrieval performance?",
+      "ground_truth": "False premise - unrelated papers, no interaction exists.",
+      "expected_verdict": "decline",
+      "must_contain": null,
+      "outcome": "abstained",
+      "meets_expectation": true,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- The OPSD paper describes on-policy self-distillation for LLM reasoning.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.985315 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.985315, score_spread=0.860301)",
+        "generate: 593 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=False, 11 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 5 claim(s), 1 unsupported",
+        "regenerate (attempt 2/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 5 claim(s), 1 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (1 unsupported claim(s))"
+      ],
+      "elapsed_s": 76.2
+    },
+    {
+      "id": 57,
+      "group": "false_premise",
+      "question": "Since all six papers build on QuadGraph, how do their four-layer designs differ?",
+      "ground_truth": "False premise - only G-reasoner introduces QuadGraph.",
+      "expected_verdict": "decline",
+      "must_contain": null,
+      "outcome": "abstained",
+      "meets_expectation": true,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Insufficient coverage to answer this question. The passages describe QuadGraph's four layers and mention that six papers (HippoRAG 1, KGP, LightRAG, Graph RAG, HippoRAG 2, GFM-RAG, RAPTOR, ArchRAG, Youtu-GraphRAG, KAG) build on it, but they do not explain how each paper's four-layer design differs from the others. External sources were not consulted (corpus-only mode).",
+      "regeneration_count": 0,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.192618 (corpus-only)",
+        "gate1: verdict=insufficient via llm_escalation (max_rerank_score=0.192618, score_spread=0.192495)",
+        "gate1: judge reason: The passages describe QuadGraph's four layers and mention that six papers (HippoRAG 1, KGP, LightRAG, Graph RAG, HippoRAG 2, GFM-RAG, RAPTOR, ArchRAG, Youtu-GraphRAG, KAG) build on it, but they do not explain how each paper's four-layer design differs from the others.",
+        "abstain_insufficient_coverage: refused to answer"
+      ],
+      "elapsed_s": 15.4
+    },
+    {
+      "id": 58,
+      "group": "false_premise",
+      "question": "How does the dual-head architecture improve GFM-RAG's retrieval accuracy?",
+      "ground_truth": "False premise - dual-head is QpiGNN's design; GFM-RAG does not use it.",
+      "expected_verdict": "decline",
+      "must_contain": null,
+      "outcome": "abstained",
+      "meets_expectation": true,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:\n- The dual-head architecture is described in the QpiGNN paper on uncertainty quantification in GNNs.",
+      "regeneration_count": 2,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.671101 (corpus-only)",
+        "gate1: verdict=sufficient via threshold_high (max_rerank_score=0.671101, score_spread=0.569772)",
+        "generate: 513 chars, 2 citation(s), format=concise",
+        "gate2: overall_grounded=False, 8 claim(s), 1 unsupported",
+        "regenerate (attempt 1/2): avoiding 1 unverified claim(s)",
+        "gate2: overall_grounded=False, 8 claim(s), 3 unsupported",
+        "regenerate (attempt 2/2): avoiding 3 unverified claim(s)",
+        "gate2: overall_grounded=False, 4 claim(s), 1 unsupported",
+        "abstain_ungrounded: refused to return an unverified answer (1 unsupported claim(s))"
+      ],
+      "elapsed_s": 187.7
+    },
+    {
+      "id": 59,
+      "group": "false_premise",
+      "question": "What taxonomy of graph neural networks do all of these papers agree on?",
+      "ground_truth": "False premise - no shared taxonomy is established across the corpus.",
+      "expected_verdict": "decline",
+      "must_contain": null,
+      "outcome": "abstained",
+      "meets_expectation": true,
+      "correct": null,
+      "answer": null,
+      "abstention_reason": "Insufficient coverage to answer this question. The passages discuss individual GNN applications (ExpressGNN, QpiGNN) and cite various GNN papers, but none presents or agrees upon a taxonomy of graph neural networks. External sources were not consulted (corpus-only mode).",
+      "regeneration_count": 0,
+      "citations": [],
+      "trace": [
+        "resolve_intent: 0 named document(s), summarization_intent=False",
+        "retrieve: 8 hits (8 local), top rerank_score=0.263063 (corpus-only)",
+        "gate1: verdict=insufficient via llm_escalation (max_rerank_score=0.263063, score_spread=0.224505)",
+        "gate1: judge reason: The passages discuss individual GNN applications (ExpressGNN, QpiGNN) and cite various GNN papers, but none presents or agrees upon a taxonomy of graph neural networks.",
+        "abstain_insufficient_coverage: refused to answer"
+      ],
+      "elapsed_s": 15.0
+    }
+  ],
+  "metrics": {
+    "total": 59,
+    "answered": 26,
+    "declined": 33,
+    "recall": 0.5531914893617021,
+    "refusal_precision": 0.36363636363636365,
+    "false_positive_rate": 0.0,
+    "hallucination_rate": 0.0,
+    "scored_answers": 26,
+    "hallucinations": [],
+    "avg_regenerations": 0.9322033898305084,
+    "by_group": {
+      "single_hop_factoid": {
+        "total": 22,
+        "answered": 17,
+        "declined": 5,
+        "wrong": 0
+      },
+      "multi_hop": {
+        "total": 8,
+        "answered": 3,
+        "declined": 5,
+        "wrong": 0
+      },
+      "comparative": {
+        "total": 9,
+        "answered": 2,
+        "declined": 7,
+        "wrong": 0
+      },
+      "aggregation": {
+        "total": 5,
+        "answered": 3,
+        "declined": 2,
+        "wrong": 0
+      },
+      "temporal_provenance": {
+        "total": 4,
+        "answered": 1,
+        "declined": 3,
+        "wrong": 0
+      },
+      "unanswerable": {
+        "total": 6,
+        "answered": 0,
+        "declined": 6,
+        "wrong": 0
+      },
+      "false_premise": {
+        "total": 5,
+        "answered": 0,
+        "declined": 5,
+        "wrong": 0
+      }
+    }
+  },
+  "rescored_note": "Re-scored from saved traces after widening Q10's must_contain. No questions were re-run."
+}

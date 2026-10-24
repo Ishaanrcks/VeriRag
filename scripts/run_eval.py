@@ -103,7 +103,15 @@ def main() -> int:
         json.loads(Path(args.baseline).read_text()) if args.baseline else None
     )
 
-    payload = run_question_set(question_set, args.store, only_ids=only_ids)
+    checkpoint = (
+        Path(args.out_dir)
+        / f"{question_set.get('name', 'eval')}_PARTIAL.json"
+    )
+    Path(args.out_dir).mkdir(parents=True, exist_ok=True)
+    print(f"checkpointing after each question to {checkpoint}")
+    payload = run_question_set(
+        question_set, args.store, only_ids=only_ids, checkpoint_path=checkpoint
+    )
     traces, report = write_outputs(payload, args.out_dir, baseline)
 
     m = payload["metrics"]

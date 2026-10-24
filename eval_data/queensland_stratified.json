@@ -1,7 +1,7 @@
 {
   "name": "queensland_stratified",
   "corpus": "/Users/ishanyashpatel/Documents/QueensLand",
-  "scope_note": "59 questions, a deliberate reduction from the MVP spec's ~100, scoped to what 6 papers can genuinely support. Documented as a dev-time scope choice in the same spirit as the spec's other stated shortcuts. The spec's 'temporal' stratum does not fit an academic-paper corpus (no time series), so it is substituted with temporal_provenance: publication years and the citation direction between papers, which are genuine time-ordered facts the corpus does contain. Unanswerable + false_premise = 11/59 (19%), matching the spec's ~20%.",
+  "scope_note": "59 questions, a deliberate reduction from the MVP spec's ~100, scoped to what 6 papers can genuinely support. Documented as a dev-time scope choice in the same spirit as the spec's other stated shortcuts. The spec's 'temporal' stratum does not fit an academic-paper corpus (no time series), so it is substituted with temporal_provenance: publication years and the citation direction between papers, which are genuine time-ordered facts the corpus does contain. Unanswerable + false_premise = 11/59 (19%), matching the spec's ~20%. NOTE: Q10's must_contain was widened after the 2026-10-24 run to cover equivalent surface forms; see that question's note.",
   "strata_counts": {
     "single_hop_factoid": 22,
     "multi_hop": 8,
@@ -168,9 +168,14 @@
           "reasoning trace",
           "verified reasoning",
           "ground-truth solution",
-          "ground truth solution"
+          "ground truth solution",
+          "ground-truth answer",
+          "ground truth answer",
+          "chain-of-thought",
+          "chain of thought"
         ]
-      ]
+      ],
+      "note": "must_contain widened after the 2026-10-24 run: the original list omitted 'ground-truth answer' and 'chain-of-thought', which are correct surface forms of the same fact, producing a spurious hallucination flag."
     },
     {
       "id": 11,
