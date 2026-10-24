@@ -1,3 +1,15 @@
+---
+title: VeriRAG
+emoji: 🔬
+colorFrom: blue
+colorTo: indigo
+sdk: streamlit
+sdk_version: 1.66.1
+app_file: src/verirag/ui/app.py
+pinned: false
+license: mit
+---
+
 # VeriRAG
 
 A self-verifying document question-answering system. Ask a question about your

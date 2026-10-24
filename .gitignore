@@ -16,6 +16,11 @@ eval/results/*
 # Isolated eval stores (vector DB + index binaries); reports/traces are tracked
 eval_store/
 
+# Demo corpus (track README + .gitkeep, ignore the PDFs/TXT/MD/DOCX placed here)
+demo_corpus/*
+!demo_corpus/.gitkeep
+!demo_corpus/README.md
+
 # Transient per-question eval checkpoint, rewritten during a run
 eval_results/*_PARTIAL.json
 

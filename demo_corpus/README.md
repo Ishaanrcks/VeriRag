@@ -1,0 +1,1 @@
+Place the 5–6 academic PDFs used for the Queensland eval here before running scripts/ingest_demo.py. These files are NOT committed to the repo to keep the clone small; the user must copy them in. For the live HF Space, the maintainer ingests the demo corpus once and saves the resulting data/chroma/ state (see deploy notes in docs/).

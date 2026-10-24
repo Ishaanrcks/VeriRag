@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 from pathlib import Path
 
 import streamlit as st
@@ -46,6 +47,11 @@ STATIC_EXAMPLES = [
     "What are the main contributions?",
 ]
 
+# Demo mode gates the public HF Space: fixed pre-ingested corpus, uploads
+# disabled, and a per-session query cap. Local runs leave it off.
+DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
+MAX_QUERIES_PER_SESSION = int(os.getenv("MAX_QUERIES_PER_SESSION", "15"))
+
 st.set_page_config(page_title="VeriRAG", page_icon="🔎", layout="wide")
 
 
@@ -68,6 +74,8 @@ def _save_upload(uploaded_file) -> Path:
 
 def _refresh_corpus() -> None:
     try:
+        # DEMO_MODE uses a fixed pre-ingested corpus shared across sessions.
+        # For multi-tenant production, each session would need its own collection.
         st.session_state["corpus"] = list_ingested_documents()
     except Exception as exc:  # noqa: BLE001 - UI must survive a store error
         logger.warning("Could not list corpus: %s", exc)
@@ -109,34 +117,39 @@ def _render_system_stats() -> None:
 def _render_sidebar() -> None:
     st.sidebar.header("Corpus")
 
-    uploads = st.sidebar.file_uploader(
-        "Upload documents",
-        type=SUPPORTED_TYPES,
-        accept_multiple_files=True,
-        help="PDF, DOCX, PPTX, TXT or MD. Figures in PDFs get captioned.",
-    )
+    if not DEMO_MODE:
+        uploads = st.sidebar.file_uploader(
+            "Upload documents",
+            type=SUPPORTED_TYPES,
+            accept_multiple_files=True,
+            help="PDF, DOCX, PPTX, TXT or MD. Figures in PDFs get captioned.",
+        )
 
-    if st.sidebar.button("Ingest uploaded files", disabled=not uploads):
-        for uploaded_file in uploads or []:
-            try:
-                saved_path = _save_upload(uploaded_file)
-                with st.spinner(f"Ingesting {uploaded_file.name}..."):
-                    result = ingest_file(saved_path)
-            except Exception as exc:  # noqa: BLE001 - report, keep going
-                logger.exception("Ingestion failed for %s", uploaded_file.name)
-                st.sidebar.error(f"{uploaded_file.name}: {exc}")
-                continue
+        if st.sidebar.button("Ingest uploaded files", disabled=not uploads):
+            for uploaded_file in uploads or []:
+                try:
+                    saved_path = _save_upload(uploaded_file)
+                    with st.spinner(f"Ingesting {uploaded_file.name}..."):
+                        result = ingest_file(saved_path)
+                except Exception as exc:  # noqa: BLE001 - report, keep going
+                    logger.exception("Ingestion failed for %s", uploaded_file.name)
+                    st.sidebar.error(f"{uploaded_file.name}: {exc}")
+                    continue
 
-            if result.skipped:
-                st.sidebar.info(
-                    f"{uploaded_file.name}: already in corpus (skipped)"
-                )
-            else:
-                st.sidebar.success(
-                    f"{uploaded_file.name}: {result.num_text_chunks} text + "
-                    f"{result.num_figure_chunks} figure chunk(s)"
-                )
-        _refresh_corpus()
+                if result.skipped:
+                    st.sidebar.info(
+                        f"{uploaded_file.name}: already in corpus (skipped)"
+                    )
+                else:
+                    st.sidebar.success(
+                        f"{uploaded_file.name}: {result.num_text_chunks} text + "
+                        f"{result.num_figure_chunks} figure chunk(s)"
+                    )
+            _refresh_corpus()
+    else:
+        st.sidebar.caption(
+            "📎 Uploads disabled in demo. Run locally to ingest your own documents."
+        )
 
     st.sidebar.subheader("Your corpus")
     if "corpus" not in st.session_state:
@@ -169,6 +182,7 @@ def _render_verification_row(result) -> None:
         result.gate1_verdict.verdict == "sufficient" else "Gate 1 coverage"
     gate2 = "Gate 2 groundedness ✓" if result.gate2_verdict and \
         result.gate2_verdict.overall_grounded else "Gate 2 groundedness"
+    # safe: no variable interpolation (gate1/gate2 are fixed string literals)
     st.markdown(
         f"<span style='background:#1b5e20;color:#fff;padding:3px 9px;"
         f"border-radius:11px;font-size:0.82em'>{gate1}</span>"
@@ -359,7 +373,20 @@ def _render_main() -> None:
             ),
         )
 
-    if st.button("Ask", type="primary", disabled=not (query or "").strip()):
+    query_count = st.session_state.get("query_count", 0)
+    limit_reached = DEMO_MODE and query_count >= MAX_QUERIES_PER_SESSION
+    if limit_reached:
+        st.warning(
+            "Demo query limit reached (15/session). Refresh to start a new "
+            "session, or run the project locally for unlimited queries."
+        )
+
+    if st.button(
+        "Ask",
+        type="primary",
+        disabled=limit_reached or not (query or "").strip(),
+    ):
+        st.session_state["query_count"] = query_count + 1
         with st.spinner("Thinking..."):
             try:
                 result = run_query(
@@ -382,6 +409,14 @@ def _render_main() -> None:
 
 
 def main() -> None:
+    if DEMO_MODE:
+        st.info(
+            "🔬 **VeriRAG Demo** · Pre-ingested corpus of 5 academic NLP papers. "
+            "This demo runs against a fixed corpus; uploads are disabled. "
+            "Source: [github.com/YOUR_GITHUB_HANDLE/veri-rag]"
+            "(https://github.com/YOUR_GITHUB_HANDLE/veri-rag)",
+            icon=None,
+        )
     _render_sidebar()
     _render_main()
 
