@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     # Images smaller than this (in either dimension, px) are treated as
     # logos/icons/bullets and skipped rather than captioned.
     min_figure_dimension_px: int = 150
+    # Where raw figure image bytes extracted from PDFs are persisted, so the
+    # UI can display the real figure above its caption. Sits alongside the
+    # other ./data stores (chroma, processed) and is relative to the project
+    # root, matching chroma_persist_dir's convention.
+    images_dir: str = "./data/images"
     # Parent ("big") text attached to each chunk for small-to-big generation,
     # truncated to this many characters.
     parent_text_max_chars: int = 6000

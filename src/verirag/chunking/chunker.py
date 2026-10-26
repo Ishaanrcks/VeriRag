@@ -3,8 +3,13 @@
 ``chunk_documents`` splits only ``content_type == "text"`` Documents using a
 recursive-structural splitter (paragraph -> line -> sentence -> word -> hard
 cut) with a tiktoken-based token length function, then runs a merge pass to
-fold undersized chunks into a neighbour. ``figure_caption`` Documents are
-passed through untouched as a single chunk each (they are already short).
+fold undersized chunks into a neighbour. ``figure_caption`` and ``table``
+Documents are atomic: they pass through untouched as a single chunk each. A
+caption is already short, and a markdown table must stay whole -- splitting it
+across chunks (or merging a small one into a neighbour) destroys its structure.
+Routing both through the atomic branch keeps them out of the splitter AND out
+of the sub-minimum merge pass, which only ever runs over a text Document's
+split pieces.
 
 Token counting uses tiktoken's ``cl100k_base`` purely as a cheap, consistent
 proxy for chunk size -- it need not match DeepSeek's or BGE's tokenizer.
@@ -25,6 +30,10 @@ from verirag.config import settings
 _SEPARATORS = ["\n\n\n", "\n\n", "\n", ". ", " ", ""]
 
 _ENCODING = tiktoken.get_encoding("cl100k_base")
+
+# Content types kept as a single, unsplit chunk: a figure caption is already
+# short, and a markdown table is atomic (splitting or merging destroys it).
+_ATOMIC_CONTENT_TYPES = {"figure_caption", "table"}
 
 
 def count_tokens(text: str) -> int:
@@ -90,8 +99,9 @@ def chunk_documents(documents: list[Document]) -> list[Document]:
     for doc_id, parents in groups.items():
         index = 0
         for parent in parents:
-            if parent.metadata.get("content_type") == "figure_caption":
-                # Already short; keep as a single chunk, do not re-split.
+            if parent.metadata.get("content_type") in _ATOMIC_CONTENT_TYPES:
+                # Figure caption / table: keep as a single chunk, never split
+                # and never merge (both would destroy an atomic unit).
                 chunks.append(_make_chunk(parent, parent.page_content, doc_id, index))
                 index += 1
                 continue
