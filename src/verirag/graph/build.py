@@ -76,6 +76,13 @@ class VeriRAGResult:
     estimated_cost_usd: float = 0.0
     gate1_verdict: Gate1Verdict | None = None
     gate2_verdict: Gate2Verdict | None = None
+    # Citations from the last generation attempt. On ``verified`` this
+    # duplicates ``citations``; on ``abstained_ungrounded`` it carries the
+    # citations the generator SAW (``final_citations`` is cleared on that
+    # path), so the UI can surface raw retrieved excerpts to the user instead
+    # of leaving them with nothing. Presentation-only -- zero effect on
+    # scoring, retrieval, or critic behavior.
+    retrieved_citations: list[Citation] = field(default_factory=list)
 
 
 def _route_after_resolve_intent(state: VeriRAGState) -> str:
@@ -300,6 +307,10 @@ def run_query(
     )
     _log_metrics(query, answer_format, corpus_only, final_state)
     derived = _derived_values(final_state)
+    generated_answer = final_state.get("generated_answer")
+    retrieved_citations = (
+        list(generated_answer.citations) if generated_answer else []
+    )
     return VeriRAGResult(
         answer=final_state.get("final_answer"),
         citations=final_state.get("final_citations") or [],
@@ -313,4 +324,5 @@ def run_query(
         estimated_cost_usd=derived["estimated_cost_usd"],
         gate1_verdict=final_state.get("gate1_verdict"),
         gate2_verdict=final_state.get("gate2_verdict"),
+        retrieved_citations=retrieved_citations,
     )

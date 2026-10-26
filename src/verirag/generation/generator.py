@@ -79,6 +79,10 @@ Rules you must follow:
 - Cite every factual claim with the bracketed number of the passage it came
   from, e.g. [1]. If a claim draws on several passages, cite each, e.g. [1][2].
   If you cannot point to a passage for a statement, do not make it.
+  This applies to every factual sentence, including background or contextual
+  statements you believe are well-known -- if you cannot cite a specific
+  retrieved passage for it, omit the sentence rather than stating it without
+  a citation marker.
 - If the passages do not actually address the question -- including when they
   are about a superficially similar but different subject -- say so directly
   and stop. For example: "The provided documents do not address this

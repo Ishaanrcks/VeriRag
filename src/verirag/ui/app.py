@@ -16,6 +16,7 @@ anything.
 from __future__ import annotations
 
 import hashlib
+import html
 import logging
 import os
 from pathlib import Path
@@ -275,6 +276,58 @@ def _answer_markdown(query: str, result) -> str:
     return "\n".join(lines)
 
 
+_MAX_UNVERIFIED_EXCERPTS = 5
+
+
+def _excerpt_source_label(citation) -> str:
+    """Same source/page shape as _render_sources, used above each excerpt."""
+    provenance = _provenance_label(citation.content_types)
+    if citation.source_type == "external":
+        return (
+            f"**[{citation.number}]** 🌐 *external* — "
+            f"[{citation.url}]({citation.url}) · {provenance}"
+        )
+    pages = _page_list(citation.pages)
+    page_text = f" · page(s) {pages}" if pages else ""
+    return (
+        f"**[{citation.number}]** 📄 *local* — "
+        f"`{citation.source_path}`{page_text} · {provenance}"
+    )
+
+
+def _render_unverified_excerpts(citations) -> None:
+    """Verbatim passages from the top retrieved chunks, shown when Gate 2 fails.
+
+    No generation call: the text is the Citation.parent_text already computed
+    for the failed attempt. Variable content is html.escape()'d because chunk
+    text is document-derived, not a fixed literal.
+    """
+    if not citations:
+        return
+
+    top = citations[:_MAX_UNVERIFIED_EXCERPTS]
+
+    st.subheader("Relevant excerpts from your documents")
+    st.caption(
+        "These are unedited passages from your documents related to your "
+        "question. VeriRAG could not construct a fully verified answer from "
+        "them — review them yourself."
+    )
+
+    for citation in top:
+        st.markdown(_excerpt_source_label(citation))
+        # safe: fixed-literal HTML scaffolding; the chunk text IS variable
+        # document-derived content and is html.escape()'d before interpolation.
+        st.markdown(
+            "<div style='border-left:3px solid #b26a00;background:#2a2015;"
+            "color:#f3e9d7;padding:10px 14px;border-radius:4px;"
+            "white-space:pre-wrap;font-size:0.92em;margin:4px 0 12px 0'>"
+            f"{html.escape(citation.parent_text)}"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+
 def _render_abstention(result) -> None:
     """Say WHICH kind of abstention this is, in plain English."""
     if result.outcome == "abstained_ungrounded":
@@ -295,6 +348,14 @@ def _render_abstention(result) -> None:
 
     with st.expander("Why", expanded=True):
         st.write(result.abstention_reason or "No reason recorded.")
+
+    # Only on ungrounded abstention: show the raw retrieved chunks the
+    # generator saw, so the user has something concrete to inspect rather
+    # than nothing. Never shown alongside a verified answer.
+    if result.outcome == "abstained_ungrounded":
+        _render_unverified_excerpts(
+            getattr(result, "retrieved_citations", []) or []
+        )
 
 
 def _render_result(query: str, result) -> None:
