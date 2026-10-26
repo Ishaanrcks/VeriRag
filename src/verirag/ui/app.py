@@ -70,9 +70,12 @@ STATIC_EXAMPLES = [
 # Bundled demo documents (files in demo_corpus/, licensed in
 # demo_corpus/LICENSES.md), shown in the "Sample documents & questions" panel so
 # a new visitor has something to try without uploading anything. Each set spans
-# capabilities: a plain factual lookup, a question whose answer lives in a table
-# or figure, and one the document does NOT answer (to show VeriRAG abstain).
-# NOTE: these become answerable once demo_corpus/ is ingested into the shared
+# capabilities: a plain factual lookup, a broader data question, and one the
+# document does NOT answer (to show VeriRAG abstain). NOTE: these do not
+# guarantee table-grounded citations -- when a document's prose restates its
+# table data, retrieval grounds on the prose (verified for the CDC age-group
+# question); the self-attention complexity example remains the table-viewer demo.
+# These become answerable once demo_corpus/ is ingested into the shared
 # collection (scripts/ingest_demo.py); the research-paper examples above remain.
 DEMO_DOCS = [
     {
@@ -719,9 +722,8 @@ def _render_demo_docs() -> None:
     with st.expander("New here? Sample documents & questions to try"):
         st.caption(
             "Bundled demo documents (see demo_corpus/). Each set has a factual "
-            "lookup, a question answered by a table or figure, and one the "
-            "document does NOT answer — so you can watch VeriRAG abstain rather "
-            "than guess."
+            "lookup, a broader data question, and one the document does NOT "
+            "answer — so you can watch VeriRAG abstain rather than guess."
         )
         for doc_index, doc in enumerate(DEMO_DOCS):
             st.markdown(f"**{doc['name']}**")
