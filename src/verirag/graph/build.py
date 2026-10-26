@@ -50,6 +50,7 @@ from verirag.graph.nodes import (
 )
 from verirag.graph.state import VeriRAGState
 from verirag.observability.metrics import QueryMetricsRecord, log_query_metrics
+from verirag.pipeline_log import LogEvent
 from verirag.observability.tracing import init_tracing
 
 logger = logging.getLogger(__name__)
@@ -84,6 +85,9 @@ class VeriRAGResult:
     # of leaving them with nothing. Presentation-only -- zero effect on
     # scoring, retrieval, or critic behavior.
     retrieved_citations: list[Citation] = field(default_factory=list)
+    # Structured per-stage events (retrieval, context, gates, regeneration,
+    # outcome) for the UI's Pipeline Log tab. Presentation-only.
+    pipeline_log: list[LogEvent] = field(default_factory=list)
 
 
 def _route_after_resolve_intent(state: VeriRAGState) -> str:
@@ -230,6 +234,7 @@ def _initial_state(
         "abstention_reason": None,
         "trace": [],
         "node_timings": [],
+        "pipeline_log": [],
         "resolved_doc_ids": [],
         "is_summarization_intent": False,
         "search_query": None,
@@ -304,7 +309,7 @@ def _log_metrics(
 # Fields whose updates ACCUMULATE across node visits (operator.add in
 # VeriRAGState). Every other field replaces on update, so merging stream
 # updates into one final_state has to respect this difference.
-_ACCUMULATING_STATE_KEYS = ("trace", "node_timings")
+_ACCUMULATING_STATE_KEYS = ("trace", "node_timings", "pipeline_log")
 
 
 def _merge_update(
@@ -351,6 +356,7 @@ def _build_result(
         gate1_verdict=final_state.get("gate1_verdict"),
         gate2_verdict=final_state.get("gate2_verdict"),
         retrieved_citations=retrieved_citations,
+        pipeline_log=list(final_state.get("pipeline_log") or []),
     )
 
 

@@ -28,6 +28,15 @@ from verirag.generation.generator import (
 from verirag.graph.state import VeriRAGState
 from verirag.ingest import ingest_documents
 from verirag.llm.client import chat_completion
+from verirag.pipeline_log import (
+    abstain_event,
+    answer_event,
+    context_event,
+    gate1_event,
+    gate2_event,
+    regen_event,
+    retrieval_event,
+)
 from verirag.retrieval.doc_resolver import (
     detect_summarization_intent,
     resolve_document_references,
@@ -324,6 +333,13 @@ def summarize_document_node(state: VeriRAGState) -> VeriRAGState:
         answer_text = f"{partial_note}{summary.strip()}"
         used_citations = citations
 
+    # Whole-document path: no ranking happens, so the "retrieval" is the
+    # document's chunks in reading order, and the context is its full text.
+    summary_mode = (
+        "single_pass"
+        if len(ordered_text) <= settings.summarization_context_max_chars
+        else "map_reduce"
+    )
     return {
         "generated_answer": GeneratedAnswer(
             answer_text=answer_text,
@@ -332,6 +348,10 @@ def summarize_document_node(state: VeriRAGState) -> VeriRAGState:
             hits_used=chunks,
         ),
         "llm_call_count": llm_calls,
+        "pipeline_log": [
+            retrieval_event(chunks, "Read"),
+            context_event(chunks, ordered_text, mode=summary_mode),
+        ],
         "trace": trace,
     }
 
@@ -370,6 +390,7 @@ def retrieve_node(state: VeriRAGState) -> VeriRAGState:
     top = hits[0].rerank_score if hits else None
     return {
         "hits": hits,
+        "pipeline_log": [retrieval_event(hits)],
         "trace": [
             f"retrieve: {len(hits)} hits ({local_count} local"
             + (f" + {len(external_hits)} freshly fetched" if external_hits else "")
@@ -409,7 +430,21 @@ def gate1_node(state: VeriRAGState) -> VeriRAGState:
             f"{verdict.max_rerank_score:.6f})"
         )
 
-    return {"gate1_verdict": verdict, "llm_call_count": llm_calls, "trace": trace}
+    return {
+        "gate1_verdict": verdict,
+        "llm_call_count": llm_calls,
+        "trace": trace,
+        "pipeline_log": [
+            gate1_event(
+                score=verdict.max_rerank_score,
+                verdict=verdict.verdict,
+                decision_path=verdict.decision_path,
+                threshold_high=settings.gate1_high_threshold,
+                threshold_low=settings.gate1_low_threshold,
+                llm_reason=verdict.llm_reason,
+            )
+        ],
+    }
 
 
 @_timed("fetch_external")
@@ -462,12 +497,16 @@ def fetch_external_node(state: VeriRAGState) -> VeriRAGState:
 @_timed("generate")
 def generate_node(state: VeriRAGState) -> VeriRAGState:
     """Generate a cited answer from the retrieved hits."""
-    answer = generate_answer(
-        state["query"], state.get("hits", []), state["answer_format"]
-    )
+    hits = state.get("hits", [])
+    answer = generate_answer(state["query"], hits, state["answer_format"])
+    # Re-derive the exact context block generate_answer sent to the model.
+    # build_context_block is a pure function of the hits, so this is the same
+    # string; logged for the Pipeline Log tab only.
+    context_block, _ = build_context_block(hits)
     return {
         "generated_answer": answer,
         "llm_call_count": state.get("llm_call_count", 0) + 1,
+        "pipeline_log": [context_event(hits, context_block)],
         "trace": [
             f"generate: {len(answer.answer_text)} chars, "
             f"{len(answer.citations)} citation(s), "
@@ -481,8 +520,12 @@ def gate2_node(state: VeriRAGState) -> VeriRAGState:
     """Gate 2: is every factual claim entailed by its cited evidence?"""
     answer = state["generated_answer"]
     verdict = check_groundedness(answer)
+    hit_types = {
+        hit.chunk_id: hit.metadata.get("content_type") for hit in answer.hits_used
+    }
     return {
         "gate2_verdict": verdict,
+        "pipeline_log": [gate2_event(verdict.claims, hit_types)],
         # Claim extraction is one DeepSeek call; NLI scoring is local.
         "llm_call_count": state.get("llm_call_count", 0) + 1,
         "trace": [
@@ -519,9 +562,15 @@ def regenerate_node(state: VeriRAGState) -> VeriRAGState:
         false_hedge_topics=false_hedge_topics,
     )
     attempt = state.get("regeneration_count", 0) + 1
+    reason = f"Gate 2 found {len(avoid)} unsupported claim(s)"
+    if false_hedge_topics:
+        reason += f" and {len(false_hedge_topics)} false hedge(s)"
     return {
         "generated_answer": answer,
         "regeneration_count": attempt,
+        "pipeline_log": [
+            regen_event(attempt, settings.max_critic_iterations, reason)
+        ],
         "llm_call_count": state.get("llm_call_count", 0) + 1,
         "trace": [
             f"regenerate (attempt {attempt}/{settings.max_critic_iterations}): "
@@ -539,6 +588,7 @@ def finalize_verified_node(state: VeriRAGState) -> VeriRAGState:
         "final_answer": answer.answer_text,
         "final_citations": answer.citations,
         "abstained": False,
+        "pipeline_log": [answer_event(answer.answer_text)],
         "trace": [
             "finalize_verified: answer passed both gates "
             f"(regenerations={state.get('regeneration_count', 0)})"
@@ -584,6 +634,7 @@ def abstain_insufficient_coverage_node(state: VeriRAGState) -> VeriRAGState:
         "abstention_reason": reason,
         "final_answer": None,
         "final_citations": [],
+        "pipeline_log": [abstain_event(reason)],
         "trace": ["abstain_insufficient_coverage: refused to answer"],
     }
 
@@ -609,6 +660,7 @@ def abstain_ungrounded_node(state: VeriRAGState) -> VeriRAGState:
         "abstention_reason": reason,
         "final_answer": None,
         "final_citations": [],
+        "pipeline_log": [abstain_event(reason)],
         "trace": [
             "abstain_ungrounded: refused to return an unverified answer "
             f"({len(unsupported)} unsupported claim(s))"

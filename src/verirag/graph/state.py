@@ -16,6 +16,7 @@ from typing import Annotated, TypedDict
 from verirag.critic.gate1_coverage import Gate1Verdict
 from verirag.critic.gate2_groundedness import Gate2Verdict
 from verirag.generation.generator import AnswerFormat, Citation, GeneratedAnswer
+from verirag.pipeline_log import LogEvent
 from verirag.retrieval.types import SearchHit
 
 
@@ -70,6 +71,9 @@ class VeriRAGState(TypedDict, total=False):
 
     # --- observability ---
     trace: Annotated[list[str], operator.add]
+    # Structured per-stage events for the UI's Pipeline Log tab. Accumulates
+    # like ``trace``; purely additive -- no node reads it.
+    pipeline_log: Annotated[list[LogEvent], operator.add]
     # (node_name, elapsed_ms) per node visit, accumulated the same way as
     # trace. A node visited twice (gate2/regenerate in a loop) contributes two
     # entries under the same name, which is what we want for the latency

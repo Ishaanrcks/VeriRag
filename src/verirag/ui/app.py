@@ -30,6 +30,7 @@ from pathlib import Path
 if os.getenv("DEMO_MODE", "false").lower() != "true":
     os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
+import pandas as pd
 import streamlit as st
 
 from verirag.config import SHARED_SESSION_ID, settings
@@ -43,6 +44,13 @@ from verirag.llm.client import (
 )
 from verirag.loaders.pdf import IMAGES_DIR
 from verirag.observability.metrics import summarize_metrics
+from verirag.pipeline_log import (
+    abstain_parts,
+    gate1_line,
+    gate2_rows,
+    included_lines,
+    retrieval_rows,
+)
 from verirag.retrieval.vector_store import (
     cleanup_stale_sessions,
     get_collection,
@@ -692,6 +700,166 @@ def _render_examples() -> None:
                 st.rerun()
 
 
+# --------------------------------------------------------------------------
+# Pipeline Log tab (presentation only; reads the events the graph recorded)
+# --------------------------------------------------------------------------
+# Subtle cell backgrounds that read in both light and dark themes. Colour (not
+# emoji) carries the type / verdict signal.
+_TYPE_COLORS = {
+    "text": "rgba(100, 149, 237, 0.22)",
+    "table": "rgba(46, 160, 67, 0.25)",
+    "image caption": "rgba(171, 125, 255, 0.25)",
+}
+_VERDICT_COLORS = {
+    "Grounded": "rgba(46, 160, 67, 0.28)",
+    "Ungrounded": "rgba(220, 53, 69, 0.28)",
+    "Excluded": "rgba(128, 128, 128, 0.20)",
+}
+_MAX_CONTEXT_LINES = 15
+
+
+def _count(n: int, noun: str) -> str:
+    return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
+
+
+def _show_table(rows: list[dict], color_columns: dict[str, dict], round_cols=()) -> None:
+    """Render rows as a compact dataframe, colouring badge-like columns."""
+    df = pd.DataFrame(rows)
+    score_cols = [c for c in round_cols if c in df]
+    for column in score_cols:
+        df[column] = df[column].astype("float64").round(3)
+    data = df
+    try:
+        styler = df.style
+        for column, colors in color_columns.items():
+            styler = styler.map(
+                lambda value, c=colors: (
+                    f"background-color: {c[value]}" if value in c else ""
+                ),
+                subset=[column],
+            )
+        # Styler renders floats at 6 decimals by default; pin to 3.
+        styler = styler.format({c: "{:.3f}" for c in score_cols}, na_rep="-")
+        data = styler
+    except Exception:  # noqa: BLE001 - styling is cosmetic; fall back to plain
+        data = df
+    # Narrow fixed-width columns leave the room to the text column (Snippet /
+    # Claim), which would otherwise be clipped by the container edge.
+    widths = {"Rank": "small", "Page": "small", "Type": "small", "Score": "small",
+              "NLI Score": "small", "Source Type": "small", "Verdict": "small",
+              "Document": "medium", "Snippet": "large", "Claim": "large"}
+    config = {c: st.column_config.Column(width=w) for c, w in widths.items()
+              if c in df}
+    st.dataframe(data, hide_index=True, width="stretch", column_config=config)
+
+
+def _render_pipeline_log() -> None:
+    """Structured trace of the most recent query: tables and one-line verdicts,
+    with the exact LLM context available but collapsed."""
+    events = st.session_state.get("pipeline_log")
+    if not events:
+        st.info("Run a query to see the pipeline trace.")
+        return
+
+    def of(stage: str):
+        return [e for e in events if e.stage == stage]
+
+    # -- retrieval --
+    retrievals = of("retrieval")
+    if retrievals:
+        ev = retrievals[-1]
+        verb = ev.summary.split(" ", 1)[0]
+        n_chunks, n_docs = ev.detail["chunk_count"], ev.detail["doc_count"]
+        st.markdown(
+            f"### {verb} — {_count(n_chunks, 'chunk')} from "
+            f"{_count(n_docs, 'document')}"
+        )
+        if len(retrievals) > 1:
+            st.caption(
+                "Retrieval ran again after an external fetch; showing the final "
+                "retrieval."
+            )
+        _show_table(
+            retrieval_rows(ev.detail["chunks"]),
+            {"Type": _TYPE_COLORS},
+            round_cols=("Score",),
+        )
+        st.caption("Score is the cross-encoder rerank score (the value Gate 1 reads).")
+
+    # -- final context --
+    contexts = of("context")
+    if contexts:
+        ev = contexts[-1]
+        included = ev.detail["chunks_included"]
+        st.markdown("### Final context sent to LLM")
+        if ev.detail.get("mode") == "map_reduce":
+            st.caption(
+                "Whole-document summarization (map-reduce): the full document "
+                "text is shown; the model received it as ordered sections."
+            )
+        st.caption(f"{_count(len(included), 'chunk')} included:")
+        lines = included_lines(included)
+        shown = lines[:_MAX_CONTEXT_LINES]
+        st.markdown("\n".join(f"- {line}" for line in shown))
+        if len(lines) > len(shown):
+            st.caption(f"... and {len(lines) - len(shown)} more")
+        with st.expander(
+            f"View exact context — {ev.detail['char_count']:,} characters",
+            expanded=False,
+        ):
+            st.code(ev.detail["full_context"], language=None, wrap_lines=True)
+
+    # -- gate 1 --
+    st.markdown("### Gate 1 — Coverage")
+    gate1s = of("gate1")
+    if gate1s:
+        for ev in gate1s:
+            line = gate1_line(ev.detail)
+            (st.success if ev.detail["verdict"] == "pass" else st.warning)(line)
+    else:
+        st.caption("Gate 1 did not run on this path (whole-document summarization "
+                   "skips it).")
+
+    # -- regeneration (only if it happened) --
+    regens = of("regen")
+    if regens:
+        st.markdown("### Regeneration")
+        for ev in regens:
+            d = ev.detail
+            st.info(
+                f"Attempt {d['iteration']} of {d['max_iterations']} — "
+                f"triggered by: {d['reason']}"
+            )
+
+    # -- gate 2 --
+    gate2s = of("gate2")
+    if gate2s:
+        st.markdown("### Gate 2 — Groundedness")
+        if len(gate2s) > 1:
+            st.caption(f"Gate 2 ran {len(gate2s)} times; showing the final check.")
+        claims = gate2s[-1].detail["claims"]
+        if claims:
+            _show_table(
+                gate2_rows(claims),
+                {"Verdict": _VERDICT_COLORS, "Source Type": _TYPE_COLORS},
+                round_cols=("NLI Score",),
+            )
+        else:
+            st.caption("No checkable claims were extracted from the answer.")
+
+    # -- result --
+    st.markdown("### Result")
+    abstains, answers = of("abstain"), of("answer")
+    if abstains:
+        headline, bullets = abstain_parts(abstains[-1].detail["reason"])
+        st.warning(f"Abstained — {headline}")
+        if bullets:
+            st.markdown("\n".join(f"- {b}" for b in bullets))
+    elif answers:
+        st.success("Answered")
+        st.markdown(answers[-1].detail["text"])
+
+
 def _render_quota_error(using_own_key: bool) -> None:
     """Infrastructure error (DeepSeek quota), styled distinctly from abstention.
 
@@ -738,12 +906,6 @@ def _render_demo_docs() -> None:
 
 
 def _render_main() -> None:
-    st.title("VeriRAG")
-    st.caption(
-        "A self-verifying document QA system with a two-gate verification "
-        "critic. It answers from your documents with citations, or abstains."
-    )
-
     _render_demo_docs()
     _render_examples()
 
@@ -846,6 +1008,11 @@ def _render_main() -> None:
             st.session_state["free_query_count"] = free_used + 1
         st.session_state["last_result"] = result
         st.session_state["last_query"] = query.strip()
+        # Replaced only when a new query completes, mirroring last_result, so
+        # the Pipeline Log tab always describes the answer shown on the Ask tab.
+        st.session_state["pipeline_log"] = list(
+            getattr(result, "pipeline_log", None) or []
+        )
 
     if st.session_state.get("last_result") is not None:
         _render_result(
@@ -867,7 +1034,20 @@ def main() -> None:
             icon=None,
         )
     _render_sidebar()
-    _render_main()
+
+    # Title stays above the tabs so it shows on both.
+    st.title("VeriRAG")
+    st.caption(
+        "A self-verifying document QA system with a two-gate verification "
+        "critic. It answers from your documents with citations, or abstains."
+    )
+    # The Ask tab runs first, so a query submitted there has already stored its
+    # pipeline_log in session state by the time the log tab renders below.
+    ask_tab, log_tab = st.tabs(["Ask", "Pipeline Log"])
+    with ask_tab:
+        _render_main()
+    with log_tab:
+        _render_pipeline_log()
 
 
 main()
