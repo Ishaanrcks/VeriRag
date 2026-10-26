@@ -799,6 +799,7 @@ def _render_main() -> None:
         disabled=gate_active or not (query or "").strip(),
     ):
         result = None
+        quota_hit = False
         # Route this query's DeepSeek calls through the user's key when supplied
         # (else the backend key), and surface a 429 as a distinct error rather
         # than a graceful None that would look like an abstention.
@@ -824,9 +825,11 @@ def _render_main() -> None:
                             break
                     status.update(label="Done", state="complete")
                 except QuotaExceededError:
+                    # Render the message at TOP LEVEL (after this block), not here
+                    # inside st.status, which collapses to "Service busy" and
+                    # would hide the actionable guidance.
                     status.update(label="Service busy", state="error")
-                    _render_quota_error(using_own_key=bool(user_key))
-                    return
+                    quota_hit = True
                 except Exception as exc:  # noqa: BLE001 - surface, do not crash
                     logger.exception("Query failed")
                     status.update(label=f"Query failed: {exc}", state="error")
@@ -834,6 +837,9 @@ def _render_main() -> None:
         finally:
             set_session_api_key(None)
             set_surface_quota(False)
+        if quota_hit:
+            _render_quota_error(using_own_key=bool(user_key))
+            return
         # Only backend-key queries count toward the free limit; a visitor using
         # their own key is unlimited (their cost).
         if not user_key:
