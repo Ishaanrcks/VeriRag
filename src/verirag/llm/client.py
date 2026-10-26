@@ -11,6 +11,7 @@ back instead of aborting a batch.
 
 from __future__ import annotations
 
+import contextvars
 import logging
 from functools import lru_cache
 from typing import Any
@@ -43,13 +44,56 @@ _RETRYABLE_ERRORS = (
 )
 
 
-@lru_cache(maxsize=1)
+class QuotaExceededError(RuntimeError):
+    """DeepSeek rate-limit/quota exhausted after retries.
+
+    Raised by ``chat_completion`` ONLY when quota surfacing is enabled for the
+    current context (``set_surface_quota(True)`` -- the Streamlit UI does this
+    around a query). Every other caller keeps the historical behavior of a
+    graceful ``None``, so the eval harness and CLI never start crashing on a
+    429. It is deliberately distinct from a Gate 2 abstention: this is an
+    infrastructure error, not an ungrounded answer.
+    """
+
+
+# Per-request overrides, set by the UI before a query and reset after. Context
+# variables (not globals) so concurrent Streamlit sessions in one process never
+# clobber each other's key or quota policy -- each ScriptRunner thread carries
+# its own value. The pipeline is synchronous, so a value set before run_query
+# is visible to every chat_completion it triggers in that thread.
+_session_api_key: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "verirag_session_api_key", default=None
+)
+_surface_quota: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "verirag_surface_quota", default=False
+)
+
+
+def set_session_api_key(api_key: str | None) -> None:
+    """Override the DeepSeek key for calls in this context (None = backend key)."""
+    _session_api_key.set((api_key or "").strip() or None)
+
+
+def set_surface_quota(enabled: bool) -> None:
+    """When True, an exhausted rate limit raises QuotaExceededError instead of
+    returning None, so the UI can show a distinct 'high traffic' message."""
+    _surface_quota.set(bool(enabled))
+
+
+@lru_cache(maxsize=8)
+def _client_for_key(api_key: str) -> OpenAI:
+    """One cached client per distinct key (backend key + any user keys)."""
+    return OpenAI(api_key=api_key, base_url=settings.deepseek_base_url)
+
+
 def get_deepseek_client() -> OpenAI:
-    """Return the lazily-built, process-wide DeepSeek client singleton."""
-    return OpenAI(
-        api_key=settings.deepseek_api_key,
-        base_url=settings.deepseek_base_url,
-    )
+    """Return the DeepSeek client for the current context.
+
+    Uses the per-session override key when one is set (a demo user who supplied
+    their own key after the free-query limit), otherwise the backend key.
+    """
+    api_key = _session_api_key.get() or settings.deepseek_api_key
+    return _client_for_key(api_key)
 
 
 @retry(
@@ -88,6 +132,17 @@ def chat_completion(
     model = model or settings.deepseek_chat_model
     try:
         content = _create_completion(messages, model, temperature, **kwargs)
+    except RateLimitError as exc:
+        # Quota/rate limit exhausted after retries. Surface it distinctly to the
+        # UI when asked; otherwise degrade to None like any other failure.
+        logger.warning(
+            "DeepSeek rate limit / quota exhausted (model=%s): %s", model, exc
+        )
+        if _surface_quota.get():
+            raise QuotaExceededError(
+                "DeepSeek quota or rate limit exhausted"
+            ) from exc
+        return None
     except Exception as exc:  # noqa: BLE001 - degrade gracefully, never raise
         logger.warning(
             "DeepSeek chat completion failed (model=%s, %s): %s",

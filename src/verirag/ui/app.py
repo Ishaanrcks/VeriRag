@@ -36,6 +36,11 @@ from verirag.config import SHARED_SESSION_ID, settings
 from verirag.generation.generator import AnswerFormat
 from verirag.graph.build import run_query_streaming
 from verirag.ingest import ingest_file
+from verirag.llm.client import (
+    QuotaExceededError,
+    set_session_api_key,
+    set_surface_quota,
+)
 from verirag.loaders.pdf import IMAGES_DIR
 from verirag.observability.metrics import summarize_metrics
 from verirag.retrieval.vector_store import (
@@ -62,10 +67,13 @@ STATIC_EXAMPLES = [
     "What are the main contributions?",
 ]
 
-# Demo mode gates the public HF Space: fixed pre-ingested corpus, uploads
-# disabled, and a per-session query cap. Local runs leave it off.
+# Demo mode gates the public HF Space: shared pre-ingested corpus, per-session
+# private uploads, and a free-query cap after which a visitor must supply their
+# own DeepSeek key. Local runs leave it off (no cap).
 DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
-MAX_QUERIES_PER_SESSION = int(os.getenv("MAX_QUERIES_PER_SESSION", "15"))
+# Free backend-key queries per session before the visitor must bring their own
+# key. Queries made with a user-supplied key do not count toward this.
+FREE_QUERY_LIMIT = int(os.getenv("FREE_QUERY_LIMIT", "5"))
 
 st.set_page_config(page_title="VeriRAG", page_icon="🔎", layout="wide")
 
@@ -647,6 +655,26 @@ def _render_examples() -> None:
                 st.rerun()
 
 
+def _render_quota_error(using_own_key: bool) -> None:
+    """Infrastructure error (DeepSeek quota), styled distinctly from abstention.
+
+    An abstention is a verification outcome (st.warning, 'could not verify'); a
+    quota error is a system issue (st.error, 'high traffic'), so a visitor never
+    reads a 429 as the system doubting the answer.
+    """
+    if using_own_key:
+        st.error(
+            "**API limit reached on your key.** Your DeepSeek key hit its rate "
+            "limit or quota. Wait a moment and try again, or use a different key."
+        )
+    else:
+        st.error(
+            "**The demo is experiencing high traffic** and has hit its API "
+            "quota. Please try again in a few minutes, or enter your own DeepSeek "
+            "API key to continue immediately."
+        )
+
+
 def _render_main() -> None:
     st.title("🔎 VeriRAG")
     st.caption(
@@ -675,43 +703,78 @@ def _render_main() -> None:
             ),
         )
 
-    query_count = st.session_state.get("query_count", 0)
-    limit_reached = DEMO_MODE and query_count >= MAX_QUERIES_PER_SESSION
-    if limit_reached:
-        st.warning(
-            "Demo query limit reached (15/session). Refresh to start a new "
-            "session, or run the project locally for unlimited queries."
+    # --- free-query gate + optional per-session key (demo only) ---
+    free_used = st.session_state.get("free_query_count", 0)
+    user_key = st.session_state.get("user_api_key") or None
+    gate_active = DEMO_MODE and free_used >= FREE_QUERY_LIMIT and not user_key
+
+    if DEMO_MODE and not user_key:
+        st.caption(
+            f"Free demo queries remaining: "
+            f"{max(0, FREE_QUERY_LIMIT - free_used)} of {FREE_QUERY_LIMIT}"
         )
+    if DEMO_MODE and user_key:
+        st.caption("Using your own DeepSeek key for this session.")
+
+    if gate_active:
+        st.warning(
+            f"You've used your {FREE_QUERY_LIMIT} free demo queries. To continue, "
+            "enter your own DeepSeek API key below — it is used only for your "
+            "session and never stored."
+        )
+        entered = st.text_input(
+            "Your DeepSeek API key", type="password",
+            key="user_api_key_input", placeholder="sk-...",
+        )
+        if (entered or "").strip():
+            st.session_state["user_api_key"] = entered.strip()
+            st.rerun()
 
     if st.button(
         "Ask",
         type="primary",
-        disabled=limit_reached or not (query or "").strip(),
+        disabled=gate_active or not (query or "").strip(),
     ):
-        st.session_state["query_count"] = query_count + 1
         result = None
-        with st.status("Thinking...", expanded=True) as status:
-            try:
-                # run_query_streaming yields (step_name, summary) per node and
-                # returns the final VeriRAGResult via StopIteration.value.
-                gen = run_query_streaming(
-                    query.strip(),
-                    FORMAT_LABELS[format_label],
-                    corpus_only=corpus_only,
-                    session_id=_session_id(),
-                )
-                while True:
-                    try:
-                        _, summary = next(gen)
-                        st.write(friendly_step(summary))
-                    except StopIteration as stop:
-                        result = stop.value
-                        break
-                status.update(label="Done", state="complete")
-            except Exception as exc:  # noqa: BLE001 - surface, do not crash
-                logger.exception("Query failed")
-                status.update(label=f"Query failed: {exc}", state="error")
-                return
+        # Route this query's DeepSeek calls through the user's key when supplied
+        # (else the backend key), and surface a 429 as a distinct error rather
+        # than a graceful None that would look like an abstention.
+        set_session_api_key(user_key)
+        set_surface_quota(True)
+        try:
+            with st.status("Thinking...", expanded=True) as status:
+                try:
+                    # run_query_streaming yields (step_name, summary) per node
+                    # and returns the final VeriRAGResult via StopIteration.
+                    gen = run_query_streaming(
+                        query.strip(),
+                        FORMAT_LABELS[format_label],
+                        corpus_only=corpus_only,
+                        session_id=_session_id(),
+                    )
+                    while True:
+                        try:
+                            _, summary = next(gen)
+                            st.write(friendly_step(summary))
+                        except StopIteration as stop:
+                            result = stop.value
+                            break
+                    status.update(label="Done", state="complete")
+                except QuotaExceededError:
+                    status.update(label="Service busy", state="error")
+                    _render_quota_error(using_own_key=bool(user_key))
+                    return
+                except Exception as exc:  # noqa: BLE001 - surface, do not crash
+                    logger.exception("Query failed")
+                    status.update(label=f"Query failed: {exc}", state="error")
+                    return
+        finally:
+            set_session_api_key(None)
+            set_surface_quota(False)
+        # Only backend-key queries count toward the free limit; a visitor using
+        # their own key is unlimited (their cost).
+        if not user_key:
+            st.session_state["free_query_count"] = free_used + 1
         st.session_state["last_result"] = result
         st.session_state["last_query"] = query.strip()
 
