@@ -174,6 +174,16 @@ short of the architecture it was designed against.
   above, can never solely support a numeric claim. Vision captioning also fails
   silently on dense academic figures: ingesting this corpus produced 30 empty
   descriptions, and those figures were skipped.
+- **Table extraction can fragment a table across pages.** PyMuPDF's
+  `find_tables()` splits a single logical table at a page boundary and can drop
+  rows there: the Bloom's Taxonomy revised-categories table is extracted as two
+  chunks (two categories on page 2, three on page 3) and loses its sixth row,
+  "Creating", entirely. This does not currently affect answer quality —
+  retrieval does not surface the affected table chunks for queries where prose
+  chunks cover the same content, and no eval question depends on table-only
+  evidence for this case. Documented rather than fixed: closing it would require
+  cross-page table merging, which adds extraction-pipeline complexity for a gap
+  that is not currently causing any incorrect or uncertified answer.
 - **Latency is dominated by verification.** Gate 2 runs one claim-extraction
   call plus an NLI pass per claim, so a query takes tens of seconds. That is
   the cost of checking rather than asserting.
