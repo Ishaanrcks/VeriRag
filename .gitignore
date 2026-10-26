@@ -5,9 +5,11 @@
 data/raw/*
 data/processed/*
 data/chroma/*
+data/images/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !data/chroma/.gitkeep
+!data/images/.gitkeep
 
 # Eval results (keep the directory)
 eval/results/*
