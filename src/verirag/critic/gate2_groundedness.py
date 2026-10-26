@@ -63,6 +63,7 @@ ClaimVerdictLabel = Literal[
     "not_supported",
     "external_unsupported",
     "absence_unverified",
+    "false_hedge",
     "meta_excluded",
 ]
 
@@ -142,6 +143,7 @@ _BLOCKING_VERDICTS = {
     "not_supported",
     "external_unsupported",
     "caption_only_uncertified",
+    "false_hedge",
 }
 
 
@@ -183,6 +185,9 @@ class ClaimVerdict:
     # Set for caption_only_uncertified: where the reader should look instead
     # of being handed the claim as an asserted fact.
     figure_reference: str | None = None
+    # Set for false_hedge: the denied topic that evidence actually supports, so
+    # the regeneration prompt can tell the generator what to re-address.
+    probe_topic: str | None = None
 
 
 @dataclass
@@ -238,20 +243,58 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
             continue
 
         if claim.claim_type == "absence":
-            # KNOWN MVP LIMITATION: absence claims are passed through
-            # unverified, not checked. Standard NLI entailment cannot confirm a
-            # negative -- a passage that simply never discusses a topic neither
-            # entails nor contradicts "this source does not mention it", so the
-            # score would be meaningless. A production system needs a dedicated
-            # check (e.g. confirming the claimed topic really has zero
-            # lexical/semantic overlap with the cited source).
-            verdicts.append(
-                ClaimVerdict(
-                    claim_text=claim.text,
-                    claim_type=claim.claim_type,
-                    verdict="absence_unverified",
+            # An absence claim ("the documents do not discuss X") has no
+            # positive assertion to entail, so instead of checking the claim we
+            # check its DENIAL: is the topic X actually PRESENT in the evidence?
+            # The right question is lexical ("do the topic's distinctive terms
+            # occur in the retrieved text") rather than entailment -- NLI reads
+            # a meta-probe like "the text discusses X" as neutral even when X is
+            # plainly there (measured 0.36 on a topic the corpus states in
+            # full). So we reuse the SAME token-overlap presence check used for
+            # unscorable claims, run over ALL retrieved hits (an absence claim
+            # cites nothing, so there is no cited-chunk subset to restrict to).
+            # If the topic is present, the hedge is false -> "false_hedge",
+            # which blocks grounding and feeds the existing regeneration loop.
+            #
+            # With no extractable topic there is nothing to probe, so the claim
+            # falls back to the old unverified pass-through (non-blocking).
+            topic = (claim.topic or "").strip()
+            if not topic or not answer.hits_used:
+                verdicts.append(
+                    ClaimVerdict(
+                        claim_text=claim.text,
+                        claim_type=claim.claim_type,
+                        verdict="absence_unverified",
+                    )
                 )
+                continue
+
+            present, overlap = _presence_supported(
+                topic, [hit.raw_text for hit in answer.hits_used]
             )
+            if present:
+                logger.info(
+                    "False hedge: claim denies a topic the evidence contains "
+                    "(token overlap=%.2f): %r", overlap, topic[:100]
+                )
+                verdicts.append(
+                    ClaimVerdict(
+                        claim_text=claim.text,
+                        claim_type=claim.claim_type,
+                        verdict="false_hedge",
+                        entailment_prob=overlap,
+                        probe_topic=topic,
+                    )
+                )
+            else:
+                verdicts.append(
+                    ClaimVerdict(
+                        claim_text=claim.text,
+                        claim_type=claim.claim_type,
+                        verdict="absence_unverified",
+                        entailment_prob=overlap,
+                    )
+                )
             continue
 
         # --- factual claim: check entailment against its cited chunks ---
@@ -435,10 +478,10 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
             )
         )
 
-    # Both not_supported and external_unsupported block grounding, so both
-    # feed the corrective loop's avoid_claims and the abstention message.
-    # absence_unverified and meta_excluded deliberately do NOT count against
-    # grounding.
+    # not_supported, external_unsupported, caption_only_uncertified and
+    # false_hedge all block grounding, so each feeds the corrective loop and
+    # the abstention message. absence_unverified (a hedge we could not probe)
+    # and meta_excluded deliberately do NOT count against grounding.
     unsupported = [v for v in verdicts if v.verdict in _BLOCKING_VERDICTS]
     return Gate2Verdict(
         overall_grounded=not unsupported,

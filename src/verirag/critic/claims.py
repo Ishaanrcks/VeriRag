@@ -36,6 +36,62 @@ ClaimType = Literal["factual", "absence", "meta", "unscorable"]
 _VALID_CLAIM_TYPES: set[str] = {"factual", "absence", "meta", "unscorable"}
 _CITATION_RE = re.compile(r"\[(\d+)\]")
 
+# Absence/hedge detection. Regex-based on purpose: it catches hedges REGARDLESS
+# of how the LLM classifier labelled them. That matters because the generator
+# is now instructed to cite every positive sentence, which pushes an uncited
+# hedge ("the documents do not discuss X") toward the "factual" bucket -- so we
+# cannot rely on the model tagging it "absence". A matched hedge is forced to
+# claim_type="absence" and its denied TOPIC is extracted for Gate 2 to probe.
+_HEDGE_RE = re.compile(
+    r"\b("
+    r"do(?:es)?\s+not\s+(?:explicitly\s+|specifically\s+|directly\s+)?"
+    r"(?:state|mention|discuss|address|cover|describe|contain|provide|"
+    r"specify|say|include|report|define|list)"
+    r"|do(?:es)?n't\s+(?:state|mention|discuss|address|cover|describe|"
+    r"contain|provide|specify|say|include)"
+    r"|is\s+not\s+(?:discussed|mentioned|addressed|covered|stated|described|"
+    r"specified|provided|included|present|found|defined)"
+    r"|are\s+not\s+(?:discussed|mentioned|addressed|covered|stated|described|"
+    r"specified|provided|included|present|found|defined)"
+    r"|was\s+not\s+(?:discussed|mentioned|addressed|covered|found)"
+    r"|were\s+not\s+(?:discussed|mentioned|addressed|covered|found)"
+    r"|fails?\s+to\s+(?:mention|discuss|address|state|describe|specify)"
+    r"|lacks?\s+(?:any\s+)?(?:information|mention|discussion|detail|details|"
+    r"reference)\s+(?:of|about|on|regarding)"
+    r"|no\s+(?:information|mention|discussion|detail|details|reference|"
+    r"data)\s+(?:about|on|regarding|of|concerning)"
+    r"|there\s+(?:is|are|was|were)\s+no\s+(?:information|mention|discussion|"
+    r"reference|detail|details)"
+    r"|not\s+(?:covered|mentioned|discussed|addressed|stated|found|present|"
+    r"available|provided|included|specified)"
+    r")\b",
+    re.IGNORECASE,
+)
+# Leading filler words stripped off the extracted topic, run until none remain.
+_TOPIC_LEADER_RE = re.compile(
+    r"^(?:about|on|of|regarding|concerning|that|whether|how|any|the|this|"
+    r"these|those|it|them|such|information|anything|details?)\b\s*",
+    re.IGNORECASE,
+)
+
+
+def _absence_topic(text: str) -> str | None:
+    """Denied topic if ``text`` is an absence/hedge claim, else ``None``.
+
+    Returns ``None`` when the text is not a hedge at all. Returns the topic
+    (possibly an empty string, when the hedge names no explicit subject) when
+    it is. Callers treat "not None" as "this is an absence claim".
+    """
+    match = _HEDGE_RE.search(text)
+    if match is None:
+        return None
+    tail = text[match.end():].strip(" .,:;\"'()[]")
+    previous = None
+    while tail and tail != previous:
+        previous = tail
+        tail = _TOPIC_LEADER_RE.sub("", tail).strip(" .,:;\"'()[]")
+    return tail
+
 
 @dataclass
 class Claim:
@@ -44,6 +100,10 @@ class Claim:
     text: str
     claim_type: ClaimType
     cited_numbers: list[int] = field(default_factory=list)
+    # For absence claims: the denied subject (e.g. "the six categories of the
+    # cognitive process dimension"), which Gate 2 probes for in the evidence.
+    # Empty string = detected as a hedge but no explicit topic to probe.
+    topic: str | None = None
 
 
 _EXTRACTION_PROMPT = """\
@@ -93,11 +153,13 @@ def _fallback_claims(answer: GeneratedAnswer, reason: str) -> list[Claim]:
         "Claim extraction falling back to a single whole-answer claim (%s).",
         reason,
     )
+    topic = _absence_topic(answer.answer_text)
     return [
         Claim(
             text=answer.answer_text,
-            claim_type="factual",
+            claim_type="absence" if topic is not None else "factual",
             cited_numbers=_citation_numbers_in(answer.answer_text),
+            topic=topic,
         )
     ]
 
@@ -202,10 +264,18 @@ def _coerce_claim(item: object) -> Claim | None:
             except (TypeError, ValueError):
                 continue
 
+    # Regex hedge detection overrides the LLM label: a matched hedge is an
+    # absence claim whatever the model called it, so it reaches Gate 2's
+    # contradiction probe instead of being scored as a positive assertion.
+    topic = _absence_topic(text)
+    if topic is not None:
+        raw_type = "absence"
+
     return Claim(
         text=text,
         claim_type=raw_type,  # type: ignore[arg-type]
         cited_numbers=sorted(set(cited)),
+        topic=topic,
     )
 
 

@@ -492,13 +492,26 @@ def gate2_node(state: VeriRAGState) -> VeriRAGState:
 def regenerate_node(state: VeriRAGState) -> VeriRAGState:
     """Regenerate, explicitly steering away from the unverified claims."""
     verdict = state["gate2_verdict"]
-    avoid = [claim.claim_text for claim in verdict.unsupported_claims]
+    # A false_hedge needs the opposite steer from an unsupported assertion:
+    # answer the denied topic rather than omit a claim. Split the two so each
+    # gets its own instruction.
+    avoid = [
+        claim.claim_text
+        for claim in verdict.unsupported_claims
+        if claim.verdict != "false_hedge"
+    ]
+    false_hedge_topics = [
+        claim.probe_topic
+        for claim in verdict.unsupported_claims
+        if claim.verdict == "false_hedge" and claim.probe_topic
+    ]
 
     answer = generate_answer(
         state["query"],
         state.get("hits", []),
         state["answer_format"],
         avoid_claims=avoid,
+        false_hedge_topics=false_hedge_topics,
     )
     attempt = state.get("regeneration_count", 0) + 1
     return {
@@ -507,7 +520,8 @@ def regenerate_node(state: VeriRAGState) -> VeriRAGState:
         "llm_call_count": state.get("llm_call_count", 0) + 1,
         "trace": [
             f"regenerate (attempt {attempt}/{settings.max_critic_iterations}): "
-            f"avoiding {len(avoid)} unverified claim(s)"
+            f"avoiding {len(avoid)} unverified claim(s), "
+            f"re-addressing {len(false_hedge_topics)} false hedge(s)"
         ],
     }
 

@@ -101,6 +101,15 @@ sources:
 Do not repeat them. Be conservative -- omit a point rather than assert it \
 without clear support."""
 
+_FALSE_HEDGE_INSTRUCTION = """\
+
+Your previous answer claimed the documents do not address the following, but \
+the cited passages suggest they do:
+{topics}
+
+Review the relevant passages again and answer directly if the information is \
+present. Maintain the hedge only if, on reflection, it is genuinely accurate."""
+
 _FORMAT_INSTRUCTIONS: dict[AnswerFormat, str] = {
     AnswerFormat.CONCISE: "Answer directly in 2-4 sentences.",
     AnswerFormat.DETAILED: (
@@ -213,12 +222,17 @@ def generate_answer(
     hits: list[SearchHit],
     format: AnswerFormat,  # noqa: A002 - matches the documented public API
     avoid_claims: list[str] | None = None,
+    false_hedge_topics: list[str] | None = None,
 ) -> GeneratedAnswer:
     """Generate a cited answer for ``query`` from the retrieved ``hits``.
 
     ``avoid_claims`` is used by the corrective loop: passing the claim texts
     that Gate 2 could not verify tells the model not to repeat them and to
     prefer omission over unsupported assertion.
+
+    ``false_hedge_topics`` carries the opposite steer: topics the previous
+    answer wrongly claimed were absent but which the evidence supports, so the
+    model is pushed to answer them directly rather than hedge again.
     """
     context_block, citations = build_context_block(hits)
 
@@ -226,6 +240,9 @@ def generate_answer(
     if avoid_claims:
         bulleted = "\n".join(f"- {claim}" for claim in avoid_claims)
         system_prompt += _AVOID_CLAIMS_INSTRUCTION.format(claims=bulleted)
+    if false_hedge_topics:
+        bulleted = "\n".join(f"- {topic}" for topic in false_hedge_topics)
+        system_prompt += _FALSE_HEDGE_INSTRUCTION.format(topics=bulleted)
 
     # INJECTION-SAFETY BOUNDARY (deliberate, not an oversight): retrieved
     # context -- which may include fetched web content -- goes ONLY into the
