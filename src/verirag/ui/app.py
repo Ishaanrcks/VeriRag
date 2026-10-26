@@ -20,6 +20,13 @@ import logging
 import os
 from pathlib import Path
 
+# Local-dev-only: let torch fall back to CPU for ops MPS does not implement,
+# instead of raising on an unsupported MPS op. Gated on DEMO_MODE so the
+# deployed HF Space (CPU-only, DEMO_MODE=true) is unaffected. Must be set
+# before any transitive torch import below.
+if os.getenv("DEMO_MODE", "false").lower() != "true":
+    os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+
 import streamlit as st
 
 from verirag.config import settings
