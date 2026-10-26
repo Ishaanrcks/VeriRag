@@ -67,6 +67,40 @@ STATIC_EXAMPLES = [
     "What are the main contributions?",
 ]
 
+# Bundled demo documents (files in demo_corpus/, licensed in
+# demo_corpus/LICENSES.md), shown in the "Sample documents & questions" panel so
+# a new visitor has something to try without uploading anything. Each set spans
+# capabilities: a plain factual lookup, a question whose answer lives in a table
+# or figure, and one the document does NOT answer (to show VeriRAG abstain).
+# NOTE: these become answerable once demo_corpus/ is ingested into the shared
+# collection (scripts/ingest_demo.py); the research-paper examples above remain.
+DEMO_DOCS = [
+    {
+        "name": "Alice's Adventures in Wonderland — literary text (Project Gutenberg)",
+        "questions": [
+            "What does Alice find on the little glass table after falling down the rabbit-hole?",
+            "Who does Alice meet at the Mad Tea-Party?",
+            "What is the price of the White Rabbit's pocket watch?",
+        ],
+    },
+    {
+        "name": "CDC NCHS Data Brief No. 529 — COPD in adults (US gov report; tables & figures)",
+        "questions": [
+            "What percentage of adults aged 18 and over had COPD, by age group?",
+            "How did COPD prevalence differ by sex?",
+            "What is the recommended treatment for COPD according to this brief?",
+        ],
+    },
+    {
+        "name": "Semantic Versioning 2.0.0 — technical spec (CC BY)",
+        "questions": [
+            "When should the MAJOR version number be incremented?",
+            "What do the three parts of a MAJOR.MINOR.PATCH version number mean?",
+            "Which programming languages does the spec recommend?",
+        ],
+    },
+]
+
 # Demo mode gates the public HF Space: shared pre-ingested corpus, per-session
 # private uploads, and a free-query cap after which a visitor must supply their
 # own DeepSeek key. Local runs leave it off (no cap).
@@ -75,7 +109,7 @@ DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
 # key. Queries made with a user-supplied key do not count toward this.
 FREE_QUERY_LIMIT = int(os.getenv("FREE_QUERY_LIMIT", "5"))
 
-st.set_page_config(page_title="VeriRAG", page_icon="🔎", layout="wide")
+st.set_page_config(page_title="VeriRAG", layout="wide")
 
 # Per-session uploads older than this are swept on app startup.
 UPLOAD_MAX_AGE_SECONDS = 24 * 3600
@@ -221,7 +255,7 @@ def _render_sidebar() -> None:
     else:
         st.sidebar.caption(f"{len(corpus)} document(s)")
         for row in corpus:
-            icon = "🌐" if row["source_type"] == "external" else "📄"
+            icon = "(external)" if row["source_type"] == "external" else "(local)"
             name = Path(str(row["source_path"])).name or row["source_path"]
             scope = (
                 "demo" if row.get("session_id") == SHARED_SESSION_ID else "yours"
@@ -261,7 +295,7 @@ def friendly_step(technical: str) -> str:
 
     if t.startswith("gate1:"):
         if "verdict=sufficient" in t:
-            return "Checking if there's enough information to answer — yes ✓"
+            return "Checking if there's enough information to answer — yes"
         if "verdict=insufficient" in t:
             return ("Checking if there's enough information to answer — "
                     "not enough found")
@@ -279,7 +313,7 @@ def friendly_step(technical: str) -> str:
         unsupported = int(match.group(1)) if match else 0
         if grounded:
             return ("Verifying every claim against your documents — "
-                    "all claims verified ✓")
+                    "all claims verified")
         if unsupported == 0:
             return "Verifying every claim against your documents"
         plural = "" if unsupported == 1 else "s"
@@ -317,9 +351,9 @@ def friendly_step(technical: str) -> str:
 # --------------------------------------------------------------------------
 def _render_verification_row(result) -> None:
     """Gate badges plus the cost/latency row, from values already computed."""
-    gate1 = "Gate 1 coverage ✓" if result.gate1_verdict and \
+    gate1 = "Gate 1 coverage" if result.gate1_verdict and \
         result.gate1_verdict.verdict == "sufficient" else "Gate 1 coverage"
-    gate2 = "Gate 2 groundedness ✓" if result.gate2_verdict and \
+    gate2 = "Gate 2 groundedness" if result.gate2_verdict and \
         result.gate2_verdict.overall_grounded else "Gate 2 groundedness"
     # safe: no variable interpolation (gate1/gate2 are fixed string literals)
     st.markdown(
@@ -334,7 +368,7 @@ def _render_verification_row(result) -> None:
     corrections = result.regeneration_count
     plural = "" if corrections == 1 else "s"
     st.caption(
-        f"**Verified ✓** · {result.total_latency_ms / 1000:.1f}s · "
+        f"**Verified** · {result.total_latency_ms / 1000:.1f}s · "
         f"{corrections} self-correction{plural} · "
         f"~${result.estimated_cost_usd:.4f}"
     )
@@ -343,13 +377,13 @@ def _render_verification_row(result) -> None:
 def _provenance_label(content_types: list[str]) -> str:
     """How the cited text came to exist: extracted, or model-written."""
     if not content_types:
-        return "📄 text"
+        return "text"
     labels = []
     if "text" in content_types:
-        labels.append("📄 text")
+        labels.append("text")
     if "figure_caption" in content_types:
-        labels.append("🖼️ figure (AI-generated description)")
-    return " + ".join(labels) if labels else "📄 text"
+        labels.append("figure (AI-generated description)")
+    return " + ".join(labels) if labels else "text"
 
 
 def _page_list(pages) -> str:
@@ -439,7 +473,7 @@ def _render_citation_media(citation, media_by_id: dict[str, dict]) -> None:
         page = item.get("page")
 
         if item["content_type"] == "table":
-            label = f"📊 Table — page {page}" if page is not None else "📊 Table"
+            label = f"Table — page {page}" if page is not None else "Table"
             st.caption(label)
             # Streamlit renders GFM tables natively as HTML tables.
             st.markdown(item["text"])
@@ -472,14 +506,14 @@ def _render_sources(citations) -> None:
         provenance = _provenance_label(citation.content_types)
         if citation.source_type == "external":
             st.markdown(
-                f"**[{citation.number}]** 🌐 *external* — "
+                f"**[{citation.number}]** *external* — "
                 f"[{citation.url}]({citation.url}) · {provenance}"
             )
         else:
             pages = _page_list(citation.pages)
             page_text = f" · page(s) {pages}" if pages else ""
             st.markdown(
-                f"**[{citation.number}]** 📄 *local* — "
+                f"**[{citation.number}]** *local* — "
                 f"`{citation.source_path}`{page_text} · {provenance}"
             )
         _render_citation_media(citation, media_by_id)
@@ -519,13 +553,13 @@ def _excerpt_source_label(citation) -> str:
     provenance = _provenance_label(citation.content_types)
     if citation.source_type == "external":
         return (
-            f"**[{citation.number}]** 🌐 *external* — "
+            f"**[{citation.number}]** *external* — "
             f"[{citation.url}]({citation.url}) · {provenance}"
         )
     pages = _page_list(citation.pages)
     page_text = f" · page(s) {pages}" if pages else ""
     return (
-        f"**[{citation.number}]** 📄 *local* — "
+        f"**[{citation.number}]** *local* — "
         f"`{citation.source_path}`{page_text} · {provenance}"
     )
 
@@ -675,13 +709,40 @@ def _render_quota_error(using_own_key: bool) -> None:
         )
 
 
+def _render_demo_docs() -> None:
+    """List bundled demo documents + suggested questions for a new visitor.
+
+    Presentation only. Each question is a button that fills the query box. The
+    three questions per document intentionally span a factual lookup, a
+    table/figure question, and one the document does not answer (abstention).
+    """
+    with st.expander("New here? Sample documents & questions to try"):
+        st.caption(
+            "Bundled demo documents (see demo_corpus/). Each set has a factual "
+            "lookup, a question answered by a table or figure, and one the "
+            "document does NOT answer — so you can watch VeriRAG abstain rather "
+            "than guess."
+        )
+        for doc_index, doc in enumerate(DEMO_DOCS):
+            st.markdown(f"**{doc['name']}**")
+            for q_index, question in enumerate(doc["questions"]):
+                if st.button(
+                    question,
+                    key=f"demo_{doc_index}_{q_index}",
+                    use_container_width=True,
+                ):
+                    st.session_state[QUERY_KEY] = question
+                    st.rerun()
+
+
 def _render_main() -> None:
-    st.title("🔎 VeriRAG")
+    st.title("VeriRAG")
     st.caption(
         "A self-verifying document QA system with a two-gate verification "
         "critic. It answers from your documents with citations, or abstains."
     )
 
+    _render_demo_docs()
     _render_examples()
 
     query = st.text_input(
@@ -790,7 +851,7 @@ def main() -> None:
     _run_startup_cleanup()  # once-per-process sweep of stale session uploads
     if DEMO_MODE:
         st.info(
-            "🔬 **VeriRAG Demo** · Shared pre-ingested sample corpus, plus any "
+            "**VeriRAG Demo** · Shared pre-ingested sample corpus, plus any "
             "documents you upload (private to your session, cleared "
             "automatically). "
             "Source: [github.com/YOUR_GITHUB_HANDLE/veri-rag]"

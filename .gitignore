@@ -18,10 +18,15 @@ eval/results/*
 # Isolated eval stores (vector DB + index binaries); reports/traces are tracked
 eval_store/
 
-# Demo corpus (track README + .gitkeep, ignore the PDFs/TXT/MD/DOCX placed here)
+# Demo corpus: track the README, .gitkeep, licenses note, and the three bundled
+# sample documents (see demo_corpus/LICENSES.md); ignore anything else dropped here.
 demo_corpus/*
 !demo_corpus/.gitkeep
 !demo_corpus/README.md
+!demo_corpus/LICENSES.md
+!demo_corpus/alice_in_wonderland_gutenberg11.txt
+!demo_corpus/cdc_nchs_databrief_529.pdf
+!demo_corpus/semantic_versioning_spec.md
 
 # Transient per-question eval checkpoint, rewritten during a run
 eval_results/*_PARTIAL.json

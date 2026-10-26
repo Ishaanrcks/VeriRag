@@ -16,10 +16,10 @@ from verirag.retrieval.vector_store import list_ingested_documents
 
 DEMO_CORPUS_DIR = Path(__file__).resolve().parent.parent / "demo_corpus"
 
-# The corpus formats the demo accepts. demo_corpus/README.md and .gitkeep are
+# The corpus formats the demo accepts. README.md, LICENSES.md and .gitkeep are
 # maintainer scaffolding, not corpus content, so they are skipped explicitly.
 SUPPORTED_SUFFIXES = {".pdf", ".txt", ".md", ".docx"}
-_SKIP_NAMES = {"readme.md", ".gitkeep"}
+_SKIP_NAMES = {"readme.md", "licenses.md", ".gitkeep"}
 
 
 def _demo_files() -> list[Path]:
