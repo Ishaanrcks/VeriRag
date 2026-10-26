@@ -19,6 +19,7 @@ import hashlib
 import html
 import logging
 import os
+import re
 from pathlib import Path
 
 # Local-dev-only: let torch fall back to CPU for ops MPS does not implement,
@@ -179,6 +180,81 @@ def _render_sidebar() -> None:
         _refresh_corpus()
 
     _render_system_stats()
+
+
+# --------------------------------------------------------------------------
+# reasoning-trace phrasing
+# --------------------------------------------------------------------------
+def friendly_step(technical: str) -> str:
+    """Plain-language phrasing of a node's technical trace line.
+
+    Presentation only: parses the stable prefix + numbers out of the string
+    each graph node already emits (see graph/nodes.py) and restates it in
+    plain language. Never changes any count. Unknown lines fall through
+    unchanged so nothing is lost and this cannot raise.
+    """
+    t = (technical or "").strip()
+
+    if t.startswith("resolve_intent:"):
+        return "Understanding your question"
+
+    if t.startswith("retrieve:"):
+        match = re.search(r"retrieve:\s*(\d+)\s*hits", t)
+        n = match.group(1) if match else "several"
+        plural = "" if n == "1" else "s"
+        return f"Searching your documents — found {n} relevant passage{plural}"
+
+    if t.startswith("gate1:"):
+        if "verdict=sufficient" in t:
+            return "Checking if there's enough information to answer — yes ✓"
+        if "verdict=insufficient" in t:
+            return ("Checking if there's enough information to answer — "
+                    "not enough found")
+        return "Checking if there's enough information to answer"
+
+    if t.startswith("generate:"):
+        match = re.search(r"(\d+)\s*citation", t)
+        c = match.group(1) if match else "0"
+        plural = "" if c == "1" else "s"
+        return f"Drafting an answer ({c} source{plural} cited)"
+
+    if t.startswith("gate2:"):
+        grounded = "overall_grounded=True" in t
+        match = re.search(r"(\d+)\s*unsupported", t)
+        unsupported = int(match.group(1)) if match else 0
+        if grounded:
+            return ("Verifying every claim against your documents — "
+                    "all claims verified ✓")
+        if unsupported == 0:
+            return "Verifying every claim against your documents"
+        plural = "" if unsupported == 1 else "s"
+        return (f"Verifying every claim against your documents — found "
+                f"{unsupported} unsupported claim{plural}")
+
+    if t.startswith("regenerate"):
+        match = re.search(r"attempt\s*(\d+)/(\d+)", t)
+        if match:
+            return (f"Revising the answer to fix unsupported claims "
+                    f"(attempt {match.group(1)} of {match.group(2)})")
+        return "Revising the answer"
+
+    if t.startswith("finalize_verified:"):
+        return "Done — answer passed both verification gates"
+
+    if t.startswith("abstain_ungrounded:"):
+        return ("Could not verify this answer — showing you the raw source "
+                "passages instead")
+
+    if t.startswith("abstain_insufficient_coverage:"):
+        return "Not enough relevant information in your documents to answer"
+
+    if t.startswith("summarize_document:"):
+        return "Summarizing the document"
+
+    if t.startswith("fetch_external:"):
+        return "Looking for supporting material beyond your documents"
+
+    return technical
 
 
 # --------------------------------------------------------------------------
@@ -381,7 +457,10 @@ def _render_result(query: str, result) -> None:
             f"{result.llm_call_count} LLM call(s)"
         )
         for i, step in enumerate(result.trace, start=1):
-            st.text(f"{i:2}. {step}")
+            # Friendly phrasing as the primary line; exact technical string
+            # kept underneath (muted) for a reader who wants the numbers.
+            st.markdown(f"{i}. {friendly_step(step)}")
+            st.caption(step)
 
 
 # --------------------------------------------------------------------------
@@ -468,7 +547,7 @@ def _render_main() -> None:
                 while True:
                     try:
                         _, summary = next(gen)
-                        st.write(summary)
+                        st.write(friendly_step(summary))
                     except StopIteration as stop:
                         result = stop.value
                         break
