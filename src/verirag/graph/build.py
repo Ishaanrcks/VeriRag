@@ -25,6 +25,7 @@ returns an unverified answer: it either verifies, or abstains.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -296,15 +297,36 @@ def _log_metrics(
         )
 
 
-def run_query(
+# Fields whose updates ACCUMULATE across node visits (operator.add in
+# VeriRAGState). Every other field replaces on update, so merging stream
+# updates into one final_state has to respect this difference.
+_ACCUMULATING_STATE_KEYS = ("trace", "node_timings")
+
+
+def _merge_update(
+    final_state: VeriRAGState, node_update: dict
+) -> list[str]:
+    """Apply one node's update to ``final_state`` in place; return its trace lines."""
+    emitted: list[str] = []
+    for key, value in node_update.items():
+        if key in _ACCUMULATING_STATE_KEYS:
+            current = list(final_state.get(key) or [])  # type: ignore[arg-type]
+            current.extend(value or [])
+            final_state[key] = current  # type: ignore[literal-required]
+            if key == "trace":
+                emitted = list(value or [])
+        else:
+            final_state[key] = value  # type: ignore[literal-required]
+    return emitted
+
+
+def _build_result(
+    final_state: VeriRAGState,
     query: str,
     answer_format: AnswerFormat,
-    corpus_only: bool = False,
+    corpus_only: bool,
 ) -> VeriRAGResult:
-    """Answer a query end to end. The single entry point for the Phase 11 UI."""
-    final_state = COMPILED_GRAPH.invoke(
-        _initial_state(query, answer_format, corpus_only)
-    )
+    """Shared VeriRAGResult assembly for both streaming and blocking entry points."""
     _log_metrics(query, answer_format, corpus_only, final_state)
     derived = _derived_values(final_state)
     generated_answer = final_state.get("generated_answer")
@@ -326,3 +348,49 @@ def run_query(
         gate2_verdict=final_state.get("gate2_verdict"),
         retrieved_citations=retrieved_citations,
     )
+
+
+def run_query_streaming(
+    query: str,
+    answer_format: AnswerFormat,
+    corpus_only: bool = False,
+) -> Iterator[tuple[str, str]]:
+    """Stream (node_name, trace_summary) tuples as each pipeline node completes.
+
+    The generator ``return``s the final ``VeriRAGResult`` (via StopIteration.value),
+    so callers can iterate for live updates and still get the final result at the
+    end -- no second traversal, no duplicated node runs. Trace strings are the
+    same ones each node writes into ``state['trace']``, so the live view and the
+    collapsed post-hoc expander share one source of truth and cannot drift.
+    """
+    final_state: VeriRAGState = {}  # type: ignore[typeddict-item]
+    for update in COMPILED_GRAPH.stream(
+        _initial_state(query, answer_format, corpus_only),
+        stream_mode="updates",
+    ):
+        for node_name, node_update in update.items():
+            if not node_update:
+                continue
+            for line in _merge_update(final_state, node_update):
+                yield node_name, line
+
+    return _build_result(final_state, query, answer_format, corpus_only)
+
+
+def run_query(
+    query: str,
+    answer_format: AnswerFormat,
+    corpus_only: bool = False,
+) -> VeriRAGResult:
+    """Blocking convenience wrapper over ``run_query_streaming``.
+
+    Exhausts the streaming generator to collect the final result. Preserves the
+    original single-call API for anything (tests, eval harness, programmatic
+    use) that doesn't need the per-step updates.
+    """
+    gen = run_query_streaming(query, answer_format, corpus_only)
+    while True:
+        try:
+            next(gen)
+        except StopIteration as stop:
+            return stop.value

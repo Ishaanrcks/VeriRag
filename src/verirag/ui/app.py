@@ -32,7 +32,7 @@ import streamlit as st
 
 from verirag.config import settings
 from verirag.generation.generator import AnswerFormat
-from verirag.graph.build import run_query
+from verirag.graph.build import run_query_streaming
 from verirag.ingest import ingest_file
 from verirag.observability.metrics import summarize_metrics
 from verirag.retrieval.vector_store import list_ingested_documents
@@ -455,16 +455,27 @@ def _render_main() -> None:
         disabled=limit_reached or not (query or "").strip(),
     ):
         st.session_state["query_count"] = query_count + 1
-        with st.spinner("Thinking..."):
+        result = None
+        with st.status("Thinking...", expanded=True) as status:
             try:
-                result = run_query(
+                # run_query_streaming yields (step_name, summary) per node and
+                # returns the final VeriRAGResult via StopIteration.value.
+                gen = run_query_streaming(
                     query.strip(),
                     FORMAT_LABELS[format_label],
                     corpus_only=corpus_only,
                 )
+                while True:
+                    try:
+                        _, summary = next(gen)
+                        st.write(summary)
+                    except StopIteration as stop:
+                        result = stop.value
+                        break
+                status.update(label="Done", state="complete")
             except Exception as exc:  # noqa: BLE001 - surface, do not crash
                 logger.exception("Query failed")
-                st.error(f"Query failed: {exc}")
+                status.update(label=f"Query failed: {exc}", state="error")
                 return
         st.session_state["last_result"] = result
         st.session_state["last_query"] = query.strip()
