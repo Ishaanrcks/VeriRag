@@ -16,7 +16,7 @@ import numpy as np
 from langchain_core.documents import Document
 from rank_bm25 import BM25Okapi
 
-from verirag.config import settings
+from verirag.config import SHARED_SESSION_ID, settings
 from verirag.retrieval.types import SearchHit
 
 logger = logging.getLogger(__name__)
@@ -35,6 +35,11 @@ _ROW_METADATA_KEYS = (
     "content_type",
     "page",
     "source_type",
+    # Needed for per-session isolation: the sparse search filters rows by
+    # session BEFORE taking top-k, so it cannot rely on Chroma hydration (which
+    # happens only after retrieval). A legacy row without it reads back as None
+    # and is treated as shared.
+    "session_id",
 )
 
 
@@ -103,26 +108,40 @@ class SparseIndex:
                 self._rows.append(row)
         self._rebuild()
 
-    def search(self, query: str, k: int) -> list[SearchHit]:
+    def search(
+        self, query: str, k: int, allowed_sessions: set[str] | None = None
+    ) -> list[SearchHit]:
         """Return the top-k BM25 hits as fully-populated SearchHits.
 
         The corpus rows already hold raw_text and metadata in memory, so the
         hits are complete -- no follow-up lookup in the dense store needed.
+
+        ``allowed_sessions`` restricts the eligible rows to those session ids
+        (a row with no ``session_id`` is treated as shared), filtered BEFORE the
+        top-k cut so one session's few chunks are not crowded out by other
+        sessions' content. ``None`` means no session filtering.
         """
         if self._bm25 is None or not self._rows:
             return []
         scores = self._bm25.get_scores(_tokenize(query))
-        top = np.argsort(scores)[::-1][:k]
+        order = np.argsort(scores)[::-1]
 
         hits: list[SearchHit] = []
-        for rank, i in enumerate(top, start=1):
+        for i in order:
+            if len(hits) >= k:
+                break
             row = self._rows[i]
+            metadata = dict(row.get("metadata") or {})
+            if allowed_sessions is not None:
+                row_session = metadata.get("session_id") or SHARED_SESSION_ID
+                if row_session not in allowed_sessions:
+                    continue
             hits.append(
                 SearchHit(
                     chunk_id=row["chunk_id"],
                     raw_text=row["text"],
-                    metadata=dict(row.get("metadata") or {}),
-                    sparse_rank=rank,
+                    metadata=metadata,
+                    sparse_rank=len(hits) + 1,
                     sparse_score=float(scores[i]),
                 )
             )
@@ -140,7 +159,10 @@ class SparseIndex:
 
 
 def sparse_search(
-    query: str, k: int, corpus_path: str | Path | None = None
+    query: str,
+    k: int,
+    corpus_path: str | Path | None = None,
+    allowed_sessions: set[str] | None = None,
 ) -> list[SearchHit]:
     """Load the persisted corpus and run a BM25 search (mirrors dense_search).
 
@@ -149,5 +171,8 @@ def sparse_search(
     a cached index invalidated on write (future optimization) -- correctness
     over premature caching here, since a stale cache would silently miss
     newly ingested chunks.
+
+    ``allowed_sessions`` is forwarded to the per-row session filter for
+    multi-tenant isolation (see :meth:`SparseIndex.search`).
     """
-    return SparseIndex(corpus_path).search(query, k)
+    return SparseIndex(corpus_path).search(query, k, allowed_sessions=allowed_sessions)

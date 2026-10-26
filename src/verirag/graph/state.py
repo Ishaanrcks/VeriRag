@@ -27,6 +27,9 @@ class VeriRAGState(TypedDict, total=False):
     answer_format: AnswerFormat
     # When True, the external-fetch branch is blocked entirely.
     corpus_only: bool
+    # Multi-tenant isolation: retrieval and document listing are scoped to
+    # shared/demo content plus this session's own uploads. None -> shared only.
+    session_id: str | None
 
     # --- document-reference resolution (runs before retrieval) ---
     # doc_ids explicitly named in the query, and whether the query reads as

@@ -148,7 +148,9 @@ def resolve_intent_node(state: VeriRAGState) -> VeriRAGState:
     """
     query = state["query"]
     try:
-        ingested = list_ingested_documents()
+        # Scope to shared content + this session's own uploads, so a user can
+        # only name documents they are allowed to see.
+        ingested = list_ingested_documents(session_id=state.get("session_id"))
     except Exception as exc:  # noqa: BLE001 - never block a query on this
         logger.warning("Could not list ingested documents (%s): %s",
                        type(exc).__name__, exc)
@@ -346,7 +348,10 @@ def retrieve_node(state: VeriRAGState) -> VeriRAGState:
     search_query = state.get("search_query") or state["query"]
 
     hits = hybrid_retrieve(
-        search_query, corpus_only=corpus_only, doc_id_filter=doc_id_filter
+        search_query,
+        corpus_only=corpus_only,
+        doc_id_filter=doc_id_filter,
+        session_id=state.get("session_id"),
     )
     local_count = len(hits)
 

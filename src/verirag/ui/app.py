@@ -20,6 +20,7 @@ import html
 import logging
 import os
 import re
+import uuid
 from pathlib import Path
 
 # Local-dev-only: let torch fall back to CPU for ops MPS does not implement,
@@ -31,13 +32,17 @@ if os.getenv("DEMO_MODE", "false").lower() != "true":
 
 import streamlit as st
 
-from verirag.config import settings
+from verirag.config import SHARED_SESSION_ID, settings
 from verirag.generation.generator import AnswerFormat
 from verirag.graph.build import run_query_streaming
 from verirag.ingest import ingest_file
 from verirag.loaders.pdf import IMAGES_DIR
 from verirag.observability.metrics import summarize_metrics
-from verirag.retrieval.vector_store import get_collection, list_ingested_documents
+from verirag.retrieval.vector_store import (
+    cleanup_stale_sessions,
+    get_collection,
+    list_ingested_documents,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +69,41 @@ MAX_QUERIES_PER_SESSION = int(os.getenv("MAX_QUERIES_PER_SESSION", "15"))
 
 st.set_page_config(page_title="VeriRAG", page_icon="🔎", layout="wide")
 
+# Per-session uploads older than this are swept on app startup.
+UPLOAD_MAX_AGE_SECONDS = 24 * 3600
+
+
+# --------------------------------------------------------------------------
+# session isolation
+# --------------------------------------------------------------------------
+def _session_id() -> str:
+    """Stable id for this browser session.
+
+    A user's uploads are tagged with it so they are visible only within this
+    session; retrieval scopes to shared/demo content plus this id. Generated
+    once per session and kept in session state.
+    """
+    return st.session_state.setdefault("session_id", str(uuid.uuid4()))
+
+
+@st.cache_resource
+def _run_startup_cleanup() -> bool:
+    """Once per app process: drop stale per-session uploads. Never raises.
+
+    ``st.cache_resource`` makes this run a single time for the whole server
+    process rather than per session, which is the right granularity for a
+    housekeeping sweep.
+    """
+    try:
+        removed = cleanup_stale_sessions(UPLOAD_MAX_AGE_SECONDS)
+        if removed:
+            logger.info(
+                "Startup cleanup removed %d stale per-session chunk(s).", removed
+            )
+    except Exception as exc:  # noqa: BLE001 - cleanup must never block the app
+        logger.warning("Startup session cleanup failed: %s", exc)
+    return True
+
 
 # --------------------------------------------------------------------------
 # ingestion / corpus
@@ -84,9 +124,11 @@ def _save_upload(uploaded_file) -> Path:
 
 def _refresh_corpus() -> None:
     try:
-        # DEMO_MODE uses a fixed pre-ingested corpus shared across sessions.
-        # For multi-tenant production, each session would need its own collection.
-        st.session_state["corpus"] = list_ingested_documents()
+        # Scope to shared/demo content plus THIS session's own uploads, so one
+        # user never sees another user's uploaded documents.
+        st.session_state["corpus"] = list_ingested_documents(
+            session_id=_session_id()
+        )
     except Exception as exc:  # noqa: BLE001 - UI must survive a store error
         logger.warning("Could not list corpus: %s", exc)
         st.session_state["corpus"] = []
@@ -127,39 +169,39 @@ def _render_system_stats() -> None:
 def _render_sidebar() -> None:
     st.sidebar.header("Corpus")
 
-    if not DEMO_MODE:
-        uploads = st.sidebar.file_uploader(
-            "Upload documents",
-            type=SUPPORTED_TYPES,
-            accept_multiple_files=True,
-            help="PDF, DOCX, PPTX, TXT or MD. Figures in PDFs get captioned.",
-        )
+    # Uploads are PRIVATE to this browser session: they are tagged with the
+    # session id and only this session can retrieve them (see _session_id and
+    # the session-scoped retrieval filter). The shared demo corpus is read-only
+    # and common to everyone.
+    uploads = st.sidebar.file_uploader(
+        "Upload documents (private to your session)",
+        type=SUPPORTED_TYPES,
+        accept_multiple_files=True,
+        help="PDF, DOCX, PPTX, TXT or MD. Figures in PDFs get captioned. "
+             "Only you can query what you upload; it is cleared automatically.",
+    )
 
-        if st.sidebar.button("Ingest uploaded files", disabled=not uploads):
-            for uploaded_file in uploads or []:
-                try:
-                    saved_path = _save_upload(uploaded_file)
-                    with st.spinner(f"Ingesting {uploaded_file.name}..."):
-                        result = ingest_file(saved_path)
-                except Exception as exc:  # noqa: BLE001 - report, keep going
-                    logger.exception("Ingestion failed for %s", uploaded_file.name)
-                    st.sidebar.error(f"{uploaded_file.name}: {exc}")
-                    continue
+    if st.sidebar.button("Ingest uploaded files", disabled=not uploads):
+        for uploaded_file in uploads or []:
+            try:
+                saved_path = _save_upload(uploaded_file)
+                with st.spinner(f"Ingesting {uploaded_file.name}..."):
+                    result = ingest_file(saved_path, session_id=_session_id())
+            except Exception as exc:  # noqa: BLE001 - report, keep going
+                logger.exception("Ingestion failed for %s", uploaded_file.name)
+                st.sidebar.error(f"{uploaded_file.name}: {exc}")
+                continue
 
-                if result.skipped:
-                    st.sidebar.info(
-                        f"{uploaded_file.name}: already in corpus (skipped)"
-                    )
-                else:
-                    st.sidebar.success(
-                        f"{uploaded_file.name}: {result.num_text_chunks} text + "
-                        f"{result.num_figure_chunks} figure chunk(s)"
-                    )
-            _refresh_corpus()
-    else:
-        st.sidebar.caption(
-            "📎 Uploads disabled in demo. Run locally to ingest your own documents."
-        )
+            if result.skipped:
+                st.sidebar.info(
+                    f"{uploaded_file.name}: already in corpus (skipped)"
+                )
+            else:
+                st.sidebar.success(
+                    f"{uploaded_file.name}: {result.num_text_chunks} text + "
+                    f"{result.num_figure_chunks} figure chunk(s)"
+                )
+        _refresh_corpus()
 
     st.sidebar.subheader("Your corpus")
     if "corpus" not in st.session_state:
@@ -173,8 +215,12 @@ def _render_sidebar() -> None:
         for row in corpus:
             icon = "🌐" if row["source_type"] == "external" else "📄"
             name = Path(str(row["source_path"])).name or row["source_path"]
+            scope = (
+                "demo" if row.get("session_id") == SHARED_SESSION_ID else "yours"
+            )
             st.sidebar.markdown(
-                f"{icon} **{name}**  \n`{row['doc_id'][:20]}` · {row['format']}"
+                f"{icon} **{name}**  \n`{row['doc_id'][:20]}` · "
+                f"{row['format']} · _{scope}_"
             )
 
     if st.sidebar.button("Refresh corpus list"):
@@ -652,6 +698,7 @@ def _render_main() -> None:
                     query.strip(),
                     FORMAT_LABELS[format_label],
                     corpus_only=corpus_only,
+                    session_id=_session_id(),
                 )
                 while True:
                     try:
@@ -676,10 +723,13 @@ def _render_main() -> None:
 
 
 def main() -> None:
+    _session_id()  # ensure a session id exists before anything uses it
+    _run_startup_cleanup()  # once-per-process sweep of stale session uploads
     if DEMO_MODE:
         st.info(
-            "🔬 **VeriRAG Demo** · Pre-ingested corpus of 5 academic NLP papers. "
-            "This demo runs against a fixed corpus; uploads are disabled. "
+            "🔬 **VeriRAG Demo** · Shared pre-ingested sample corpus, plus any "
+            "documents you upload (private to your session, cleared "
+            "automatically). "
             "Source: [github.com/YOUR_GITHUB_HANDLE/veri-rag]"
             "(https://github.com/YOUR_GITHUB_HANDLE/veri-rag)",
             icon=None,

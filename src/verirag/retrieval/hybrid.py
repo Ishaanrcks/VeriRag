@@ -8,12 +8,16 @@ expensive cross-encoder pass, and only the final top-k is returned.
 
 from __future__ import annotations
 
-from verirag.config import settings
+from verirag.config import SHARED_SESSION_ID, settings
 from verirag.retrieval.fusion import reciprocal_rank_fusion
 from verirag.retrieval.reranker import rerank
 from verirag.retrieval.sparse_index import sparse_search
 from verirag.retrieval.types import SearchHit
-from verirag.retrieval.vector_store import dense_search, hydrate_metadata
+from verirag.retrieval.vector_store import (
+    dense_search,
+    hydrate_metadata,
+    session_allows,
+)
 
 
 def _exclude_external(hits: list[SearchHit]) -> list[SearchHit]:
@@ -134,6 +138,7 @@ def hybrid_retrieve(
     query: str,
     corpus_only: bool = False,
     doc_id_filter: str | None = None,
+    session_id: str | None = None,
 ) -> list[SearchHit]:
     """Retrieve the final top-k chunks for a query via the full pipeline.
 
@@ -143,14 +148,46 @@ def hybrid_retrieve(
     blocks a new fetch upstream in the graph's router, and it makes the
     intent explicit at the call site. With ``doc_id_filter`` set, only that
     document's chunks are ranked (see :func:`_filter_by_doc_id`).
+
+    ``session_id`` scopes retrieval to shared/demo content plus that session's
+    own uploads, applied INSIDE both retrievers (a Chroma ``where`` on the dense
+    side, a per-row filter on the sparse side) so the top-k of each is drawn
+    from the allowed set, not filtered afterwards.
+
+    ``session_id=None`` applies NO session filter -- the full store, exactly as
+    before multi-tenant scoping existed. This keeps trusted callers (the eval
+    harness, CLI scripts) working unchanged. The UI always passes a real session
+    id, so isolation is enforced for every untrusted/public caller.
+
+    A chunk with a missing/None session_id is treated as SHARED in BOTH paths
+    (see ``session_allows``), so legacy content ingested before session tagging
+    stays retrievable. The dense side cannot express "missing OR in-set" as a
+    Chroma ``where`` (a metadata filter never matches a document lacking the
+    field), so it over-fetches and filters in Python to match the sparse side.
     """
-    dense_hits = dense_search(query, settings.retrieval_dense_top_k)
+    if session_id:
+        allowed_sessions = {SHARED_SESSION_ID, session_id}
+        # Over-fetch, then null-safe filter in Python (see docstring). The 2x
+        # buffer absorbs other-session chunks ranked above this session's own;
+        # ample for a demo's concurrency.
+        dense_hits = dense_search(query, settings.retrieval_dense_top_k * 2)
+        dense_hits = [
+            h for h in dense_hits if session_allows(h.metadata, session_id)
+        ][: settings.retrieval_dense_top_k]
+    else:
+        allowed_sessions = None
+        dense_hits = dense_search(query, settings.retrieval_dense_top_k)
+
     # Hydrate sparse hits from Chroma: the BM25 index persists only a subset
     # of chunk metadata, and downstream logic (external penalty, corpus-only
     # filter, duplicate citation merging, small-to-big parent text) all read
     # fields it does not keep.
     sparse_hits = hydrate_metadata(
-        sparse_search(query, settings.retrieval_sparse_top_k)
+        sparse_search(
+            query,
+            settings.retrieval_sparse_top_k,
+            allowed_sessions=allowed_sessions,
+        )
     )
 
     dense_hits = _exclude_external(dense_hits)

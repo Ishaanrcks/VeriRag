@@ -9,6 +9,13 @@ from __future__ import annotations
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Session id stamped on pre-ingested demo/corpus content, visible to every
+# session. A user's own uploads are stamped with their Streamlit session id
+# instead and are visible only within that session. Defined here (a light,
+# universally-imported module) so the store, sparse index, ingest and UI can
+# all share one definition without a heavy cross-import.
+SHARED_SESSION_ID = "__shared__"
+
 
 class Settings(BaseSettings):
     """Typed application settings sourced from the environment / ``.env``."""

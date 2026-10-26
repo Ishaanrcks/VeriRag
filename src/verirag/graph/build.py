@@ -205,12 +205,16 @@ COMPILED_GRAPH = _build_graph().compile()
 
 
 def _initial_state(
-    query: str, answer_format: AnswerFormat, corpus_only: bool
+    query: str,
+    answer_format: AnswerFormat,
+    corpus_only: bool,
+    session_id: str | None = None,
 ) -> VeriRAGState:
     return {
         "query": query,
         "answer_format": answer_format,
         "corpus_only": corpus_only,
+        "session_id": session_id,
         "hits": [],
         "external_hits": [],
         "gate1_verdict": None,
@@ -354,6 +358,7 @@ def run_query_streaming(
     query: str,
     answer_format: AnswerFormat,
     corpus_only: bool = False,
+    session_id: str | None = None,
 ) -> Iterator[tuple[str, str]]:
     """Stream (node_name, trace_summary) tuples as each pipeline node completes.
 
@@ -362,10 +367,13 @@ def run_query_streaming(
     end -- no second traversal, no duplicated node runs. Trace strings are the
     same ones each node writes into ``state['trace']``, so the live view and the
     collapsed post-hoc expander share one source of truth and cannot drift.
+
+    ``session_id`` scopes retrieval/listing to shared content plus this
+    session's uploads (multi-tenant isolation for the public deploy).
     """
     final_state: VeriRAGState = {}  # type: ignore[typeddict-item]
     for update in COMPILED_GRAPH.stream(
-        _initial_state(query, answer_format, corpus_only),
+        _initial_state(query, answer_format, corpus_only, session_id),
         stream_mode="updates",
     ):
         for node_name, node_update in update.items():
@@ -381,6 +389,7 @@ def run_query(
     query: str,
     answer_format: AnswerFormat,
     corpus_only: bool = False,
+    session_id: str | None = None,
 ) -> VeriRAGResult:
     """Blocking convenience wrapper over ``run_query_streaming``.
 
@@ -388,7 +397,7 @@ def run_query(
     original single-call API for anything (tests, eval harness, programmatic
     use) that doesn't need the per-step updates.
     """
-    gen = run_query_streaming(query, answer_format, corpus_only)
+    gen = run_query_streaming(query, answer_format, corpus_only, session_id)
     while True:
         try:
             next(gen)

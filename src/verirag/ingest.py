@@ -10,6 +10,7 @@ rather than duplicates.
 from __future__ import annotations
 
 import logging
+import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,7 +19,7 @@ from langchain_core.documents import Document
 
 from verirag.chunking.chunker import chunk_documents
 from verirag.chunking.contextualize import add_context_to_chunks
-from verirag.config import settings
+from verirag.config import SHARED_SESSION_ID, settings
 from verirag.embeddings.embedder import embed_passages
 from verirag.loaders import load_document
 from verirag.loaders.base import (
@@ -70,9 +71,17 @@ def _existing_doc_in_group(group_id: str, doc_id: str) -> str | None:
 
 
 def _ingest_group(
-    doc_id: str, documents: list[Document], force: bool = False
+    doc_id: str,
+    documents: list[Document],
+    force: bool = False,
+    session_id: str = SHARED_SESSION_ID,
 ) -> IngestResult:
-    """Chunk, contextualize, embed, and store one source document's Documents."""
+    """Chunk, contextualize, embed, and store one source document's Documents.
+
+    ``session_id`` tags every chunk for multi-tenant isolation: the default
+    marks content as shared/demo (visible to all sessions); a real Streamlit
+    session id marks a user's private upload (visible only to that session).
+    """
     # Dedup: skip an already-ingested source unless forced.
     if not force and vector_store.exists_doc_id(doc_id):
         logger.info("doc_id=%s already ingested; skipping (use force=True).", doc_id)
@@ -95,8 +104,13 @@ def _ingest_group(
     # Tag near-duplicates so citation building can merge two copies of the
     # same work (e.g. a camera-ready and an arXiv version) into one citation.
     group_id = compute_duplicate_group_id(doc_text[:300])
+    ingested_at = time.time()
     for chunk in chunks:
         chunk.metadata["parent_text"] = parent_text
+        # Multi-tenant isolation + stale-session cleanup. ingested_at lets the
+        # cleanup sweep drop a session's old uploads (see cleanup_stale_sessions).
+        chunk.metadata["session_id"] = session_id
+        chunk.metadata["ingested_at"] = ingested_at
         if group_id:
             chunk.metadata["duplicate_group_id"] = group_id
 
@@ -126,8 +140,16 @@ def _ingest_group(
     return IngestResult(doc_id, num_text, num_figure, skipped=False)
 
 
-def ingest_file(path: str | Path, force: bool = False) -> IngestResult:
-    """Load, chunk, contextualize, embed, and store one file into both stores."""
+def ingest_file(
+    path: str | Path,
+    force: bool = False,
+    session_id: str = SHARED_SESSION_ID,
+) -> IngestResult:
+    """Load, chunk, contextualize, embed, and store one file into both stores.
+
+    ``session_id`` tags the resulting chunks (default: shared/demo content; a
+    real session id makes the upload private to that session).
+    """
     # Dedup BEFORE loading. doc_id is a hash of the file bytes, so it can be
     # computed without parsing, and loading a PDF runs figure captioning --
     # paying for vision calls on a document we are about to skip.
@@ -140,11 +162,16 @@ def ingest_file(path: str | Path, force: bool = False) -> IngestResult:
     if not documents:
         logger.warning("No Documents loaded from %s; nothing to ingest.", path)
         return IngestResult(compute_doc_id(path), 0, 0, skipped=False)
-    return _ingest_group(documents[0].metadata["doc_id"], documents, force=force)
+    return _ingest_group(
+        documents[0].metadata["doc_id"], documents, force=force,
+        session_id=session_id,
+    )
 
 
 def ingest_documents(
-    documents: list[Document], force: bool = False
+    documents: list[Document],
+    force: bool = False,
+    session_id: str = SHARED_SESSION_ID,
 ) -> list[IngestResult]:
     """Ingest already-loaded Documents (e.g. returned by an external fetch).
 
@@ -167,11 +194,16 @@ def ingest_documents(
         groups.setdefault(doc_id, []).append(document)
 
     return [
-        _ingest_group(doc_id, docs, force=force) for doc_id, docs in groups.items()
+        _ingest_group(doc_id, docs, force=force, session_id=session_id)
+        for doc_id, docs in groups.items()
     ]
 
 
-def ingest_directory(dir_path: str | Path, force: bool = False) -> list[IngestResult]:
+def ingest_directory(
+    dir_path: str | Path,
+    force: bool = False,
+    session_id: str = SHARED_SESSION_ID,
+) -> list[IngestResult]:
     """Ingest every supported file in a directory; skip unsupported ones."""
     directory = Path(dir_path)
     results: list[IngestResult] = []
@@ -181,5 +213,5 @@ def ingest_directory(dir_path: str | Path, force: bool = False) -> list[IngestRe
         if entry.suffix.lower() not in EXTENSION_TO_FORMAT:
             logger.warning("Skipping unsupported file: %s", entry.name)
             continue
-        results.append(ingest_file(entry, force=force))
+        results.append(ingest_file(entry, force=force, session_id=session_id))
     return results
