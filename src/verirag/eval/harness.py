@@ -95,11 +95,25 @@ def load_question_set(path: str | Path) -> dict:
 
 
 def classify_outcome(abstained: bool, answer: str | None) -> str:
-    """answered | refused | abstained."""
+    """answered | refused | abstained.
+
+    A prose refusal LEADS with its declination ("The provided documents do not
+    address this question."), because the generator is instructed to say so
+    directly and stop. Scanning the WHOLE answer for a refusal marker instead
+    misclassifies a substantive, verified answer that merely uses a negation in
+    passing ("GFM-RAG does not state a GPU-hour cost, but reports ...") as a
+    refusal -- which wrongly drops it out of recall AND out of correctness
+    scoring (correctness is only computed for `answered`, so a mislabelled
+    answer can also hide a hallucination). So the marker check is restricted to
+    the first sentence: only a leading declination counts as a refusal.
+    """
     if abstained:
         return "abstained"
-    text = (answer or "").lower()
-    if any(marker in text for marker in _REFUSAL_MARKERS):
+    text = (answer or "").strip()
+    if not text:
+        return "answered"
+    first_sentence = re.split(r"(?<=[.!?])\s", text, maxsplit=1)[0].lower()
+    if any(marker in first_sentence for marker in _REFUSAL_MARKERS):
         return "refused"
     return "answered"
 

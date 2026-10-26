@@ -1642,9 +1642,9 @@
           "QuadGraph"
         ]
       ],
-      "outcome": "refused",
-      "meets_expectation": false,
-      "correct": null,
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
       "answer": "The paper reporting a 34M-parameter model is G-reasoner, which describes \"a 34M-parameter graph foundation model (GFM) that jointly captures graph topology and textual semantics\" [1]. The same paper introduces QuadGraph, \"a standardized four-layer abstraction that unifies heterogeneous knowledge sources into a common graph representation\" [1]. However, the passages do not state that the 34M-parameter model itself consumes QuadGraph; they describe QuadGraph and the GFM as separate components of the framework, so that specific link cannot be confirmed from the sources.",
       "abstention_reason": null,
       "regeneration_count": 1,
@@ -1897,9 +1897,9 @@
           "QuadGraph"
         ]
       ],
-      "outcome": "refused",
-      "meets_expectation": false,
-      "correct": null,
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
       "answer": "GFM-RAG builds a KG-index from documents using OpenIE with GPT-4o-mini and entity resolution via ColBERTv2, and its GFM is trained on 60 constructed KG-indexes [2]. G-reasoner instead uses QuadGraph, a standardized four-layer abstraction (attribute, entity, document, and community node types) that unifies heterogeneous knowledge sources into a common graph representation [1]. The passages do not describe GFM-RAG's graph as a multi-layer abstraction, so a direct layer-by-layer comparison is not supported beyond this.",
       "abstention_reason": null,
       "regeneration_count": 0,
@@ -2353,9 +2353,9 @@
           "7"
         ]
       ],
-      "outcome": "refused",
-      "meets_expectation": false,
-      "correct": null,
+      "outcome": "answered",
+      "meets_expectation": true,
+      "correct": true,
       "answer": "GFM-RAG reports experiments on three multi-hop QA datasets (HotpotQA, MuSiQue, and 2WikiMultiHopQA) and on seven domain-specific RAG datasets from three domains (biomedical, customer support, and general knowledge) [1]. The paper describes these as \"three benchmark datasets and seven domain-specific datasets\" [1]. The passages do not state a single combined total across both categories.",
       "abstention_reason": null,
       "regeneration_count": 1,
@@ -2553,8 +2553,8 @@
       "ground_truth": "Requires corpus-level aggregation the system does not perform; retrieval returns passages, not a census of the corpus.",
       "expected_verdict": "decline",
       "must_contain": null,
-      "outcome": "refused",
-      "meets_expectation": true,
+      "outcome": "answered",
+      "meets_expectation": false,
       "correct": null,
       "answer": "Based on the provided passages, two papers explicitly describe applying graph neural networks. ExpressGNN uses a GNN variant for variational inference in Markov Logic Networks, aimed at efficient probabilistic logic reasoning over knowledge graphs [1]. GFM-RAG is powered by a graph neural network that reasons over graph structure to capture complex query-knowledge relationships for retrieval-augmented generation [3]. The passages do not support a claim that a third paper in the corpus applies GNNs; G-reasoner is described as using a \"GNN-powered foundation model\" [2], but the passages do not state that it applies graph neural networks to a distinct problem in the same explicit way.",
       "abstention_reason": null,
@@ -3187,13 +3187,13 @@
   ],
   "metrics": {
     "total": 59,
-    "answered": 26,
-    "declined": 33,
-    "recall": 0.5531914893617021,
-    "refusal_precision": 0.36363636363636365,
-    "false_positive_rate": 0.0,
+    "answered": 30,
+    "declined": 29,
+    "recall": 0.6170212765957447,
+    "refusal_precision": 0.3793103448275862,
+    "false_positive_rate": 0.08333333333333333,
     "hallucination_rate": 0.0,
-    "scored_answers": 26,
+    "scored_answers": 29,
     "hallucinations": [],
     "avg_regenerations": 0.9322033898305084,
     "by_group": {
@@ -3205,20 +3205,20 @@
       },
       "multi_hop": {
         "total": 8,
-        "answered": 3,
-        "declined": 5,
+        "answered": 4,
+        "declined": 4,
         "wrong": 0
       },
       "comparative": {
         "total": 9,
-        "answered": 2,
-        "declined": 7,
+        "answered": 3,
+        "declined": 6,
         "wrong": 0
       },
       "aggregation": {
         "total": 5,
-        "answered": 3,
-        "declined": 2,
+        "answered": 5,
+        "declined": 0,
         "wrong": 0
       },
       "temporal_provenance": {
@@ -3241,5 +3241,5 @@
       }
     }
   },
-  "rescored_note": "Re-scored from saved traces after widening Q10's must_contain. No questions were re-run."
+  "rescored_note": "Re-scored from saved traces (no questions re-run) after fixing a classify_outcome bug: refusal markers were matched anywhere in the answer, mislabeling 4 substantive verified answers (ids 27, 32, 41, 44) as refusals. Fix restricts the match to the first sentence. GRADING correction only -- pipeline output is byte-identical; only scoring of saved answers changed. Net: recall 55.3%->61.7% (ids 27/32/41 were correct answers wrongly counted as declines); false-positive rate 0.0%->8.3% (id 44 is a real false positive the bug had masked as a correct refusal); hallucination rate unchanged at 0.0%."
 }

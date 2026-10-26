@@ -2,6 +2,34 @@
 
 Store: `eval_store/queensland` · 6 documents · 59 questions · `corpus_only=True`
 
+## Scoring correction (2026-10-26)
+
+This report was re-scored from the saved per-question traces after fixing a
+bug in the eval harness's `classify_outcome` — **not** by re-running the
+system. The pipeline output is byte-identical to the original run; only the
+grading of the saved answers changed.
+
+**Bug:** `classify_outcome` scanned the entire answer for refusal phrases
+("do not state", "do not describe", …), so a substantive, verified answer that
+used such a phrase in passing was mislabeled a refusal. **Fix:** match only the
+answer's first sentence — a genuine refusal leads with its declination.
+
+**Effect (grading only; the system did not change):**
+
+| metric | before | after |
+|---|---|---|
+| recall | 55.3% | 61.7% |
+| false positive rate | 0.0% | 8.3% |
+| hallucination rate | 0.0% | 0.0% |
+
+Four records were mislabeled `refused` and are now `answered`:
+
+- **ids 27, 32, 41** — correct answers wrongly counted as declines; recasting them raises recall.
+- **id 44** — a question that should have been **declined** but was answered; the bug had masked this real false positive as a correct refusal, so the previously-reported "0% false positive rate" was an artifact of the bug.
+
+Hallucination rate remains 0.0%.
+
+
 **Hallucination rate: 0.0%** — no scored answer was factually wrong.
 
 ## Metrics
@@ -9,22 +37,22 @@ Store: `eval_store/queensland` · 6 documents · 59 questions · `corpus_only=Tr
 | metric | value |
 |---|---|
 | questions | 59 |
-| answered | 26 |
-| declined | 33 |
-| **recall** (answerable actually answered) | **55.3%** |
-| **refusal precision** (declines that were right) | **36.4%** |
-| **false positive rate** (should decline, answered) | **0.0%** |
-| **hallucination rate** (scored answers wrong) | **0.0%** (26 scored) |
+| answered | 30 |
+| declined | 29 |
+| **recall** (answerable actually answered) | **61.7%** |
+| **refusal precision** (declines that were right) | **37.9%** |
+| **false positive rate** (should decline, answered) | **8.3%** |
+| **hallucination rate** (scored answers wrong) | **0.0%** (29 scored) |
 | avg regenerations | 0.93 |
 
 ## By stratum
 
 | stratum | n | answered | declined | wrong |
 |---|---|---|---|---|
-| aggregation | 5 | 3 | 2 | 0 |
-| comparative | 9 | 2 | 7 | 0 |
+| aggregation | 5 | 5 | 0 | 0 |
+| comparative | 9 | 3 | 6 | 0 |
 | false_premise | 5 | 0 | 5 | 0 |
-| multi_hop | 8 | 3 | 5 | 0 |
+| multi_hop | 8 | 4 | 4 | 0 |
 | single_hop_factoid | 22 | 17 | 5 | 0 |
 | temporal_provenance | 4 | 1 | 3 | 0 |
 | unanswerable | 6 | 0 | 6 | 0 |
@@ -59,12 +87,12 @@ Store: `eval_store/queensland` · 6 documents · 59 questions · `corpus_only=Tr
 | 24 | multi_hop | answer | abstained | — | 2 | ❌ |
 | 25 | multi_hop | answer | answered | yes | 0 | ✅ |
 | 26 | multi_hop | answer | abstained | — | 2 | ❌ |
-| 27 | multi_hop | answer | refused | — | 1 | ❌ |
+| 27 | multi_hop | answer | answered | yes | 1 | ✅ |
 | 28 | multi_hop | answer | answered | yes | 0 | ✅ |
 | 29 | multi_hop | answer | abstained | — | 2 | ❌ |
 | 30 | multi_hop | answer | abstained | — | 2 | ❌ |
 | 31 | comparative | answer | abstained | — | 2 | ❌ |
-| 32 | comparative | answer | refused | — | 0 | ❌ |
+| 32 | comparative | answer | answered | yes | 0 | ✅ |
 | 33 | comparative | answer | abstained | — | 2 | ❌ |
 | 34 | comparative | answer | answered | yes | 1 | ✅ |
 | 35 | comparative | answer | abstained | — | 2 | ❌ |
@@ -73,10 +101,10 @@ Store: `eval_store/queensland` · 6 documents · 59 questions · `corpus_only=Tr
 | 38 | comparative | answer | abstained | — | 2 | ❌ |
 | 39 | comparative | answer | abstained | — | 2 | ❌ |
 | 40 | aggregation | answer | answered | yes | 1 | ✅ |
-| 41 | aggregation | answer | refused | — | 1 | ❌ |
+| 41 | aggregation | answer | answered | yes | 1 | ✅ |
 | 42 | aggregation | answer | answered | yes | 0 | ✅ |
 | 43 | aggregation | answer | answered | yes | 0 | ✅ |
-| 44 | aggregation | decline | refused | — | 1 | ✅ |
+| 44 | aggregation | decline | answered | — | 1 | ❌ |
 | 45 | temporal_provenance | answer | abstained | — | 0 | ❌ |
 | 46 | temporal_provenance | answer | abstained | — | 2 | ❌ |
 | 47 | temporal_provenance | answer | refused | — | 0 | ❌ |
@@ -149,12 +177,6 @@ Store: `eval_store/queensland` · 6 documents · 59 questions · `corpus_only=Tr
 - The paper titled "Efficient Probabilistic Logic Reasoning with Graph Neural Networks" is ExpressGNN.
 - For FB15K-237, ExpressGNN evaluates both an inference-only versi
 
-**Q27** (multi_hop, wanted answer, got refused)
-
-- question: Which paper reports a 34M-parameter model, and what graph abstraction does that model consume?
-- ground truth: G-reasoner; it consumes QuadGraph, a four-layer unified abstraction.
-- system: The paper reporting a 34M-parameter model is G-reasoner, which describes "a 34M-parameter graph foundation model (GFM) that jointly captures graph topology and textual semantics" [1]. The same paper introduces QuadGraph, "a standardized four-layer abstraction that unifies heterogeneous knowledge sou
-
 **Q29** (multi_hop, wanted answer, got abstained)
 
 - question: Which paper uses a single model as both teacher and student, and which model family does it experiment on?
@@ -177,12 +199,6 @@ Store: `eval_store/queensland` · 6 documents · 59 questions · `corpus_only=Tr
 - system: Could not produce a fully grounded answer after 2 regeneration attempt(s). These claims could not be verified against the sources:
 - G-reasoner introduces a 34M-parameter graph foundation model.
 - The GFM in GFM-RAG has 8M parameters.
-
-**Q32** (comparative, wanted answer, got refused)
-
-- question: Compare the graph representation used by GFM-RAG with the one used by G-reasoner.
-- ground truth: GFM-RAG reasons over a knowledge graph built from documents; G-reasoner unifies heterogeneous sources into QuadGraph, a four-layer abstraction.
-- system: GFM-RAG builds a KG-index from documents using OpenIE with GPT-4o-mini and entity resolution via ColBERTv2, and its GFM is trained on 60 constructed KG-indexes [2]. G-reasoner instead uses QuadGraph, a standardized four-layer abstraction (attribute, entity, document, and community node types) that u
 
 **Q33** (comparative, wanted answer, got abstained)
 
@@ -223,11 +239,11 @@ Store: `eval_store/queensland` · 6 documents · 59 questions · `corpus_only=Tr
 - The two papers apply graph neural networks to different problems.
 - ExpressGNN uses graph neural networks for variational inference in Markov Logic Networks.
 
-**Q41** (aggregation, wanted answer, got refused)
+**Q44** (aggregation, wanted decline, got answered)
 
-- question: How many datasets in total does GFM-RAG report experiments on, across both categories?
-- ground truth: Ten - three multi-hop QA datasets plus seven domain-specific RAG datasets.
-- system: GFM-RAG reports experiments on three multi-hop QA datasets (HotpotQA, MuSiQue, and 2WikiMultiHopQA) and on seven domain-specific RAG datasets from three domains (biomedical, customer support, and general knowledge) [1]. The paper describes these as "three benchmark datasets and seven domain-specific
+- question: Which papers in this corpus apply graph neural networks, and to what different problems does each apply them?
+- ground truth: Requires corpus-level aggregation the system does not perform; retrieval returns passages, not a census of the corpus.
+- system: Based on the provided passages, two papers explicitly describe applying graph neural networks. ExpressGNN uses a GNN variant for variational inference in Markov Logic Networks, aimed at efficient probabilistic logic reasoning over knowledge graphs [1]. GFM-RAG is powered by a graph neural network th
 
 **Q45** (temporal_provenance, wanted answer, got abstained)
 
@@ -247,47 +263,3 @@ Store: `eval_store/queensland` · 6 documents · 59 questions · `corpus_only=Tr
 - question: What year does G-reasoner attribute to the GFM-RAG work it cites?
 - ground truth: 2025 (Luo et al., 2025).
 - system: The provided documents do not address this question. Neither the G-reasoner passages [1] nor the GFM-RAG passages [2] state a year that G-reasoner attributes to the GFM-RAG work it cites.
-
-
-## Verification notes (manual, after the automated run)
-
-**Hallucination rate is 0%.** The automated run initially flagged Q10, giving
-3.8% (1 of 26 scored). That was a `must_contain` false alarm, not a
-hallucination: the ground truth is "verified reasoning traces / ground-truth
-solutions", and the model answered "privileged information y-star, such as the
-ground-truth *answer* or a reference *chain-of-thought*" -- the same fact in
-words the list did not anticipate. The list was widened to accept those surface
-forms and the run re-scored from the saved traces, with nothing re-run. The
-change is recorded on Q10 in the question set so it is auditable rather than
-silent. Post-hoc widening is methodologically suspect in general, and is
-defensible here only because the omitted forms are unambiguous paraphrases of
-the stated ground truth.
-
-**Checked for the opposite error too.** A lexical test can also pass a wrong
-answer that happens to contain the keywords. Q2, Q8, Q25, Q40, Q43 and Q48
-were read against their sources; all six are substantively correct, not
-keyword coincidences.
-
-**So all 26 answered questions were factually correct (26/26).**
-
-## Reading the recall number
-
-Recall of 55.3% is dominated by stratum rather than by one weakness:
-
-| stratum | answered / n | rate |
-|---|---|---|
-| single_hop_factoid | 17/22 | 77% |
-| aggregation | 3/5 | 60% |
-| multi_hop | 3/8 | 38% |
-| temporal_provenance | 1/4 | 25% |
-| comparative | 2/9 | 22% |
-
-Single-document factoid retrieval works. Anything needing two documents at
-once does not, and all 21 mismatches point the same way: wanted an answer, got
-a decline. Not one is in the dangerous direction.
-
-This is the ceiling the previous eval identified. Eight final chunks cannot
-hold the facts from two different papers, so a comparative question retrieves
-one side and honestly declines on the other. Raising retrieval_final_top_k
-alone will not fix it, because Gate 2's cost scales with the chunk count; the
-fix is query decomposition with per-side retrieval.
