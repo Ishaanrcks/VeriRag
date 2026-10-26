@@ -35,8 +35,9 @@ from verirag.config import settings
 from verirag.generation.generator import AnswerFormat
 from verirag.graph.build import run_query_streaming
 from verirag.ingest import ingest_file
+from verirag.loaders.pdf import IMAGES_DIR
 from verirag.observability.metrics import summarize_metrics
-from verirag.retrieval.vector_store import list_ingested_documents
+from verirag.retrieval.vector_store import get_collection, list_ingested_documents
 
 logger = logging.getLogger(__name__)
 
@@ -308,8 +309,111 @@ def _page_list(pages) -> str:
     return ", ".join(str(p) for p in known)
 
 
+# --------------------------------------------------------------------------
+# table + image viewers (presentation only)
+# --------------------------------------------------------------------------
+# content_types whose chunk payload the viewers render directly.
+_VIEWER_CONTENT_TYPES = ("table", "figure_caption")
+
+
+def _media_by_chunk_id(citations) -> dict[str, dict]:
+    """Fetch table/figure chunk payloads behind these citations, by chunk_id.
+
+    Presentation only: the aggregated Citation object carries neither a table's
+    markdown nor a figure's saved image path, so the viewers read them straight
+    from the store (the same ChromaDB our ingestion wrote). Returns
+    ``{chunk_id: {content_type, text, page, image_path}}`` for table/figure
+    chunks only. Never raises -- a store error just means no viewers render.
+    """
+    chunk_ids: list[str] = []
+    for citation in citations:
+        for chunk_id in getattr(citation, "contributing_chunk_ids", []) or []:
+            if chunk_id not in chunk_ids:
+                chunk_ids.append(chunk_id)
+    if not chunk_ids:
+        return {}
+
+    try:
+        result = get_collection().get(
+            ids=chunk_ids, include=["documents", "metadatas"]
+        )
+    except Exception as exc:  # noqa: BLE001 - viewers are optional, never crash
+        logger.warning("Citation media lookup failed: %s", exc)
+        return {}
+
+    media: dict[str, dict] = {}
+    for chunk_id, text, metadata in zip(
+        result.get("ids") or [],
+        result.get("documents") or [],
+        result.get("metadatas") or [],
+    ):
+        metadata = metadata or {}
+        content_type = metadata.get("content_type")
+        if content_type in _VIEWER_CONTENT_TYPES:
+            media[chunk_id] = {
+                "content_type": content_type,
+                "text": text or "",
+                "page": metadata.get("page"),
+                "image_path": metadata.get("image_path"),
+            }
+    return media
+
+
+def _image_path_is_safe(image_path: str) -> bool:
+    """True only if ``image_path`` resolves to a file under IMAGES_DIR.
+
+    image_path comes from ChromaDB metadata written by our own ingestion, but
+    the st.image() call is still guarded so nothing outside the images dir can
+    ever be served, regardless of what the metadata says.
+    """
+    try:
+        return Path(image_path).resolve().is_relative_to(IMAGES_DIR.resolve())
+    except Exception:  # noqa: BLE001 - a bad path is simply not safe
+        return False
+
+
+def _render_citation_media(citation, media_by_id: dict[str, dict]) -> None:
+    """Render any table / figure image among a citation's cited chunks."""
+    rendered: set[str] = set()
+    for chunk_id in getattr(citation, "contributing_chunk_ids", []) or []:
+        if chunk_id in rendered:
+            continue
+        item = media_by_id.get(chunk_id)
+        if item is None:
+            continue
+        rendered.add(chunk_id)
+        page = item.get("page")
+
+        if item["content_type"] == "table":
+            label = f"📊 Table — page {page}" if page is not None else "📊 Table"
+            st.caption(label)
+            # Streamlit renders GFM tables natively as HTML tables.
+            st.markdown(item["text"])
+        elif item["content_type"] == "figure_caption":
+            image_path = item.get("image_path")
+            if (
+                image_path
+                and os.path.exists(image_path)
+                and _image_path_is_safe(image_path)
+            ):
+                caption = (
+                    f"Figure — page {page}" if page is not None else "Figure"
+                )
+                try:
+                    st.image(
+                        image_path, caption=caption, use_container_width=True
+                    )
+                    if item["text"]:
+                        st.caption(item["text"])
+                except Exception as exc:  # noqa: BLE001 - never crash on a bad image
+                    logger.warning("Could not render image %s: %s", image_path, exc)
+            # No image_path / missing file: degrade to the existing caption-only
+            # rendering (the source label already marks it as a figure).
+
+
 def _render_sources(citations) -> None:
     st.subheader("Sources")
+    media_by_id = _media_by_chunk_id(citations)
     for citation in citations:
         provenance = _provenance_label(citation.content_types)
         if citation.source_type == "external":
@@ -324,6 +428,7 @@ def _render_sources(citations) -> None:
                 f"**[{citation.number}]** 📄 *local* — "
                 f"`{citation.source_path}`{page_text} · {provenance}"
             )
+        _render_citation_media(citation, media_by_id)
 
 
 def _answer_markdown(query: str, result) -> str:
@@ -390,6 +495,7 @@ def _render_unverified_excerpts(citations) -> None:
         "them — review them yourself."
     )
 
+    media_by_id = _media_by_chunk_id(top)
     for citation in top:
         st.markdown(_excerpt_source_label(citation))
         # safe: fixed-literal HTML scaffolding; the chunk text IS variable
@@ -402,6 +508,9 @@ def _render_unverified_excerpts(citations) -> None:
             "</div>",
             unsafe_allow_html=True,
         )
+        # Show any cited table (rendered markdown) or figure image alongside
+        # the raw parent-text excerpt.
+        _render_citation_media(citation, media_by_id)
 
 
 def _render_abstention(result) -> None:
