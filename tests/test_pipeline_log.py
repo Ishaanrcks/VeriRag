@@ -147,7 +147,28 @@ def test_gate2_event_maps_source_types_and_rows_truncate_claims():
     assert len(rows[0]["Claim"]) <= 80 and rows[0]["Claim"].endswith("…")
     assert [r["Verdict"] for r in rows] == ["Grounded", "Ungrounded", "Excluded"]
     assert rows[2]["Source Type"] == "-"
-    assert set(rows[0]) == {"Claim", "Source Type", "NLI Score", "Verdict"}
+    # Headed "Score", not "NLI Score": presence/absence verdicts carry a
+    # token-overlap fraction in this column.
+    assert set(rows[0]) == {"Claim", "Source Type", "Score", "Verdict"}
+    # not_supported has no supporting chunks, so it has no Source Type.
+    assert rows[1]["Source Type"] == "-"
+
+
+def test_gate2_source_type_comes_from_supporting_chunks_only():
+    cv = lambda text, verdict, prob, ids: SimpleNamespace(  # noqa: E731
+        claim_text=text, verdict=verdict, entailment_prob=prob,
+        evidence_chunk_ids=ids)
+    types = {"t1": "text", "t2": "text", "f1": "figure_caption"}
+    claims = [
+        # Support set = the two text chunks (the caption did not decide it).
+        cv("combined", "supported_combination", 0.99, ["t1", "t2"]),
+        cv("caption only", "caption_only_uncertified", 0.9, ["f1"]),
+        # Chunks were checked but none supported the claim.
+        cv("unsupported", "not_supported", 0.0, ["t1", "f1"]),
+        cv("hedge", "false_hedge", 1.0, []),
+    ]
+    out = gate2_event(claims, types).detail["claims"]
+    assert [c["source_type"] for c in out] == ["text", "image_caption", None, None]
 
 
 def test_abstain_parts_splits_headline_and_truncates_claim_bullets():

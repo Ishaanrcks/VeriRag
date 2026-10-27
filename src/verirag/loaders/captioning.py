@@ -90,7 +90,13 @@ def _caption_with_retry(data_url: str) -> str | None:
                 ],
             }
         ],
-        max_tokens=300,
+        # The vision model is a reasoning model: its hidden reasoning tokens
+        # count against this limit. At 300, two of three test figures returned
+        # EMPTY content (all 300 tokens spent reasoning, finish_reason=length)
+        # and the third was cut mid-sentence; a caption needs ~100-150 tokens of
+        # output after up to ~750 of reasoning. The limit is only a cap, so
+        # headroom costs nothing unless used.
+        max_tokens=2048,
         temperature=0.2,
     )
     return response.choices[0].message.content

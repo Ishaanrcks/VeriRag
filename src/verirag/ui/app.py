@@ -750,7 +750,7 @@ def _show_table(rows: list[dict], color_columns: dict[str, dict], round_cols=())
     # Claim). Type and Source Type are wider than "small" (75px) because their
     # labels ("image caption", "text + image caption") are clipped at that width.
     widths = {"Rank": "small", "Page": "small", "Type": 105, "Score": "small",
-              "NLI Score": "small", "Source Type": 165, "Verdict": "small",
+              "Source Type": 165, "Verdict": "small",
               "Document": "medium", "Snippet": "large", "Claim": "large"}
     config = {
         c: st.column_config.Column(
@@ -850,8 +850,9 @@ def _render_pipeline_log() -> None:
             _show_table(
                 gate2_rows(claims),
                 {"Verdict": _VERDICT_COLORS, "Source Type": _TYPE_COLORS},
-                round_cols=("NLI Score",),
+                round_cols=("Score",),
             )
+            st.caption("Score: NLI prob. or token-overlap, by verdict type.")
         else:
             st.caption("No checkable claims were extracted from the answer.")
 

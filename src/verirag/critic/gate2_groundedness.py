@@ -459,11 +459,65 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
             if best_prob is None or combined_result.entailment_prob > best_prob:
                 best_prob = combined_result.entailment_prob
             if combined_result.entailment_prob >= threshold:
+                # PROVENANCE TIER, combination path. The single-chunk path above
+                # refuses to certify on model-generated (caption) support alone;
+                # this path must too, or a claim entailed only by captions that
+                # jointly (but not individually) entail it would be certified.
+                # There is no per-chunk support set here -- that is why we are in
+                # the combination path -- so the rule is: the claim must still be
+                # entailed by the certifiable chunks ALONE. If a caption is
+                # needed to reach the threshold, the claim is not certified.
+                # Reaching this branch means every chunk individually scored
+                # below threshold, so fewer than two certifiable chunks cannot
+                # entail it jointly and no extra NLI call is needed.
+                generated = [
+                    chunk_id
+                    for chunk_id, _ in resolved
+                    if _is_model_generated(chunk_id, hit_by_chunk_id)
+                ]
+                support_ids = all_chunk_ids
+                if generated:
+                    certifiable = [
+                        (chunk_id, text)
+                        for chunk_id, text in resolved
+                        if chunk_id not in generated
+                    ]
+                    certified = False
+                    if len(certifiable) > 1:
+                        certified_result = check_entailment_windowed(
+                            "\n\n".join(text for _, text in certifiable)[
+                                : settings.gate2_combination_max_chars
+                            ],
+                            claim.text,
+                        )
+                        certified = certified_result.entailment_prob >= threshold
+                    if not certified:
+                        logger.info(
+                            "Claim jointly supported only with model-generated "
+                            "caption(s); not certifying: %r",
+                            claim.text[:100],
+                        )
+                        verdicts.append(
+                            ClaimVerdict(
+                                claim_text=claim.text,
+                                claim_type=claim.claim_type,
+                                verdict="caption_only_uncertified",
+                                evidence_chunk_ids=generated,
+                                entailment_prob=combined_result.entailment_prob,
+                                figure_reference=_figure_pointer(
+                                    generated, hit_by_chunk_id
+                                ),
+                            )
+                        )
+                        continue
+                    # Certified without the captions: they are not part of the
+                    # support set that decided the verdict.
+                    support_ids = [chunk_id for chunk_id, _ in certifiable]
                 has_local = any(
                     not _is_external(chunk_id, hit_by_chunk_id)
-                    for chunk_id in all_chunk_ids
+                    for chunk_id in support_ids
                 )
-                urls = _distinct_external_urls(all_chunk_ids, hit_by_chunk_id)
+                urls = _distinct_external_urls(support_ids, hit_by_chunk_id)
                 verdicts.append(
                     ClaimVerdict(
                         claim_text=claim.text,
@@ -473,7 +527,7 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
                             if (has_local or len(urls) >= 2)
                             else "external_unsupported"
                         ),
-                        evidence_chunk_ids=all_chunk_ids,
+                        evidence_chunk_ids=support_ids,
                         entailment_prob=combined_result.entailment_prob,
                     )
                 )

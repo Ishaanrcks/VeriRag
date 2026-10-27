@@ -204,15 +204,31 @@ def claim_verdict_bucket(label: str) -> str:
     return "excluded"
 
 
+# Verdicts whose ``evidence_chunk_ids`` ARE the chunks that decided the verdict
+# (the support set). Everything else either has no support (not_supported lists
+# the chunks that were merely checked; meta/absence claims cite nothing), so a
+# Source Type derived from those ids would describe chunks that did not support
+# the claim.
+_SUPPORT_SET_LABELS = {
+    "supported_single", "supported_combination", "supported_presence",
+    "caption_only_uncertified", "external_unsupported",
+}
+
+
 def gate2_event(claim_verdicts: list[Any], hit_types: dict[str, str]) -> LogEvent:
-    """``hit_types`` maps chunk_id -> raw content_type of that chunk."""
+    """``hit_types`` maps chunk_id -> raw content_type of that chunk.
+
+    ``source_type`` is built from the supporting chunks only; claims with no
+    support set (not_supported, meta, absence) get None.
+    """
     claims = []
     for cv in claim_verdicts:
         types: list[str] = []
-        for chunk_id in getattr(cv, "evidence_chunk_ids", None) or []:
-            label = type_label(hit_types.get(chunk_id))
-            if label not in types:
-                types.append(label)
+        if cv.verdict in _SUPPORT_SET_LABELS:
+            for chunk_id in getattr(cv, "evidence_chunk_ids", None) or []:
+                label = type_label(hit_types.get(chunk_id))
+                if label not in types:
+                    types.append(label)
         claims.append({
             "text": cv.claim_text,
             "nli_score": cv.entailment_prob,
@@ -272,7 +288,12 @@ _VERDICT_DISPLAY = {"grounded": "Grounded", "ungrounded": "Ungrounded",
 
 
 def gate2_rows(claims: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Claim (80 chars) | Source Type | NLI Score | Verdict."""
+    """Claim (80 chars) | Source Type | Score | Verdict.
+
+    "Score" is the NLI entailment probability for NLI-decided verdicts and a
+    token-overlap fraction for presence/absence verdicts, so it is not headed
+    "NLI Score" (the UI captions this).
+    """
     return [
         {
             "Claim": truncate(c["text"], CLAIM_DISPLAY_CHARS),
@@ -280,7 +301,7 @@ def gate2_rows(claims: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "-" if not c.get("source_type")
                 else c["source_type"].replace("_", " ")
             ),
-            "NLI Score": c.get("nli_score"),
+            "Score": c.get("nli_score"),
             "Verdict": _VERDICT_DISPLAY.get(c["verdict"], c["verdict"]),
         }
         for c in claims
