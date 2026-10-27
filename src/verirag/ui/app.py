@@ -725,9 +725,14 @@ def _count(n: int, noun: str) -> str:
 def _show_table(rows: list[dict], color_columns: dict[str, dict], round_cols=()) -> None:
     """Render rows as a compact dataframe, colouring badge-like columns."""
     df = pd.DataFrame(rows)
+    # Scores become fixed 3-decimal strings, "-" when absent. Streamlit renders
+    # a null cell as the literal text "None" (it ignores Styler's na_rep), which
+    # showed up on excluded claims that have no score.
     score_cols = [c for c in round_cols if c in df]
     for column in score_cols:
-        df[column] = df[column].astype("float64").round(3)
+        df[column] = df[column].map(
+            lambda v: "-" if v is None or pd.isna(v) else f"{float(v):.3f}"
+        )
     data = df
     try:
         styler = df.style
@@ -738,18 +743,21 @@ def _show_table(rows: list[dict], color_columns: dict[str, dict], round_cols=())
                 ),
                 subset=[column],
             )
-        # Styler renders floats at 6 decimals by default; pin to 3.
-        styler = styler.format({c: "{:.3f}" for c in score_cols}, na_rep="-")
         data = styler
     except Exception:  # noqa: BLE001 - styling is cosmetic; fall back to plain
         data = df
     # Narrow fixed-width columns leave the room to the text column (Snippet /
-    # Claim), which would otherwise be clipped by the container edge.
-    widths = {"Rank": "small", "Page": "small", "Type": "small", "Score": "small",
-              "NLI Score": "small", "Source Type": "small", "Verdict": "small",
+    # Claim). Type and Source Type are wider than "small" (75px) because their
+    # labels ("image caption", "text + image caption") are clipped at that width.
+    widths = {"Rank": "small", "Page": "small", "Type": 105, "Score": "small",
+              "NLI Score": "small", "Source Type": 165, "Verdict": "small",
               "Document": "medium", "Snippet": "large", "Claim": "large"}
-    config = {c: st.column_config.Column(width=w) for c, w in widths.items()
-              if c in df}
+    config = {
+        c: st.column_config.Column(
+            width=w, alignment="right" if c in score_cols else None
+        )
+        for c, w in widths.items() if c in df
+    }
     st.dataframe(data, hide_index=True, width="stretch", column_config=config)
 
 
