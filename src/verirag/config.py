@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     langsmith_api_key: str | None = None
     langsmith_project: str = "verirag"
     tavily_api_key: str | None = None
+    # MMLongBench-Doc answer extraction (eval only). Gemini is reached through
+    # its OpenAI-compatible endpoint, so the same client class serves it.
+    gemini_api_key: str | None = None
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    gemini_extraction_model: str = "gemini-2.0-flash"
 
     # --- Models ---
     embedding_model: str = "BAAI/bge-base-en-v1.5"

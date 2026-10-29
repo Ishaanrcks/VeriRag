@@ -15,5 +15,8 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+verirag = ["eval/*.md"]
+
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
