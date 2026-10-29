@@ -22,6 +22,7 @@ from verirag.critic.gate2_groundedness import check_groundedness
 from verirag.external.fetcher import fetch_external
 from verirag.generation.generator import (
     GeneratedAnswer,
+    best_passage_snippet,
     build_context_block,
     generate_answer,
 )
@@ -538,33 +539,57 @@ def gate2_node(state: VeriRAGState) -> VeriRAGState:
 
 @_timed("regenerate")
 def regenerate_node(state: VeriRAGState) -> VeriRAGState:
-    """Regenerate, explicitly steering away from the unverified claims."""
+    """Regenerate, telling the model WHAT was wrong with each blocked claim.
+
+    Three kinds of failure need three different instructions:
+      * a false hedge ("the documents do not address X" when they do) must be
+        answered, so it gets the passage text that contradicts it;
+      * a claim that failed although its terms (or every number it states) occur
+        in the cited passages was probably paraphrased past what the verifier can
+        follow, so it is to be restated closely rather than dropped;
+      * a claim whose terms are not in the evidence is genuinely unsupported and
+        is to be omitted.
+    """
     verdict = state["gate2_verdict"]
-    # A false_hedge needs the opposite steer from an unsupported assertion:
-    # answer the denied topic rather than omit a claim. Split the two so each
-    # gets its own instruction.
-    avoid = [
-        claim.claim_text
-        for claim in verdict.unsupported_claims
-        if claim.verdict != "false_hedge"
-    ]
-    false_hedge_topics = [
-        claim.probe_topic
-        for claim in verdict.unsupported_claims
-        if claim.verdict == "false_hedge" and claim.probe_topic
-    ]
+    hits = state.get("hits", [])
+    text_by_chunk_id = {h.chunk_id: h.raw_text for h in hits}
+    restate_floor = settings.gate2_presence_overlap_fraction
+
+    avoid: list[str] = []
+    restate: list[str] = []
+    false_hedges: list[tuple[str, str]] = []
+    for claim in verdict.unsupported_claims:
+        if claim.verdict == "false_hedge":
+            if not claim.probe_topic:
+                continue
+            passages = [
+                best_passage_snippet(claim.probe_topic, text_by_chunk_id[cid])
+                for cid in claim.evidence_chunk_ids
+                if cid in text_by_chunk_id
+            ]
+            false_hedges.append((claim.probe_topic, " ... ".join(p for p in passages if p)))
+        elif (claim.lexical_overlap or 0.0) >= restate_floor or claim.numbers_in_evidence:
+            restate.append(claim.claim_text)
+        else:
+            avoid.append(claim.claim_text)
+    # A false hedge with no locatable passage still gets the plain-topic steer.
+    with_evidence = [(t, p) for t, p in false_hedges if p]
+    topics_only = [t for t, p in false_hedges if not p]
 
     answer = generate_answer(
         state["query"],
-        state.get("hits", []),
+        hits,
         state["answer_format"],
         avoid_claims=avoid,
-        false_hedge_topics=false_hedge_topics,
+        false_hedge_topics=topics_only,
+        restate_claims=restate,
+        false_hedges=with_evidence,
     )
     attempt = state.get("regeneration_count", 0) + 1
-    reason = f"Gate 2 found {len(avoid)} unsupported claim(s)"
-    if false_hedge_topics:
-        reason += f" and {len(false_hedge_topics)} false hedge(s)"
+    blocked = len(avoid) + len(restate)
+    reason = f"Gate 2 found {blocked} unsupported claim(s)"
+    if false_hedges:
+        reason += f" and {len(false_hedges)} false hedge(s)"
     return {
         "generated_answer": answer,
         "regeneration_count": attempt,
@@ -575,7 +600,8 @@ def regenerate_node(state: VeriRAGState) -> VeriRAGState:
         "trace": [
             f"regenerate (attempt {attempt}/{settings.max_critic_iterations}): "
             f"avoiding {len(avoid)} unverified claim(s), "
-            f"re-addressing {len(false_hedge_topics)} false hedge(s)"
+            f"restating {len(restate)} paraphrased claim(s), "
+            f"re-addressing {len(false_hedges)} false hedge(s)"
         ],
     }
 

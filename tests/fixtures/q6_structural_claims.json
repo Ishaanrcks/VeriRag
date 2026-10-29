@@ -1,0 +1,154 @@
+{
+ "question": "Enumerate all chapter names (for example, Sharp divides in German and American views of security issues, from use of force to defense budgeting) that discussed the relationship between Germany or the U.S. with NATO. Your answer should be a list.",
+ "hits": [
+  {
+   "chunk_id": "PG_2020.03.09_US-Germany_FINAL-538faebdf5ff-7",
+   "page": 6,
+   "tags": [
+    "h1"
+   ],
+   "text": "6 \nPEW RESEARCH CENTER \nwww.pewresearch.org \nSharp divides in German and American views of security issues, from use of force to defense budgeting\nDifferences on security issues predominate \nwhen looking at American and German public \nopinion. For example, Americans and Germans \ntake opposing views on Article 5 obligations \nunder NATO. When asked whether their \ncountry should or should not use military force \nto defend a NATO ally in the event of a \npotential Russian attack, six-in-ten Americans \nsay their country should defend that ally, while \nan equal share of Germans say their country \nshould not.  \nMeanwhile, 63% in Germany say that the U.S. \nwould defend a NATO ally in the event of \nmilitary conflict with Russia.  \nAmericans are also more likely than Germans to \nsay it is sometimes necessary to use military \nforce. About eight-in-ten Americans believe it is \nsometimes necessary to use force to maintain \norder in the world, yet only about half of \nGermans agree.  \nIn both nations, those on the ideological right \nare more likely than those on the left to feel that \nthe use of force can be justified. While nine-in-\nten American conservatives see military force as \nnecessary, only 65% of liberals agree. In \nGermany, nearly six-in-ten adults on the right \nsee military force as necessary, while about a \nthird on the left agree.  \nAmericans and Germans take opposing \nviews on whether their country should \ndefend NATO allies against Russia \n% who say that if Russia got into a serious military \nconflict with one of its neighboring countries that is a \nNATO ally, their country __ use military force to defend \nthat country \n \nNote: Don’t know responses not shown. \nSource: Spring 2019 Global Attitudes Survey. Q24. \n“Americans and Germans Differ in Their Views of Each Other and \nthe World” \nPEW RESEARCH CENTER \nAmericans far more likely than Germans \nto say military force is sometimes \nnecessary \n% who __ that it is sometimes necessary to use military \nforce to maintain order in the world\n\nPEW RESEARCH CENTER \nAmericans far more likely than Germans \nto say military force is sometimes \nnecessary \n% who __ that it is sometimes necessary to use military \nforce to maintain order in the world \n \nNote: Don’t know responses not shown. \nSource: Spring 2019 Global Attitudes Survey. Q50h. \n“Americans and Germans Differ in Their Views of Each Other and \nthe World” \nPEW RESEARCH CENTER \n21%\n52\n78%\n47\nU.S.\nGermany\nDisagree     Agree\n29%\n60\n60%\n34\nU.S.\nGermany\nShould not     Should"
+  },
+  {
+   "chunk_id": "PG_2020.03.09_US-Germany_FINAL-538faebdf5ff-19",
+   "page": 17,
+   "tags": [
+    "h2"
+   ],
+   "text": "17 \nPEW RESEARCH CENTER \nwww.pewresearch.org \nAmericans and Germans differ in their views of international organizations and leaders \nAmericans and Germans also hold different \nopinions on countries and international \norganizations. On balance, Germans tend to \nview these nations and organizations more \npositively than Americans. This divide is \nstarkest when it comes to views of the EU. \nWhile roughly seven-in-ten Germans favor the \nunion, only about half of Americans agree. A \nsimilarly wide gap exists between German and \nAmerican perceptions of Russia, though \nfavorable opinions of Russia are less \nwidespread in both countries than positive \nviews of the UN and EU. There is greater \nconsensus on the UN and NATO, though \nnotably, Germans tend to think more highly of \nthese organizations than Americans. About \none-in-five Americans express no opinion of \neither the EU or NATO. \n \n \n \n \n \nAmericans and Germans differ in their \nviews of Russia and the EU, but have \nmore similar views of the UN and NATO \n% who have a favorable opinion of … \n \n* Median does not include Germany or the U.S. NATO median \nrepresents percentages from 14 NATO member countries. \nNote: All differences shown statistically significant. \nSource: Spring 2019 Global Attitudes Survey. Q8b-e,g. \n“Americans and Germans Differ in Their Views of Each Other and \nthe World” \nPEW RESEARCH CENTER"
+  }
+ ],
+ "claims_by_iteration": [
+  [
+   {
+    "text": "The only chapter or section heading in the provided passages that discusses the U.S. or Germany in relation to NATO is \"Sharp divides in German and American views of security issues, from use of force to defense budgeting.\"",
+    "type": "meta",
+    "cited": [
+     1
+    ],
+    "topic": null
+   },
+   {
+    "text": "The section \"Sharp divides in German and American views of security issues, from use of force to defense budgeting\" covers whether each country should use military force to defend a NATO ally against Russia.",
+    "type": "factual",
+    "cited": [
+     1
+    ],
+    "topic": null
+   },
+   {
+    "text": "The section \"Sharp divides in German and American views of security issues, from use of force to defense budgeting\" covers whether the U.S. would defend a NATO ally.",
+    "type": "factual",
+    "cited": [
+     1
+    ],
+    "topic": null
+   },
+   {
+    "text": "A related section, \"Americans and Germans differ in their views of international organizations and leaders,\" reports favorable views of NATO in both the U.S. and Germany.",
+    "type": "factual",
+    "cited": [
+     1
+    ],
+    "topic": null
+   },
+   {
+    "text": "The provided documents do not contain any other chapter names on the topic of the U.S. or Germany in relation to NATO.",
+    "type": "absence",
+    "cited": [],
+    "topic": "other chapter names on the topic of the U.S. or Germany in relation to NATO"
+   }
+  ],
+  [
+   {
+    "text": "The chapter or section named \"Sharp divides in German and American views of security issues, from use of force to defense budgeting\" discusses the Germany/U.S. relationship with NATO.",
+    "type": "factual",
+    "cited": [
+     1
+    ],
+    "topic": null
+   },
+   {
+    "text": "The section \"Sharp divides in German and American views of security issues, from use of force to defense budgeting\" covers whether each country should use military force to defend a NATO ally against Russia.",
+    "type": "factual",
+    "cited": [
+     1
+    ],
+    "topic": null
+   },
+   {
+    "text": "The section \"Sharp divides in German and American views of security issues, from use of force to defense budgeting\" covers whether the U.S. would defend a NATO ally.",
+    "type": "factual",
+    "cited": [
+     1
+    ],
+    "topic": null
+   },
+   {
+    "text": "The section \"Americans and Germans differ in their views of international organizations and leaders\" reports favorable views of NATO in both the U.S. and Germany.",
+    "type": "factual",
+    "cited": [
+     1
+    ],
+    "topic": null
+   },
+   {
+    "text": "No other chapter names addressing the Germany/U.S. relationship with NATO appear in the provided documents.",
+    "type": "absence",
+    "cited": [],
+    "topic": null
+   }
+  ],
+  [
+   {
+    "text": "The provided documents do not fully address the question.",
+    "type": "meta",
+    "cited": [],
+    "topic": null
+   },
+   {
+    "text": "The only chapter or section name identifiable from the passages is \"Sharp divides in German and American views of security issues, from use of force to defense budgeting\".",
+    "type": "factual",
+    "cited": [
+     1
+    ],
+    "topic": null
+   },
+   {
+    "text": "The passages do not establish that the section \"Sharp divides in German and American views of security issues, from use of force to defense budgeting\" discusses the Germany/U.S. relationship with NATO.",
+    "type": "absence",
+    "cited": [
+     1
+    ],
+    "topic": null
+   },
+   {
+    "text": "The passages mention a section titled \"Americans and Germans differ in their views of international organizations and leaders\".",
+    "type": "factual",
+    "cited": [
+     1
+    ],
+    "topic": null
+   },
+   {
+    "text": "The passages do not state that the section \"Americans and Germans differ in their views of international organizations and leaders\" discusses the relationship between Germany or the U.S. and NATO.",
+    "type": "absence",
+    "cited": [
+     1
+    ],
+    "topic": "section \"Americans and Germans differ in their views of international organizations and leaders\" discusses the relationship between Germany or the U.S. and NATO"
+   },
+   {
+    "text": "Chapter names cannot be enumerated on the basis of the passages.",
+    "type": "meta",
+    "cited": [],
+    "topic": null
+   }
+  ]
+ ],
+ "answers": [
+  "The only chapter/section heading in the provided passages that discusses the U.S. or Germany in relation to NATO is \"Sharp divides in German and American views of security issues, from use of force to defense budgeting,\" which covers whether each country should use military force to defend a NATO ally against Russia and whether the U.S. would defend a NATO ally [1]. A related section, \"Americans and Germans differ in their views of international organizations and leaders,\" also reports favorable views of NATO in both countries [1]. The provided documents do not contain any other chapter names on this topic.",
+  "The only chapter/section name in the provided passages that discusses the Germany/U.S. relationship with NATO is \"Sharp divides in German and American views of security issues, from use of force to defense budgeting\" [1]. That section covers whether each country should use military force to defend a NATO ally against Russia and whether the U.S. would defend a NATO ally [1]. A related section, \"Americans and Germans differ in their views of international organizations and leaders,\" reports favorable views of NATO in both the U.S. and Germany [1]. No other chapter names addressing this topic appear in the provided documents.",
+  "The provided documents do not fully address this question. The only chapter or section name I can identify from the passages is \"Sharp divides in German and American views of security issues, from use of force to defense budgeting\" [1], and the passages do not establish that this section discusses the Germany/U.S. relationship with NATO. The passages also mention a section titled \"Americans and Germans differ in their views of international organizations and leaders\" [1], but they do not state that this section discusses the relationship between Germany or the U.S. and NATO. I therefore cannot enumerate chapter names on that basis."
+ ]
+}

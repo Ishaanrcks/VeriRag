@@ -44,7 +44,7 @@ from typing import Literal
 from langsmith import traceable
 
 from verirag.config import settings
-from verirag.critic.claims import extract_claims
+from verirag.critic.claims import _QUOTED_RE, Claim, extract_claims
 from verirag.critic.nli import (
     check_entailment_windowed,
     normalize_premise,
@@ -148,6 +148,147 @@ def _presence_supported(claim_text: str, premises: list[str]) -> tuple[bool, flo
     overlap = len(tokens & evidence_tokens) / len(tokens)
     return overlap >= settings.gate2_presence_overlap_fraction, overlap
 
+# Words that name the structure rather than say anything about it, so a
+# structural claim's CONTENT check ignores them ("the section ... covers X").
+_STRUCTURAL_STOPWORDS = _PRESENCE_STOPWORDS | frozenset(
+    """sections chapter chapters heading headings headed titled title titles
+    header headers subsection related covers cover discusses discuss passages
+    mentioned mention contains contain named called appears appear notes""".split()
+)
+_SQUASH_RE = re.compile(r"\W+")
+
+
+def _squash(text: str) -> str:
+    """Lower-case and collapse everything but word characters, so a title that
+    a PDF broke across lines, or typeset with different punctuation, still
+    matches verbatim."""
+    return _SQUASH_RE.sub(" ", text.lower()).strip()
+
+
+def _stem(token: str) -> str:
+    """Crude prefix stem so morphological variants match ("relation" /
+    "relationship", "German" / "Germans"). Used only where a miss would
+    reject a true claim for want of an inflection."""
+    return token[:6]
+
+
+def _content_overlap(text: str, premises: list[str], stopwords=_STRUCTURAL_STOPWORDS) -> float | None:
+    """Share of ``text``'s distinctive tokens found in ``premises``; ``None`` if it has none.
+
+    Compared on prefix stems (see :func:`_stem`).
+    """
+    tokens = {_stem(t.lower()) for t in _TOKEN_RE.findall(text) if t.lower() not in stopwords}
+    if not tokens:
+        return None
+    evidence = {
+        _stem(t) for t in _TOKEN_RE.findall(normalize_premise(" ".join(premises)).lower())
+    }
+    return len(tokens & evidence) / len(tokens)
+
+
+_NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)?")
+
+
+def _numbers_in_evidence(text: str, premises: list[str]) -> bool | None:
+    """True if every number in ``text`` also occurs in ``premises``; ``None`` if it has none.
+
+    A claim that fails entailment although all of its numbers are in the cited
+    text was most likely paraphrased past what NLI can follow (typical of a value
+    read off a markdown table); one that states a number the evidence lacks is
+    the kind to drop.
+    """
+    wanted = {n.replace(",", "") for n in _NUMBER_RE.findall(text)}
+    if not wanted:
+        return None
+    have = {n.replace(",", "") for n in _NUMBER_RE.findall(" ".join(premises))}
+    return wanted <= have
+
+
+def _check_structural(
+    claim: Claim,
+    resolved: list[tuple[str, str]],
+    hit_by_chunk_id: dict[str, SearchHit],
+) -> "ClaimVerdict":
+    """Verify a structural claim by PRESENCE rather than entailment.
+
+    "Passage 1 contains a section heading titled X" asks whether X literally
+    appears in the cited text -- a substring question. An NLI model asks
+    whether a sentence pair is semantically consistent and scored such claims
+    0.0035-0.22 on headings that were there. A claim of the form "the section
+    titled X covers Y" is checked in two parts: every quoted title must appear
+    verbatim (modulo case and punctuation) in the cited evidence, and Y's
+    distinctive words must occur there too, at the same overlap fraction used
+    for the other presence checks.
+
+    The provenance rule still applies: a title that appears only in a
+    model-written figure caption is not certified.
+    """
+    chunk_ids = [chunk_id for chunk_id, _ in resolved]
+    premises = [text for _, text in resolved]
+    squashed = {chunk_id: _squash(text) for chunk_id, text in resolved}
+
+    found_ids: list[str] = []
+    for title in claim.titles:
+        key = _squash(title)
+        ids = [cid for cid, text in squashed.items() if key and key in text]
+        if not ids:
+            return ClaimVerdict(
+                claim_text=claim.text,
+                claim_type=claim.claim_type,
+                verdict="not_supported",
+                evidence_chunk_ids=chunk_ids,
+                entailment_prob=0.0,
+                lexical_overlap=0.0,
+            )
+        found_ids.extend(i for i in ids if i not in found_ids)
+
+    if found_ids and all(_is_model_generated(i, hit_by_chunk_id) for i in found_ids):
+        return ClaimVerdict(
+            claim_text=claim.text,
+            claim_type=claim.claim_type,
+            verdict="caption_only_uncertified",
+            evidence_chunk_ids=found_ids,
+            entailment_prob=1.0,
+            figure_reference=_figure_pointer(found_ids, hit_by_chunk_id),
+        )
+
+    overlap = _content_overlap(_QUOTED_RE.sub(" ", claim.text), premises)
+    if overlap is None and not claim.titles:
+        return ClaimVerdict(
+            claim_text=claim.text,
+            claim_type=claim.claim_type,
+            verdict="not_supported",
+            evidence_chunk_ids=chunk_ids,
+            entailment_prob=0.0,
+        )
+    supported = overlap is None or overlap >= settings.gate2_presence_overlap_fraction
+    return ClaimVerdict(
+        claim_text=claim.text,
+        claim_type=claim.claim_type,
+        verdict="supported_presence" if supported else "not_supported",
+        evidence_chunk_ids=found_ids or chunk_ids,
+        entailment_prob=1.0 if overlap is None else overlap,
+        lexical_overlap=overlap,
+    )
+
+
+def _best_hits_for_topic(
+    topic: str, hits: list[SearchHit], limit: int = 2
+) -> list[tuple[str, float]]:
+    """``(chunk_id, overlap)`` for the hits sharing most of ``topic``'s words, best first.
+
+    Each hit is scored ALONE. Pooling words across every retrieved chunk (as the
+    first version did) made a long topic look "present" whenever its words were
+    scattered over the context, e.g. a true "no other chapter names address X"
+    scored 0.71 pooled but 0.57 in its best single chunk.
+    """
+    scored = [
+        (hit.chunk_id, _presence_supported(topic, [hit.raw_text])[1]) for hit in hits
+    ]
+    scored.sort(key=lambda pair: -pair[1])
+    return [pair for pair in scored[:limit] if pair[1] > 0]
+
+
 # Verdicts that block grounding. "external_unsupported" is reported as its own
 # label for transparency but counts against grounding exactly like
 # "not_supported", so it triggers regeneration and eventual abstention.
@@ -200,6 +341,14 @@ class ClaimVerdict:
     # Set for false_hedge: the denied topic that evidence actually supports, so
     # the regeneration prompt can tell the generator what to re-address.
     probe_topic: str | None = None
+    # For not_supported claims: the share of the claim's distinctive words that
+    # DO occur in its cited evidence. High overlap with a failed entailment
+    # means the claim was probably paraphrased past what NLI can follow, not
+    # invented -- the regeneration prompt treats the two differently.
+    lexical_overlap: float | None = None
+    # For not_supported claims that state numbers: whether every one of them
+    # occurs in the cited evidence (None if the claim has no numbers).
+    numbers_in_evidence: bool | None = None
 
 
 @dataclass
@@ -263,8 +412,10 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
             # a meta-probe like "the text discusses X" as neutral even when X is
             # plainly there (measured 0.36 on a topic the corpus states in
             # full). So we reuse the SAME token-overlap presence check used for
-            # unscorable claims, run over ALL retrieved hits (an absence claim
-            # cites nothing, so there is no cited-chunk subset to restrict to).
+            # unscorable claims, run over EACH retrieved hit separately and taking
+            # the best (an absence claim cites nothing, so there is no cited-chunk
+            # subset to restrict to). The words must co-occur in ONE chunk: pooled
+            # across all hits, almost any long topic looks present.
             # If the topic is present, the hedge is false -> "false_hedge",
             # which blocks grounding and feeds the existing regeneration loop.
             #
@@ -281,9 +432,9 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
                 )
                 continue
 
-            present, overlap = _presence_supported(
-                topic, [hit.raw_text for hit in answer.hits_used]
-            )
+            best_hits = _best_hits_for_topic(topic, answer.hits_used)
+            overlap = best_hits[0][1] if best_hits else 0.0
+            present = overlap >= settings.gate2_presence_overlap_fraction
             if present:
                 logger.info(
                     "False hedge: claim denies a topic the evidence contains "
@@ -296,6 +447,7 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
                         verdict="false_hedge",
                         entailment_prob=overlap,
                         probe_topic=topic,
+                        evidence_chunk_ids=[chunk_id for chunk_id, _ in best_hits],
                     )
                 )
             else:
@@ -333,6 +485,10 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
                     entailment_prob=None,
                 )
             )
+            continue
+
+        if claim.claim_type == "structural":
+            verdicts.append(_check_structural(claim, resolved, hit_by_chunk_id))
             continue
 
         if claim.claim_type == "unscorable":
@@ -541,6 +697,12 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
                 verdict="not_supported",
                 evidence_chunk_ids=all_chunk_ids,
                 entailment_prob=best_prob,
+                lexical_overlap=_content_overlap(
+                    claim.text, [text for _, text in resolved], _PRESENCE_STOPWORDS
+                ),
+                numbers_in_evidence=_numbers_in_evidence(
+                    claim.text, [text for _, text in resolved]
+                ),
             )
         )
 

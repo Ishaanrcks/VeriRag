@@ -15,6 +15,7 @@ phases, not implemented here.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
@@ -109,6 +110,36 @@ the cited passages suggest they do:
 
 Review the relevant passages again and answer directly if the information is \
 present. Maintain the hedge only if, on reflection, it is genuinely accurate."""
+
+# The richer form, used when Gate 2 could say WHICH passage text contradicts the
+# hedge. The quoted text itself goes in the USER message (see generate_answer):
+# document text must never enter the system prompt. Naming the text matters: a bare topic gave the model nothing to act on,
+# and its escape clause ("keep the hedge if accurate") let it repeat the same
+# hedge three times on the same evidence.
+_FALSE_HEDGE_WITH_EVIDENCE_INSTRUCTION = """\
+
+Your previous answer said the documents do not address the following, but the \
+passages DO contain text that bears on it (that text is quoted after the \
+context passages in the user message):
+{topics}
+
+Answer from that text and cite it. If it gives the figure that was asked for, \
+or the closest equivalent (for example a response category whose label matches \
+the question's wording), state that figure and say in one clause how it \
+relates to the question, rather than declining. Keep a hedge only for a \
+specific detail the quoted text genuinely lacks, and then name that detail."""
+
+# For a claim that failed verification although its words DO occur in the cited
+# passages: the likely fault is paraphrase, not invention, so "omit it" (the
+# instruction for a genuinely unsupported claim) would throw away a true fact.
+_RESTATE_CLAIMS_INSTRUCTION = """\
+
+These claims from your previous answer could not be verified as worded, \
+although the cited passages contain the same terms:
+{claims}
+
+Restate each one only if you can follow the passage's own wording and numbers \
+closely, and cite it; otherwise leave it out."""
 
 _FORMAT_INSTRUCTIONS: dict[AnswerFormat, str] = {
     AnswerFormat.CONCISE: "Answer directly in 2-4 sentences.",
@@ -216,6 +247,36 @@ def build_context_block(hits: list[SearchHit]) -> tuple[str, list[Citation]]:
     return "\n\n".join(blocks), citations
 
 
+_SNIPPET_TOKEN_RE = re.compile(r"\w{3,}")
+
+
+def best_passage_snippet(topic: str, text: str, width: int = 500) -> str:
+    """The stretch of ``text`` (about ``width`` chars) sharing most with ``topic``.
+
+    Used to show the generator the passage text that contradicts a false hedge.
+    Works on whole lines, so a markdown table row is not cut mid-cell; a short
+    table is returned whole so its header row stays attached to the values.
+    """
+    text = text.strip()
+    if text.startswith("|") and len(text) <= 2 * width:
+        return " ".join(text.split())
+    tokens = {t.lower() for t in _SNIPPET_TOKEN_RE.findall(topic)}
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return ""
+    best, best_score = (0, 1), -1
+    for start in range(len(lines)):
+        end, length = start, 0
+        while end < len(lines) and (length + len(lines[end]) <= width or end == start):
+            length += len(lines[end]) + 1
+            end += 1
+        window = " ".join(lines[start:end]).lower()
+        score = len(tokens & set(_SNIPPET_TOKEN_RE.findall(window)))
+        if score > best_score:
+            best, best_score = (start, end), score
+    return " ".join(lines[best[0]:best[1]])
+
+
 @traceable(name="generate_answer")
 def generate_answer(
     query: str,
@@ -223,6 +284,8 @@ def generate_answer(
     format: AnswerFormat,  # noqa: A002 - matches the documented public API
     avoid_claims: list[str] | None = None,
     false_hedge_topics: list[str] | None = None,
+    restate_claims: list[str] | None = None,
+    false_hedges: list[tuple[str, str]] | None = None,
 ) -> GeneratedAnswer:
     """Generate a cited answer for ``query`` from the retrieved ``hits``.
 
@@ -233,6 +296,12 @@ def generate_answer(
     ``false_hedge_topics`` carries the opposite steer: topics the previous
     answer wrongly claimed were absent but which the evidence supports, so the
     model is pushed to answer them directly rather than hedge again.
+
+    ``false_hedges`` is the richer form: ``(topic, passage_text)`` pairs, so the
+    model is shown the text that contradicts its hedge. When given it replaces
+    ``false_hedge_topics``. ``restate_claims`` are claims Gate 2 could not verify
+    as worded although their terms occur in the cited passages; they are told to
+    restate closely, not to omit.
     """
     context_block, citations = build_context_block(hits)
 
@@ -240,7 +309,19 @@ def generate_answer(
     if avoid_claims:
         bulleted = "\n".join(f"- {claim}" for claim in avoid_claims)
         system_prompt += _AVOID_CLAIMS_INSTRUCTION.format(claims=bulleted)
-    if false_hedge_topics:
+    if restate_claims:
+        bulleted = "\n".join(f"- {claim}" for claim in restate_claims)
+        system_prompt += _RESTATE_CLAIMS_INSTRUCTION.format(claims=bulleted)
+    evidence_block = ""
+    if false_hedges:
+        topics = "\n".join(f"- {topic}" for topic, _ in false_hedges)
+        system_prompt += _FALSE_HEDGE_WITH_EVIDENCE_INSTRUCTION.format(topics=topics)
+        # Document text, so it rides in the user message with the other context.
+        quoted = "\n".join(
+            f"- {topic}\n  Passage text: \"{passage}\"" for topic, passage in false_hedges
+        )
+        evidence_block = f"Passage text bearing on your earlier hedge:\n{quoted}\n\n"
+    elif false_hedge_topics:
         bulleted = "\n".join(f"- {topic}" for topic in false_hedge_topics)
         system_prompt += _FALSE_HEDGE_INSTRUCTION.format(topics=bulleted)
 
@@ -251,6 +332,7 @@ def generate_answer(
     # instruction status. Do not move context_block into the system message.
     user_message = (
         f"Context passages:\n\n{context_block}\n\n"
+        f"{evidence_block}"
         f"Question: {query}\n\n"
         f"{_FORMAT_INSTRUCTIONS[format]}"
     )
