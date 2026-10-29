@@ -25,6 +25,8 @@ Changes from upstream (the scoring rules themselves are reproduced unchanged):
 * The question + analysis are sent in the same user message as the extraction
   prompt. Upstream sends them as a trailing *assistant* message, which not
   every OpenAI-compatible endpoint accepts.
+* ``extract_answer`` retries rate limits / transient errors (upstream returns
+  "Failed" on the first error, which would score a throttled run as 0).
 * The three inline lines in ``run_api.py`` that parse the extractor's reply
   are :func:`parse_extraction`, and a malformed reply yields
   ``"Failed to extract"`` instead of an IndexError (upstream has that
@@ -40,6 +42,7 @@ from __future__ import annotations
 
 import ast
 import re
+import time
 from collections.abc import Callable
 from math import isclose
 from pathlib import Path
@@ -277,7 +280,30 @@ def make_extraction_client(api_key: str, base_url: str):
     """
     from openai import OpenAI
 
-    return OpenAI(api_key=api_key, base_url=base_url)
+    # An explicit timeout: the SDK default is 10 minutes, which turns a stalled
+    # endpoint into a silent hang.
+    return OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
+
+
+_RETRY_HINT = re.compile(r"retry in ([0-9.]+)s", re.IGNORECASE)
+
+
+def _retry_delay(exc: Exception, attempt: int) -> float | None:
+    """Seconds to wait before retrying ``exc``, or None if it is not retryable.
+
+    Rate limits (429) and transient server errors (5xx, timeouts) are retried;
+    the server's own "retry in 34.0s" hint is honoured when present.
+    """
+    status = getattr(exc, "status_code", None)
+    transient = status in (429, 500, 502, 503, 504) or type(exc).__name__ in (
+        "APITimeoutError", "APIConnectionError",
+    )
+    if not transient:
+        return None
+    hint = _RETRY_HINT.search(str(exc))
+    if hint:
+        return float(hint.group(1)) + 1.0
+    return min(5.0 * 2**attempt, 60.0)
 
 
 def extract_answer(
@@ -289,23 +315,33 @@ def extract_answer(
     model: str,
     temperature: float = 0.0,
     max_tokens: int = 256,
+    max_attempts: int = 6,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> str:
     """Ask ``model`` to extract a short typed answer from a free-form response.
 
     ``client`` is any OpenAI-compatible client (``client.chat.completions.create``).
-    Returns the raw reply, or ``"Failed"`` on any error (upstream behaviour).
+    Rate limits and transient server errors are retried (a free-tier Gemini key
+    allows 5 requests a minute, so a bare failure here would silently score a
+    correct run as 0). Returns the raw reply, or ``"Failed"`` once retries are
+    exhausted or on a non-retryable error (upstream behaviour).
     """
     message = f"{prompt}\n\nQuestion:{question}\nAnalysis:{output}\n"
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": message}],
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-        return response.choices[0].message.content or "Failed"
-    except Exception:  # noqa: BLE001 - upstream swallows everything
-        return "Failed"
+    for attempt in range(max_attempts):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": message}],
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            return response.choices[0].message.content or "Failed"
+        except Exception as exc:  # noqa: BLE001 - upstream swallows everything
+            delay = _retry_delay(exc, attempt)
+            if delay is None or attempt == max_attempts - 1:
+                return "Failed"
+            sleep(delay)
+    return "Failed"
 
 
 def parse_extraction(extracted_res: str) -> str:

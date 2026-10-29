@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+import dataclasses
 import json
 import random
 import time
@@ -121,7 +122,7 @@ def main() -> None:
     )
     kind, model, client = build_extractor(args.extractor)
     print(f"extractor: {kind} / {model}"
-          + ("   (STAND-IN: no GEMINI_API_KEY set)" if kind == "deepseek" else ""),
+          + ("   (STAND-IN, not Gemini)" if kind == "deepseek" else ""),
           flush=True)
     prompt = load_extraction_prompt()
 
@@ -144,6 +145,12 @@ def main() -> None:
             pred=pred, score=score,
             gate1=(f"{g1.verdict}/{g1.decision_path}/{g1.max_rerank_score:.3f}" if g1 else None),
             regenerations=result.regeneration_count,
+            # Full gate output and the structured per-stage log, for diagnosing
+            # WHY a question was declined rather than only which gate declined.
+            gate1_detail=dataclasses.asdict(g1) if g1 else None,
+            gate2_detail=(dataclasses.asdict(result.gate2_verdict)
+                          if result.gate2_verdict else None),
+            pipeline_log=[dataclasses.asdict(e) for e in result.pipeline_log],
             elapsed_s=round(time.perf_counter() - started, 1),
             trace=result.trace,
         ))

@@ -259,3 +259,52 @@ def test_score_response_end_to_end_with_stub_extractor():
 
     failed = score_response(sample, "?", lambda q, r: "Failed")
     assert failed["pred"] == FAILED_TO_EXTRACT and failed["score"] == 0.0
+
+
+# --------------------------------------------------------------------------
+# extractor resilience: a throttled run must not be scored as wrong answers
+# --------------------------------------------------------------------------
+class _RateLimited(Exception):
+    status_code = 429
+
+
+class _FlakyClient(_StubClient):
+    """Raises ``errors`` in order, then returns the reply."""
+
+    def __init__(self, errors, reply="Extracted answer: 7\nAnswer format: Integer"):
+        super().__init__(reply=reply)
+        self._errors = list(errors)
+
+    def _create(self, **kwargs):
+        self.calls.append(kwargs)
+        if self._errors:
+            raise self._errors.pop(0)
+        message = SimpleNamespace(content=self._reply)
+        return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+
+
+def test_extract_answer_retries_rate_limits_using_the_servers_hint():
+    waits: list[float] = []
+    err = _RateLimited("429 ... Please retry in 34.0s.")
+    client = _FlakyClient([err, err])
+    out = extract_answer("q", "o", "p", client=client, model="m", sleep=waits.append)
+    assert out.startswith("Extracted answer: 7")
+    assert len(client.calls) == 3
+    assert waits == [35.0, 35.0]
+
+
+def test_extract_answer_gives_up_after_max_attempts():
+    client = _FlakyClient([_RateLimited("429")] * 10)
+    out = extract_answer(
+        "q", "o", "p", client=client, model="m", max_attempts=3, sleep=lambda s: None
+    )
+    assert out == "Failed" and len(client.calls) == 3
+
+
+def test_extract_answer_does_not_retry_permanent_errors():
+    class _Bad(Exception):
+        status_code = 404
+
+    client = _FlakyClient([_Bad("model not found")])
+    out = extract_answer("q", "o", "p", client=client, model="m", sleep=lambda s: None)
+    assert out == "Failed" and len(client.calls) == 1

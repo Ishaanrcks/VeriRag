@@ -34,7 +34,8 @@ class Settings(BaseSettings):
     # its OpenAI-compatible endpoint, so the same client class serves it.
     gemini_api_key: str | None = None
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
-    gemini_extraction_model: str = "gemini-2.0-flash"
+    # gemini-2.0-flash is retired (404 from the API); 2.5-flash is its GA successor.
+    gemini_extraction_model: str = "gemini-2.5-flash"
 
     # --- Models ---
     embedding_model: str = "BAAI/bge-base-en-v1.5"
