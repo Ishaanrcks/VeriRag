@@ -281,8 +281,10 @@ def make_extraction_client(api_key: str, base_url: str):
     from openai import OpenAI
 
     # An explicit timeout: the SDK default is 10 minutes, which turns a stalled
-    # endpoint into a silent hang.
-    return OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
+    # endpoint into a silent hang. max_retries=0 because extract_answer owns
+    # retrying; leaving the SDK's default of 2 would multiply the attempts
+    # (up to 3 HTTP requests per attempt) and blur the call count.
+    return OpenAI(api_key=api_key, base_url=base_url, timeout=60.0, max_retries=0)
 
 
 _RETRY_HINT = re.compile(r"retry in ([0-9.]+)s", re.IGNORECASE)
@@ -300,6 +302,8 @@ def _retry_delay(exc: Exception, attempt: int) -> float | None:
     )
     if not transient:
         return None
+    if "PerDay" in str(exc) or "per day" in str(exc).lower():
+        return None  # a daily quota will not recover within any retry window
     hint = _RETRY_HINT.search(str(exc))
     if hint:
         return float(hint.group(1)) + 1.0

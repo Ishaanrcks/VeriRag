@@ -308,3 +308,18 @@ def test_extract_answer_does_not_retry_permanent_errors():
     client = _FlakyClient([_Bad("model not found")])
     out = extract_answer("q", "o", "p", client=client, model="m", sleep=lambda s: None)
     assert out == "Failed" and len(client.calls) == 1
+
+
+def test_extract_answer_does_not_retry_an_exhausted_daily_quota():
+    err = _RateLimited("429 ... PerDayPerProjectPerModel-FreeTier ... limit: 20")
+    client = _FlakyClient([err] * 10)
+    waits: list[float] = []
+    out = extract_answer("q", "o", "p", client=client, model="m", sleep=waits.append)
+    assert out == "Failed" and len(client.calls) == 1 and waits == []
+
+
+def test_make_extraction_client_has_no_hidden_sdk_retries():
+    from verirag.eval.mmlongbench_scorer import make_extraction_client
+
+    client = make_extraction_client("k", "https://example.invalid/v1/")
+    assert client.max_retries == 0 and client.timeout == 60.0
