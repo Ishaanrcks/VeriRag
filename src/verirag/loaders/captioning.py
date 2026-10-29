@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import logging
+from dataclasses import dataclass
 from functools import lru_cache
 
 from openai import (
@@ -42,11 +43,31 @@ _RETRYABLE_ERRORS = (
 
 _CAPTION_PROMPT = (
     "You are describing a figure extracted from a document for a retrieval "
-    "system. In 2-4 concise, factual sentences, describe what this figure or "
-    "chart shows: the type of visual, any axis titles, labels, or legend text "
-    "you can read, and the single key takeaway. Do not speculate beyond what "
-    "is visible. If it is not a meaningful figure, say so briefly."
+    "system. State what kind of visual it is, its title, any axis titles, "
+    "labels and legend text you can read, and the single key takeaway. "
+    "If the figure plots or labels numbers (a chart, graph, dot plot or any "
+    "table-like graphic), you MUST state the actual numeric values you can "
+    "read, each tied to its category, series or group (for example 'U.S., "
+    "ages 30-49: 72%'), rather than only describing the trend. List them "
+    "compactly. Do not speculate beyond what is visible and do not invent "
+    "values you cannot read. If it is not a meaningful figure, say so briefly."
 )
+
+# Hidden reasoning tokens count against max_tokens, so a hard chart can spend
+# nearly the whole budget thinking (measured: 1,686 of 2,048 on one Pew chart).
+# A response that stops on the length limit is retried once with more headroom.
+# A value-listing caption on a dense chart exceeded 2,048 on 3 of 3 attempts, so
+# the first call gets 4,096 (a cap costs nothing unless used) and the retry 8,192.
+_CAPTION_MAX_TOKENS = 4096
+_CAPTION_RETRY_MAX_TOKENS = 8192
+
+
+@dataclass(frozen=True)
+class Caption:
+    """A generated caption and whether the model's output hit its length limit."""
+
+    text: str
+    truncated: bool = False
 
 
 @lru_cache(maxsize=1)
@@ -77,8 +98,14 @@ def _detect_mime(image_bytes: bytes) -> str:
     wait=wait_exponential(multiplier=1, min=1, max=10),
     retry=retry_if_exception_type(_RETRYABLE_ERRORS),
 )
-def _caption_with_retry(data_url: str) -> str | None:
-    """Single captioning call; retried by tenacity on transient errors only."""
+def _caption_with_retry(
+    data_url: str, max_tokens: int = _CAPTION_MAX_TOKENS
+) -> tuple[str | None, str | None]:
+    """Single captioning call; retried by tenacity on transient errors only.
+
+    Returns ``(content, finish_reason)``; ``finish_reason == "length"`` means
+    the output (reasoning included) hit ``max_tokens`` and may be cut short.
+    """
     response = _client().chat.completions.create(
         model=settings.deepseek_vision_model,
         messages=[
@@ -93,34 +120,61 @@ def _caption_with_retry(data_url: str) -> str | None:
         # The vision model is a reasoning model: its hidden reasoning tokens
         # count against this limit. At 300, two of three test figures returned
         # EMPTY content (all 300 tokens spent reasoning, finish_reason=length)
-        # and the third was cut mid-sentence; a caption needs ~100-150 tokens of
-        # output after up to ~750 of reasoning. The limit is only a cap, so
+        # and the third was cut mid-sentence. The limit is only a cap, so
         # headroom costs nothing unless used.
-        max_tokens=2048,
+        max_tokens=max_tokens,
         temperature=0.2,
     )
-    return response.choices[0].message.content
+    choice = response.choices[0]
+    return choice.message.content, choice.finish_reason
 
 
-def caption_image(image_bytes: bytes) -> str | None:
-    """Caption an image with the DeepSeek vision model.
+def caption_image_with_status(image_bytes: bytes) -> Caption | None:
+    """Caption an image, detecting and retrying a length-truncated response.
 
-    Returns the caption text, or ``None`` if captioning ultimately failed
-    (transient errors exhausted, a bad-request/4xx, or an empty response).
-    Never raises.
+    Returns ``None`` if captioning ultimately failed (transient errors
+    exhausted, a bad-request/4xx, or an empty response). A response that stops
+    on the length limit is retried once with a larger token budget; if it is
+    STILL cut off, the partial text is returned with ``truncated=True`` (and a
+    warning logged) rather than being stored as if it were complete. Never
+    raises.
     """
     mime = _detect_mime(image_bytes)
     data_url = f"data:{mime};base64,{base64.b64encode(image_bytes).decode('ascii')}"
 
+    content: str | None = None
+    finish_reason: str | None = None
     try:
-        caption = _caption_with_retry(data_url)
+        for max_tokens in (_CAPTION_MAX_TOKENS, _CAPTION_RETRY_MAX_TOKENS):
+            content, finish_reason = _caption_with_retry(data_url, max_tokens)
+            if finish_reason != "length":
+                break
+            logger.warning(
+                "Caption hit the %d-token limit (finish_reason=length)%s.",
+                max_tokens,
+                "; retrying with more headroom"
+                if max_tokens == _CAPTION_MAX_TOKENS else "",
+            )
     except Exception as exc:  # noqa: BLE001 - deliberately swallow; caller skips image
         logger.warning(
             "Vision captioning failed (%s): %s", type(exc).__name__, exc
         )
         return None
 
-    if not caption:
+    text = (content or "").strip()
+    if not text:
         logger.warning("Vision captioning returned an empty response.")
         return None
-    return caption.strip() or None
+    truncated = finish_reason == "length"
+    if truncated:
+        logger.warning(
+            "Caption is still truncated after the retry (%d chars); storing it "
+            "flagged caption_truncated.", len(text),
+        )
+    return Caption(text=text, truncated=truncated)
+
+
+def caption_image(image_bytes: bytes) -> str | None:
+    """Caption text only (see :func:`caption_image_with_status`), or ``None``."""
+    result = caption_image_with_status(image_bytes)
+    return result.text if result else None

@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 
 import pymupdf  # the modern import name for PyMuPDF (aka ``fitz``)
@@ -31,7 +33,7 @@ from langchain_core.documents import Document
 
 from verirag.config import settings
 from verirag.loaders.base import compute_doc_id, make_document
-from verirag.loaders.captioning import caption_image
+from verirag.loaders.captioning import caption_image_with_status
 
 logger = logging.getLogger(__name__)
 
@@ -87,19 +89,183 @@ def _table_to_markdown(rows: list[list]) -> str | None:
     return "\n".join([header, separator, *body])
 
 
+# A table PyMuPDF finds by ruling lines but whose body has no row rules comes
+# back as a header plus ONE body row, each cell holding every entry joined by
+# newlines (measured on an unruled attendance table: 14 directors in one cell).
+# That signature -- at most this many rows, yet some cell with at least this many
+# lines -- triggers a retry with PyMuPDF's whitespace-based "text" strategy.
+_COLLAPSE_MAX_ROWS = 4
+_COLLAPSE_MIN_CELL_LINES = 6
+# Guards on accepting a text-strategy result in place of a collapsed one. The
+# text strategy can also shred a page's prose, so a replacement must overlap the
+# original, keep (almost) all of its words, be mostly filled, and not balloon.
+_REPLACE_MIN_OVERLAP = 0.5   # intersection / area of the smaller bbox
+_REPLACE_MIN_COVERAGE = 0.85  # share of the original table's words still present
+_REPLACE_MIN_FILL = 0.5       # share of non-empty cells
+_REPLACE_MAX_AREA_RATIO = 3.0  # replacement bbox area / original bbox area
+
+
+@dataclass
+class ResolvedTable:
+    """A table's final rows, the strategy that produced them, and whether the
+    collapse fallback was attempted for it (``attempted`` with ``strategy ==
+    "lines"`` means the fallback ran and its result was rejected)."""
+
+    rows: list[list]
+    strategy: str  # "lines" | "text"
+    attempted: bool = False
+
+
+def _is_usable(rows: list[list]) -> bool:
+    """At least 2 rows and 2 columns: what the loader will serialize."""
+    return len(rows) >= 2 and max((len(row) for row in rows), default=0) >= 2
+
+
+def is_collapsed_table(rows: list[list]) -> bool:
+    """True for the unruled-table collapse signature (see module constants).
+
+    A real collapse is a usable table (a header and a fused body row, 2+
+    columns). A single-row or single-column "table" with many lines is a
+    bordered box of prose, not a table, and must not trigger the fallback.
+    """
+    if not _is_usable(rows) or len(rows) > _COLLAPSE_MAX_ROWS:
+        return False
+    return any(
+        cell is not None and len(str(cell).split("\n")) >= _COLLAPSE_MIN_CELL_LINES
+        for row in rows
+        for cell in row
+    )
+
+
+def drop_empty_columns(rows: list[list]) -> list[list]:
+    """Remove columns whose every cell (header included) is empty.
+
+    Spacer columns are common in typeset tables and only add ``|  |`` noise.
+    Rows are padded to the widest row first, so ragged input stays aligned. If
+    dropping would leave fewer than 2 columns the input is returned unchanged,
+    so a table is never cleaned out of existence.
+    """
+    width = max((len(row) for row in rows), default=0)
+    keep = [
+        i for i in range(width)
+        if any(i < len(row) and row[i] is not None and str(row[i]).strip()
+               for row in rows)
+    ]
+    if len(keep) < 2:
+        return rows
+    return [[row[i] if i < len(row) else "" for i in keep] for row in rows]
+
+
+def _words(rows: list[list]) -> Counter:
+    return Counter(
+        w for row in rows for cell in row for w in re.findall(r"\w+", str(cell or "").lower())
+    )
+
+
+def _word_coverage(reference: list[list], candidates: list[list[list]]) -> float:
+    """Share of ``reference``'s words (with multiplicity) found in ``candidates``."""
+    ref = _words(reference)
+    total = sum(ref.values())
+    if not total:
+        return 1.0
+    got: Counter = Counter()
+    for rows in candidates:
+        got += _words(rows)
+    return sum((ref & got).values()) / total
+
+
+def _fill_ratio(rows: list[list]) -> float:
+    cells = [c for row in rows for c in row]
+    return sum(1 for c in cells if str(c or "").strip()) / len(cells) if cells else 0.0
+
+
+def _area(bbox) -> float:
+    return max(0.0, bbox[2] - bbox[0]) * max(0.0, bbox[3] - bbox[1])
+
+
+def _overlap_fraction(a, b) -> float:
+    """Intersection area over the smaller rectangle's area; bboxes are (x0,y0,x1,y1)."""
+    w = min(a[2], b[2]) - max(a[0], b[0])
+    h = min(a[3], b[3]) - max(a[1], b[1])
+    if w <= 0 or h <= 0:
+        return 0.0
+    smaller = min(_area(a), _area(b))
+    return (w * h) / smaller if smaller > 0 else 0.0
+
+
+def resolve_page_tables(page: "pymupdf.Page") -> list[ResolvedTable]:
+    """Every table on a page, falling back to the "text" strategy where needed.
+
+    Tables come from the default ("lines") strategy. Any usable one matching the
+    collapse signature is replaced by the overlapping tables of
+    ``find_tables(strategy="text")`` -- but only if that replacement is itself
+    not collapsed, has more rows, keeps at least ``_REPLACE_MIN_COVERAGE`` of the
+    original's words, is at least ``_REPLACE_MIN_FILL`` filled, and is no more
+    than ``_REPLACE_MAX_AREA_RATIO`` times the original's area. Otherwise the
+    lines result is kept. The text strategy runs lazily, only for such a table,
+    so it can never add a table to a page that had none. Empty columns are
+    dropped from every result. Raises on a failing default ``find_tables``;
+    per-table failures are logged and skipped.
+    """
+    resolved: list[ResolvedTable] = []
+    text_tables = None  # type: list | None
+    used: set[int] = set()
+    for table in page.find_tables().tables:
+        try:
+            rows = table.extract()
+        except Exception as exc:  # noqa: BLE001 - skip this one table
+            logger.warning("table.extract() failed (page=%s): %s", page.number + 1, exc)
+            continue
+
+        attempted = False
+        if is_collapsed_table(rows):
+            attempted = True
+            if text_tables is None:
+                try:
+                    text_tables = [
+                        (t.bbox, t.extract()) for t in page.find_tables(strategy="text").tables
+                    ]
+                except Exception as exc:  # noqa: BLE001 - keep the lines result
+                    logger.warning("text-strategy find_tables() failed (page=%s): %s",
+                                   page.number + 1, exc)
+                    text_tables = []
+            replacements = [
+                (i, drop_empty_columns(text_rows), bbox)
+                for i, (bbox, text_rows) in enumerate(text_tables)
+                if i not in used
+                and _overlap_fraction(table.bbox, bbox) >= _REPLACE_MIN_OVERLAP
+                and len(text_rows) > len(rows)
+                and not is_collapsed_table(text_rows)
+            ]
+            accepted = bool(replacements) and all(
+                _fill_ratio(r) >= _REPLACE_MIN_FILL
+                and _area(bbox) <= _REPLACE_MAX_AREA_RATIO * _area(table.bbox)
+                for _, r, bbox in replacements
+            ) and _word_coverage(rows, [r for _, r, _ in replacements]) >= _REPLACE_MIN_COVERAGE
+            if accepted:
+                for i, new_rows, _ in replacements:
+                    used.add(i)
+                    resolved.append(ResolvedTable(new_rows, "text", attempted=True))
+                continue
+        resolved.append(ResolvedTable(drop_empty_columns(rows), "lines", attempted=attempted))
+    return resolved
+
+
 def extract_tables_from_page(
     page: "pymupdf.Page", *, doc_id: str, source_path: str, page_num: int
 ) -> list[Document]:
     """Return one ``content_type="table"`` Document per usable table on a page.
 
     Each table is serialized to GFM markdown (see :func:`_table_to_markdown`)
-    and tagged with ``row_count`` (data rows, i.e. excluding the header) and
-    ``col_count``. Extraction failures are logged and skipped, never raised, so
-    one bad table cannot abort a document load.
+    and tagged with ``row_count`` (data rows, i.e. excluding the header),
+    ``col_count`` and ``table_strategy`` ("lines", or "text" when the collapse
+    fallback of :func:`resolve_page_tables` produced it). Extraction failures
+    are logged and skipped, never raised, so one bad table cannot abort a
+    document load.
     """
     documents: list[Document] = []
     try:
-        tables = list(page.find_tables().tables)
+        tables = resolve_page_tables(page)
     except Exception as exc:  # noqa: BLE001 - never abort a load on table parse
         logger.warning(
             "find_tables() failed (doc_id=%s page=%s): %s",
@@ -108,15 +274,7 @@ def extract_tables_from_page(
         return documents
 
     for table_index, table in enumerate(tables):
-        try:
-            rows = table.extract()
-        except Exception as exc:  # noqa: BLE001 - skip this one table
-            logger.warning(
-                "table.extract() failed (doc_id=%s page=%s table=%s): %s",
-                doc_id, page_num, table_index, exc,
-            )
-            continue
-
+        rows = table.rows
         markdown = _table_to_markdown(rows)
         if markdown is None:
             logger.debug(
@@ -136,6 +294,7 @@ def extract_tables_from_page(
         )
         document.metadata["row_count"] = len(rows) - 1  # data rows (no header)
         document.metadata["col_count"] = width
+        document.metadata["table_strategy"] = table.strategy
         documents.append(document)
 
     return documents
@@ -248,7 +407,7 @@ def load_pdf(path: str | Path) -> list[Document]:
                     xref,
                 )
 
-                caption = caption_image(extracted["image"])
+                caption = caption_image_with_status(extracted["image"])
                 if caption is None:
                     logger.warning(
                         "Captioning failed; skipping image "
@@ -258,7 +417,7 @@ def load_pdf(path: str | Path) -> list[Document]:
                     continue
 
                 figure = make_document(
-                    caption,
+                    caption.text,
                     doc_id=doc_id,
                     source_path=source_path,
                     fmt="pdf",
@@ -269,6 +428,10 @@ def load_pdf(path: str | Path) -> list[Document]:
                 # degrades to caption-only rather than carrying a dead path.
                 if image_path is not None:
                     figure.metadata["image_path"] = image_path
+                # Set only when the caption hit the model's length limit even
+                # after a retry, so a cut-off caption is identifiable later.
+                if caption.truncated:
+                    figure.metadata["caption_truncated"] = True
                 figure_docs.append(figure)
 
     return table_docs + text_docs + figure_docs

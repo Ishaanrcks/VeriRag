@@ -1,0 +1,1530 @@
+{
+ "itc_p5_attendance_unruled": {
+  "source": "f86d073b0d735ac873a65d906ba82758.pdf p5",
+  "expect": "text",
+  "lines": [
+   {
+    "bbox": [
+     34.0,
+     135.0,
+     277.5,
+     374.8
+    ],
+    "rows": [
+     [
+      "Director",
+      "No ofBoard\nM.\neet ings\nattended",
+      "Attendance\nat last\nAGM"
+     ],
+     [
+      "Y C Deveshwar\n. .\nS S H Rehman\n. . .\nA Singh\n.\nK Vaidyanath\n.\nJ P Daly\n. .\nC R Green\n. .\nS H Khan*\n. .\nS B Mathur\n. .\nD K Mehrotra**\n. .\nP B Ramanujam\n. .\nB Sen\n.\nRamS Tarneja\n.\nT S Vijayan***\n. .\nB Vijayaraghavan\n.",
+      "5\n5\n5\n5\n3\n3\n1\n5\n3\n5\n5\n5\nNA\n5",
+      "Yes\nYes\nYes\nYes\nYes\nNo\nNA\nYes\nYes\nYes\nYes\nYes\nNA\nYes"
+     ]
+    ]
+   }
+  ],
+  "text": [
+   {
+    "bbox": [
+     43.0,
+     138.3,
+     267.9,
+     370.1
+    ],
+    "rows": [
+     [
+      "Director",
+      "No ofBoard\nM.\neet ings\nattended",
+      "Attendance\nat last\nAGM"
+     ],
+     [
+      "Y C Deveshwar\n. .",
+      "5",
+      "Yes"
+     ],
+     [
+      "S S H Rehman\n. . .",
+      "5",
+      "Yes"
+     ],
+     [
+      "A Singh\n.",
+      "5",
+      "Yes"
+     ],
+     [
+      "K Vaidyanath\n.",
+      "5",
+      "Yes"
+     ],
+     [
+      "J P Daly\n. .",
+      "3",
+      "Yes"
+     ],
+     [
+      "C R Green\n. .",
+      "3",
+      "No"
+     ],
+     [
+      "S H Khan*\n. .",
+      "1",
+      "NA"
+     ],
+     [
+      "S B Mathur\n. .",
+      "5",
+      "Yes"
+     ],
+     [
+      "D K Mehrotra**\n. .",
+      "3",
+      "Yes"
+     ],
+     [
+      "P B Ramanujam\n. .",
+      "5",
+      "Yes"
+     ],
+     [
+      "B Sen\n.",
+      "5",
+      "Yes"
+     ],
+     [
+      "RamS Tarneja\n.",
+      "5",
+      "Yes"
+     ],
+     [
+      "T S Vijayan***\n. .",
+      "NA",
+      "NA"
+     ],
+     [
+      "B Vijayaraghavan\n.",
+      "5",
+      "Yes"
+     ]
+    ]
+   }
+  ]
+ },
+ "pew_p15_ruled_usable": {
+  "source": "PG_2020.03.09_US-Germany_FINAL.pdf p15",
+  "expect": "lines",
+  "lines": [
+   {
+    "bbox": [
+     321.4,
+     491.4,
+     524.7,
+     552.0
+    ],
+    "rows": [
+     [
+      "",
+      "US\n. .",
+      "",
+      "Both(VOL)",
+      null,
+      "Russia"
+     ],
+     [
+      "West",
+      "",
+      "43%",
+      "29%",
+      null,
+      "21%"
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "East",
+      "23",
+      "36",
+      "",
+      "",
+      "38"
+     ]
+    ]
+   }
+  ],
+  "text": [
+   {
+    "bbox": [
+     321.4,
+     491.4,
+     524.7,
+     552.0
+    ],
+    "rows": [
+     [
+      "",
+      "US\n. .",
+      "",
+      "Both(VOL)",
+      null,
+      "Russia"
+     ],
+     [
+      "West",
+      "",
+      "43%",
+      "29%",
+      null,
+      "21%"
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "East",
+      "23",
+      "36",
+      "",
+      "",
+      "38"
+     ]
+    ]
+   }
+  ]
+ },
+ "boxed_prose_f8d3_p13": {
+  "source": "f8d3a162ab9507e021d83dd109118b60.pdf p13",
+  "expect": "lines",
+  "lines": [
+   {
+    "bbox": [
+     36.1,
+     21.8,
+     589.6,
+     573.2
+    ],
+    "rows": [
+     [
+      "Tobeginthisproject youwillneed\n,\nto research5companiesthatmeetthe\ncriteriabelow\n.\nSelectthefollowingstocksforyour\nportfolio:\n□onestockforyourportfoliofromthe\nDowJonesIndustrialAveragestocklist\n(http://moneycnncom/data/dow30/(Links\n. .\ntoanexternalsite))\n. ,\n□threestocksfromtheNewYorkStock\nExchange(wwwnysecom(Linkstoan\n. .\nexternalsite))and/ortheNASDAQ\n.\n(wwwnasdaqcom(Linkstoanexternal\n. .\nsite))\n.\n□oneofthelatestinitialpublicofferings\n(IPO) IPOselectionsmaybenoolder\n.\nthanApril2019 YoucanfindanIPOvia\n.\ntheNYSE NASDAQwebsites\n,\norIPOSCOOPcom(Linkstoanexternal\n.\nsite) (NoforeigntradedIPO’s USonly)\n. . , .",
+      "Youmustdividethe$100000evenlyamong\n,\neachstock($20000worthofeachstock) If\n, .\nthereisenoughmoneyleftovertobuy\nanothershareofstockfromoneofyour\ncompanies youmaydoso Rememberto\n, .\nadddividendstoyourtotalifoneofyour\nstocksissuesthem\n.\nEx:Howtobuy$20000ofGEStock:\n,\n1 Go\n.\ntohttps://financeyahoocom/(Links\n. .\ntoanexternalsite)andtypeGEin\n.\nsearchbarthenselectGeneral\nElectric\n2 Makesurethatthemarketisclosedfor\n.\ntheday(4pmeasterntime)andwrite\ndownthestockpriceatclosing For\n.\nexample GE'spriceatclosingis$871\n, . .\n3 Thendivideyour$20kby$871tofind\n. .\nouthowmanysharesyoucanbuy\n.\n(20000/871=229621)\n, . , .\n4 Asyoucansee thereis21centsleft\n. , .\nNow multiplyyoursharepricebythe\n,\nshareswithoutthedecimalpoint (that's\n.\n$1999816sothegrouphassomeleft\n, .\novermoney(inthiscase$184)) When\n. .\nstockpricesareinthehundredsof\ndollars youmayhavealotmoremoney\n,\ntoinvest Whatyoucandonowistoadd\n.\ntheleftoveramountforallfivecompanies\nandbuyextrasharesonanyofyourfive\ncompanies\n.\nWrittenReport&5MinuteVideo\nPresentation\n□Introduction\nYouareactingasaninvestmentfirmwho\nreceived$100000fromaclienttoinvestin\n,\nfivestocks\n.\nWriteabriefdescriptionofthecompaniesyou\nhaveselected(oneparagraphortwoper\ncompany) Brieflyexplainthereasoning\n.\nbehindyourcompanyselections Createa\n.\nchartlistingofthecompaniesyouhave\nselected thepricepershareofeachstock\n, ,\nandtotalamountinvested\n.",
+      "□Analysis\nMonitoryourstocksdaily(Mondaythrough\nFriday) Notethedailyclosingpriceof\n.\neachstock Graphicallydisplaythetrends\n.\nofeachstockonalinegraph Discussthe\n.\nelementsofthebusinessenvironmentthat\nmayhaveanimpactonthevalueofyour\nstocks Discusstheinfluencesthatthe\n.\ninternalandexternalenvironmenthason\nyourcompaniesduringtheobservation\nperiod Considermanagementdecisions\n.\nand/orchanges economicinfluences\n, ,\nconsumertrends domesticandglobal\n,\ncompetition politicaleffects etc Take\n, , .\nnoteofthedatesthattheseevents\noccurredandcorrespondingfluctuationof\nyourcompanies’stockprices Avoid\n.\nplagiarism!Youshouldwriteatleastthree\npagespercompany\n.\n□Conclusion\nStocksmustbesoldatcloseofbusiness\nonDecember\n6th Usehttps ://financeyahoocom/(Links\n. . .\ntoanexternalsite)forgraphs!\n.\nProvidealistofeachstock theinitial\n,\n(buy)pricepershare theclosing(sell)\n,\npricepershare profit/lossforeach\n,\ncompanystockandyourOVERALLgain\norlossforyourportfolio(indollarsand\npercentage) UsetheYahooFinance\n.\ngraphtoplotyourfivestocksandcompare\nthemtotheS&P500andtheDow\nIndustrialAverage thencommentonyour\n,\nstockperformancetotheindices\n.\nCommentonwhichstock(IPO DOW\n, ,\nNYSE NASDAQ)performedbest?Which\n,\nstock performed worst? Write a one-page\nreflectionaboutwhatyou(thegroup)\nlearnedduringthisassignment Ifyou\n.\nwereinvestingrealmoney wouldyou\n,\ninvestdifferently?Whyorwhynot\n.\n□WorksCitedPage•Makesureyou\nnoteyourcitationsandrememberto\nmentiontheminyourreport\n.\n-Microsoft Word Excel & PowerPoint\n,"
+     ]
+    ]
+   }
+  ],
+  "text": [
+   {
+    "bbox": [
+     41.8,
+     32.5,
+     583.9,
+     704.6
+    ],
+    "rows": [
+     [
+      "T",
+      "obeginthisproject youwillneed\n,",
+      "",
+      "Youmustdivide",
+      "the$100\n,",
+      "000evenlyamo",
+      "ng",
+      "□Analysis"
+     ],
+     [
+      "to",
+      "research5companiesthatmeetthe",
+      "",
+      "eachstock($20",
+      "000worth\n,",
+      "ofeachstock)\n.",
+      "If",
+      ""
+     ],
+     [
+      "cr",
+      "iteriabelow\n.",
+      "",
+      "thereisenough",
+      "moneylef",
+      "tovertobuy",
+      "",
+      "Monitoryourstocksdaily(Mondaythrough"
+     ],
+     [
+      "S",
+      "electthefollowingstocksforyour",
+      "",
+      "anothershareof\ncom anies ou",
+      "stockfro\nma dos",
+      "moneofyour\no Rememberto",
+      "",
+      "Friday) Notethedailyclosingpriceof\n.\neachstock Graphicallydisplaythetrends"
+     ],
+     [
+      "o",
+      "rtfolio:",
+      "",
+      "p y\n,\ndddi id d t",
+      "y\nt t l",
+      ".\nif f",
+      "",
+      ".\nofeachstockonaline ra h Discussthe"
+     ],
+     [
+      "p",
+      "",
+      "",
+      "a v en s o",
+      "your oa",
+      "oneo your",
+      "",
+      "g p\n."
+     ],
+     [
+      "",
+      "",
+      "",
+      "stocksissuesth",
+      "em\n.",
+      "",
+      "",
+      "elementsofthebusinessenvironmentthat"
+     ],
+     [
+      "□\nD",
+      "onestockforyourportfoliofromthe\nowJonesIndustrialAveragestocklist",
+      "",
+      "Ex:Howtobuy",
+      "$20000o\n,",
+      "fGEStock:",
+      "",
+      "mayhaveanimpactonthevalueofyour\nstocks Discusstheinfluencesthatthe\n."
+     ],
+     [
+      "(h",
+      "ttp://moneycnncom/data/dow30/(Lin\n. .",
+      "ks",
+      "",
+      "",
+      "",
+      "",
+      "internalandexternalenvironmenthason"
+     ],
+     [
+      "to",
+      "anexternalsite))\n. ,",
+      "",
+      "1 Go\n.\ntohttps",
+      "://finance\n.",
+      "yahoocom/(Lin\n.",
+      "ks",
+      "yourcompaniesduringtheobservation\nperiod Considermanagementdecisions\n."
+     ],
+     [
+      "",
+      "",
+      "",
+      "toane",
+      "xternalsit",
+      "e)andtypeGE\n.",
+      "in",
+      "and/orchanges economicinfluences\n, ,"
+     ],
+     [
+      "",
+      "",
+      "",
+      "search",
+      "barthens",
+      "electGeneral",
+      "",
+      "consumertrends domesticandglobal\n,"
+     ],
+     [
+      "□t",
+      "hreestocksfromtheNewYorkStock",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "com etition oliticaleffects etc Take"
+     ],
+     [
+      "",
+      "",
+      "",
+      "Electric",
+      "",
+      "",
+      "",
+      "p p\n, , ."
+     ],
+     [
+      "E",
+      "xchange(wwwnysecom(Linkstoan\n. .",
+      "",
+      "2 Makesure",
+      "thatthem",
+      "arketisclosedfo",
+      "r",
+      "noteofthedatesthattheseevents"
+     ],
+     [
+      "ex",
+      "ternalsite))and/ortheNASDAQ",
+      "",
+      ".",
+      "",
+      "",
+      "",
+      "occurredandcorres ondin fluctuationof"
+     ],
+     [
+      "",
+      ".",
+      "",
+      "theday(4p",
+      "meastern",
+      "time)andwrite",
+      "",
+      "p g"
+     ],
+     [
+      "(w\nsi",
+      "wwnasdaqcom(Linkstoanexternal\n. .\nte))\n.",
+      "",
+      "downthest\nexample G\n,",
+      "ockprice\nE'spricea",
+      "atclosing For\n.\ntclosingis$87\n.",
+      "1\n.",
+      "yourcompanies’stockprices Avoid\n.\nplagiarism!Youshouldwriteatleastthree"
+     ],
+     [
+      "",
+      "",
+      "",
+      "3 Thendivide\n.\nouthowma",
+      "your$20\nnyshares",
+      "kby$871tofin\n.\nyoucanbuy\n.",
+      "d",
+      "pagespercompany\n.\nConclusion"
+     ],
+     [
+      "□",
+      "oneofthelatestinitialpublicofferings",
+      "",
+      "(20000/87\n, .",
+      "1=22962\n, .",
+      "1)",
+      "",
+      "□"
+     ],
+     [
+      "(I",
+      "PO) IPOselectionsmaybenoolder\n.",
+      "",
+      "4 Asyoucan\n.",
+      "see there\n,",
+      "is21centsleft\n.",
+      "",
+      "Stocksmustbesoldatcloseofbusiness"
+     ],
+     [
+      "th",
+      "anApril2019 YoucanfindanIPOvia\n.",
+      "",
+      "Now multip\n,",
+      "lyyoursh",
+      "arepricebythe",
+      "'",
+      "onDecember"
+     ],
+     [
+      "th",
+      "eNYSE NASDAQwebsites\n,",
+      "",
+      "shareswith",
+      "outthede",
+      "cimalpoint (tha\n.",
+      "ts",
+      "6th Usehttps://financeyahoocom/(Links\n. . ."
+     ],
+     [
+      "or",
+      "IPOSCOOPcom(Linkstoanexterna",
+      "l",
+      "$1999816\n, .",
+      "sothegro",
+      "uphassomele",
+      "ft",
+      "toanexternalsite)for ra hs!"
+     ],
+     [
+      "",
+      ".",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "g p\n."
+     ],
+     [
+      "si",
+      "te) (NoforeigntradedIPO’s USonl\n. . ,",
+      "y)\n.",
+      "overmoney\nstockprices",
+      "(inthisc\nareinthe",
+      "ase$184)) Whe\n. .\nhundredsof",
+      "n",
+      "Providealistofeachstock theinitial\n,"
+     ],
+     [
+      "",
+      "",
+      "",
+      "dollars you\n,\ntoinvest W\n.\nth l ft",
+      "mayhave\nhatyouc\ntf",
+      "alotmoremon\nandonowistoa\nllfi",
+      "ey\ndd\ni",
+      "(buy)pricepershare theclosing(sell)\n,\npricepershare profit/lossforeach\n,"
+     ],
+     [
+      "",
+      "",
+      "",
+      "e e over\nandbuyext\ni",
+      "amoun o\nrashares",
+      "ra vecompa\nonanyofyourfi",
+      "nes\nve",
+      "companystockandyourOVERALLgain\norlossforyourportfolio(indollarsand"
+     ],
+     [
+      "",
+      "",
+      "",
+      "companes\n.",
+      "",
+      "",
+      "",
+      "percentage) UsetheYahooFinance\n.\ngraphtoplotyourfivestocksandcompare"
+     ],
+     [
+      "",
+      "",
+      "",
+      "WrittenReport",
+      "&5Minut",
+      "eVideo",
+      "",
+      "themtotheS&P500andtheDow"
+     ],
+     [
+      "",
+      "",
+      "",
+      "Presentation",
+      "",
+      "",
+      "",
+      "IndustrialAverage thencommentonyour\n,"
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "stockperformancetotheindices\n."
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "Commentonwhichstock(IPO DOW"
+     ],
+     [
+      "",
+      "",
+      "",
+      "□Introduction",
+      "",
+      "",
+      "",
+      ", ,"
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "NYSE NASDAQ)performedbest?Which\n,"
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "Youareactinga",
+      "saninves",
+      "tmentfirmwho",
+      "",
+      "stock performed worst? Write a one-page"
+     ],
+     [
+      "",
+      "",
+      "",
+      "received$1000\n,",
+      "00froma",
+      "clienttoinvesti",
+      "n",
+      "reflectionaboutwhatyou(thegroup)"
+     ],
+     [
+      "",
+      "",
+      "",
+      "fivestocks\n.",
+      "",
+      "",
+      "",
+      "learnedduringthisassignment Ifyou\n.\nwereinvestingrealmoney wouldyou\n,"
+     ],
+     [
+      "",
+      "",
+      "",
+      "Writeabriefdes",
+      "criptionof",
+      "thecompanies",
+      "you",
+      "investdifferently?Whyorwhynot\n."
+     ],
+     [
+      "",
+      "",
+      "",
+      "haveselected(o",
+      "neparagr",
+      "aphortwoper",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "company) Briefl\n.",
+      "yexplain",
+      "thereasoning",
+      "",
+      "□WorksCitedPage•Makesureyou"
+     ],
+     [
+      "",
+      "",
+      "",
+      "behindyourcom",
+      "panysele",
+      "ctions Createa\n.",
+      "",
+      "noteyourcitationsandrememberto\nti th i t"
+     ],
+     [
+      "",
+      "",
+      "",
+      "chartlistingofth\nselected thepri\n,",
+      "ecompan\ncepersha",
+      "iesyouhave\nreofeachstock",
+      ",",
+      "men on em nyourrepor\n.\n-MicrosoftWord Excel&PowerPoint"
+     ],
+     [
+      "",
+      "",
+      "",
+      "andtotalamoun",
+      "tinvested",
+      ".",
+      "",
+      ","
+     ],
+     [
+      "I",
+      "NAL (Introducedat theStart o",
+      "f",
+      "3rdQTR): Your",
+      "Career",
+      "in Business",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "A",
+      "RT1:",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "E",
+      "RSONALREFLECTION:",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "",
+      "• Howcanyouenhanceyouri",
+      "nt",
+      "erpersonalskills?",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "",
+      "• Whyislearningtoplansoim",
+      "po",
+      "rtantinschoola",
+      "ndinthe",
+      "realworld?",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "",
+      "• Whatskillsshouldyoudevel",
+      "op",
+      "inschoolthatca",
+      "ntransfe",
+      "reasilytoyour",
+      "profe",
+      "ssionallifeandmakeitasuccess?"
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "",
+      "• Whataresomestrategiesth",
+      "at",
+      "willhelpyoufind\n,",
+      "keep an\n,",
+      "dadvanceiny",
+      "ourd",
+      "reamjob?"
+     ],
+     [
+      "",
+      "• Whatkeyattributesdoemplo",
+      "y",
+      "erslookforwhen",
+      "interview",
+      "ingjobcandid",
+      "ates?",
+      ""
+     ]
+    ]
+   }
+  ]
+ },
+ "afe620b9_p9_directors_unruled": {
+  "source": "afe620b9beac86c1027b96d31d396407.pdf p9",
+  "expect": "text",
+  "lines": [
+   {
+    "bbox": [
+     72.8,
+     308.8,
+     552.5,
+     569.4
+    ],
+    "rows": [
+     [
+      "Director",
+      "Executive/\nNon-Executive\nIndependent",
+      "No ofBoard\nMe.\ne tin gs\nattended",
+      "Attendance\natlast\nAG M",
+      "Membershipof\nBoardofoth er\nCompa ni es*",
+      "Membership/\nchairmanship\nofotherBoard\nCo mmitt ees#"
+     ],
+     [
+      "Mr RA Shah\n. . .\nMrKK Modi\n. . .\nMr SV Shanbhag\n. . .\nMr LalitBhasin\n.\nMr AnupN Kothari\n. .\nMr LalitKumarModi\n.\nMr CM Maniar\n. . .\nMr OP Vaish\n. . .\nMr SamirKumarModi\n.",
+      "Non-Executive\n&Independent\nExecutive\nExecutive\nNon-Executive\n&Independent\nNon-Executive\n&Independent\nExecutive\nNon-Executive\n&Independent\nNon-Executive\n&Independent\nExecutive",
+      "7\n6\n7\n7\n6\n3\n5\n6\n5",
+      "Yes\nYes\nYes\nYes\nYes\nYes\nYes\nYes\nYes",
+      "14\n11\n5\n6\n2\n9\n11\n7\n9",
+      "8\n(includes4as\nChairman sh ips)\n2\n(includes1as\nChairman sh ip)\nNone\n8\n(includes3as\nChairman sh ips)\nNone\nNone\n9\n(includes1as\nChairman sh ip)\n3\n1"
+     ]
+    ]
+   },
+   {
+    "bbox": [
+     72.8,
+     699.7,
+     552.5,
+     768.9
+    ],
+    "rows": [
+     [
+      "Nameofthedirector",
+      "Amountinvolved\n(Rs in lacs)\n.",
+      "Natureoftransaction"
+     ],
+     [
+      "1 Mr RA Shah&Mr CM Maniar\n(Se. io. rP. ofC. raw. fo.\nn artne rs rdBayley&Co)\n.\n2 Mr LalitBhasin\n(Pro.\npriet orofBhasin&Co)\n.",
+      "865\n.\n357\n.",
+      "Paymentforprofessionalservices\nPaymentforprofessionalservices"
+     ]
+    ]
+   }
+  ],
+  "text": [
+   {
+    "bbox": [
+     78.7,
+     312.2,
+     538.7,
+     564.4
+    ],
+    "rows": [
+     [
+      "Director",
+      "Executive/\nNon-Executive\nIndependent",
+      "No ofBoard\nMe.\ne tin gs\nattended",
+      "Attendance\natlast\nAG M",
+      "Membershipof\nBoardofoth er\nCompa ni es*",
+      "Membership/\nchairmanship\nofotherBoard\nCo mmitt ees#"
+     ],
+     [
+      "Mr RA Shah\n. . .",
+      "Non-Executive\n&Independent",
+      "7",
+      "Yes",
+      "14",
+      "8\n(includes4as\nChairman sh ips)"
+     ],
+     [
+      "MrKK Modi\n. . .",
+      "Executive",
+      "6",
+      "Yes",
+      "11",
+      "2\n(includes1as\nChairman sh ip)"
+     ],
+     [
+      "Mr SV Shanbhag\n. . .",
+      "Executive",
+      "7",
+      "Yes",
+      "5",
+      "None"
+     ],
+     [
+      "Mr LalitBhasin\n.",
+      "Non-Executive\n&Independent",
+      "7",
+      "Yes",
+      "6",
+      "8\n(includes3as\nChairman sh ips)"
+     ],
+     [
+      "Mr AnupN Kothari\n. .",
+      "Non-Executive\n&Independent",
+      "6",
+      "Yes",
+      "2",
+      "None"
+     ],
+     [
+      "Mr LalitKumarModi\n.",
+      "Executive",
+      "3",
+      "Yes",
+      "9",
+      "None"
+     ],
+     [
+      "Mr CM Maniar\n. . .",
+      "Non-Executive\n&Independent",
+      "5",
+      "Yes",
+      "11",
+      "9\n(includes1as\nChairman sh ip)"
+     ],
+     [
+      "Mr OP Vaish\n. . .",
+      "Non-Executive\n&Independent",
+      "6",
+      "Yes",
+      "7",
+      "3"
+     ],
+     [
+      "Mr SamirKumarModi\n.",
+      "Executive",
+      "5",
+      "Yes",
+      "9",
+      "1"
+     ]
+    ]
+   },
+   {
+    "bbox": [
+     78.7,
+     701.6,
+     545.9,
+     765.9
+    ],
+    "rows": [
+     [
+      "Nameofthedirector",
+      "Amountinvolved\n(Rs in lacs)\n.",
+      "Natureoftransaction"
+     ],
+     [
+      "1 Mr RA Shah&Mr CM Maniar\n(Se. io. rP. ofC. raw. fo.\nn artne rs rdBayley&Co)\n.",
+      "865\n.",
+      "Paymentforprofessionalservices"
+     ],
+     [
+      "2 Mr LalitBhasin\n(Pro.\npriet orofBhasin&Co)\n.",
+      "357\n.",
+      "Paymentforprofessionalservices"
+     ]
+    ]
+   }
+  ]
+ },
+ "afe620b9_p10_shredded_prose": {
+  "source": "afe620b9beac86c1027b96d31d396407.pdf p10",
+  "expect": "lines",
+  "lines": [
+   {
+    "bbox": [
+     60.8,
+     141.7,
+     540.5,
+     768.9
+    ],
+    "rows": [
+     [
+      "Nameofthe\ndirecto r",
+      "Qualifications",
+      "Experience",
+      "Namesofothercompaniesinwhichheholds\ndirecto rsh ipsof theBoarda nd memb er ship/\nchairmanship of com mitte esof theBoard"
+     ],
+     [
+      "1 Mr RA Shah\n. . . .",
+      "—",
+      "- H See ii os ra S ao rl ti nc eit ro or fa Mnd\nn P essrs\nCrawfo rdBayl ey &Co\n.\n- S spp ee cc ti ra uli mse os fin oa b pr oo ra ad\nC r te\nLawsing en eralwith\nspeci al focuson Foreign\nInvestments JointVentures\nTechnology,\nandL icence\nAgreement Intel lectual\nPropertyRi,\ng hts Mergers\nuisition,\nandAcq s\nstrialLicensi,\nIndu ng Anti\n,\nTrustLaws CompanyLaw\naxatio,\nandT n\n.\n- M Coe mm mbe itr eo ef oth fe M oman ba ag ying\nt B\nChambero fC ommerce\n.\n- M Che am mb be er ro of fIn Cd oo G me er rm cean\nm\n.\n- M forem reb ve isr oo nf t oh fe C EBom mittee\ni S I\nTak eoverC od e\n.\n- P Inr des iaid ne Ln at wof fiS ro mc sie (t Wy eo sf\ntern\nRegion)\n.",
+      "1 PfizerLimited\n.\n(Also ChairmanofAuditCommittee)\n.\n2 ColgatePalmoliveIndiaLimited\n. Commi.\n(AlsoCh airmanof Audit ttee)\n.\n3 AsianPaints(India)Limited\n. .\n4 AtulLimited\n.\n5 TheBombayDyeing&Mfg Company\n. .\nLimi ted\n.\n(AlsoChairmanofAuditcommittee)\n6 BASFIndiaLimited\n.\n(Also aMem berofAuditCommittee)\n7 ColourChemLimted\n. erofAu.\n(Alsoa Memb ditCommittee)\n8 DeepakFertilisers&Petrochemicals\n.\nCorpora tionLimte d\n.\n9 AbbottIndiaLimited\n.\n(Alsoa Mem berofAuditCommittee)\n10 Procter&GambleHygieneand\n.\nHealthc ar e Limited\nberofA.\n(AlsoaMem uditCommittee)\n11 NicholasPiramalIndiaLimited\n.\n(AlsoCha irmano fAudi tCommittee)\n12 PhilipsIndiaLimited\n.\n13 PrudentialICICITrustLimited\n.\n14 ClariantIndiaLimited\n."
+     ],
+     [
+      "2 Mr SV\n. Sha. nb. h.\nag",
+      "MCom\n. .,\nLLB ACS\n. .,",
+      "- W M/o srk Aed fo Fr r2 uy se sa or ns i &n\nF e g Co\nCha. te. re. .\nr d Accounta nt s\n.\n- 1Jo 9i 4n 9ed nth de hC ao sm cop nan siy ein\na d rable\nexper ienc ein thefieldof\nFinance Ac co unt s Leg al\n&Secret, rialmatte,\na r s\n.\n- A Sep cp ro ei tn arte yd nas C eo ym eap ran 1y\ni th 963\n.\n- S wi on rc ke n1 g98 a3 Whe h oa les ib me een\ni s h t\nDirector\n.",
+      "1 InternationalTobaccoCompanyLimited\n.\n2 KamanwalaIndustriesLimited\n.\n3 CityLeasingandFinanceLimited\n.\n4 ChaseInvestmentsLimited\n.\n5 ManhattanCreditsandFinanceLimited\n."
+     ],
+     [
+      "3 Mr CM\n. . . .\nManiar",
+      "BCom MA\n(E. co&, ol. iti.\nP cs)&\nLLB.\nS olicitor\n. . .",
+      "- P Pr ae rs tne en rtl iy a Cc rti an wg oa rs a\nn f d Bayley\n&Co Sol icitors&\nvo. c,\nAd a tes Mum baisince\n1976\n.\n- M Me am hab re ar ho tf ath Be\ns r arCouncil",
+      "1 Foods&InnsLimited\n.\n2 GujaratAmbujaExportsLimited\n.\n(Alsoa Member ofAudit Committee)\n3 HindalcoIndustriesLimited\n.\n(AlsoaM emberofA uditCommitteeand\nShare ho lders/Inv es tors G rievance\nCommittee)\n4 IndianCardClothingCompanyLimited\n."
+     ]
+    ]
+   }
+  ],
+  "text": [
+   {
+    "bbox": [
+     63.7,
+     50.7,
+     540.7,
+     803.7
+    ],
+    "rows": [
+     [
+      "O D F",
+      "R E",
+      "Y P H",
+      "I L",
+      "L I P S I N",
+      "",
+      "",
+      "D I A L I",
+      "M I",
+      "T E",
+      "D"
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      ") Briefresum",
+      "e ex\n,",
+      "perienceandothe",
+      "rdirec",
+      "torships/boardcommittee",
+      "me",
+      "m",
+      "berships",
+      "",
+      "",
+      ""
+     ],
+     [
+      "As per the",
+      "Articl",
+      "es of Association o",
+      "f the C",
+      "ompany one-third of the",
+      "tota",
+      "l",
+      "strength of the Board",
+      "(ie three",
+      "directo",
+      "rs at"
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      ",",
+      "",
+      "",
+      "",
+      ". .",
+      "",
+      ""
+     ],
+     [
+      "present na",
+      "mely",
+      "Mr RA Shah\n. . . ,",
+      "Mr S\n.",
+      "V Shanbhag and Mr\n. . .",
+      "C\n.",
+      "M",
+      "Maniar shall retire\n.",
+      "by rota",
+      "tion at",
+      "the"
+     ],
+     [
+      "forthcomin",
+      "g An",
+      "nual General Me",
+      "eting",
+      "of the Company and be",
+      "ing",
+      "",
+      "eligible shall be re-",
+      "appointed",
+      "subjec",
+      "t to"
+     ],
+     [
+      "shareholde",
+      "rs app",
+      "roval\n.",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "Nameofthe",
+      "",
+      "Qualifications",
+      "Exp",
+      "erience",
+      "Na",
+      "",
+      "mesofothercompanie",
+      "sinwhic",
+      "hhehol",
+      "ds"
+     ],
+     [
+      "director",
+      "",
+      "",
+      "",
+      "",
+      "dir",
+      "e",
+      "ctorshipsoftheBoard",
+      "andme",
+      "mbership",
+      "/"
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "ch",
+      "a",
+      "irmanshipofcommitt",
+      "eesofthe",
+      "Board",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "1 Mr RA Sha\n. . . .",
+      "h",
+      "—",
+      "H\n-",
+      "eisaSolicitorand",
+      "1\n.",
+      "",
+      "PfizerLimited",
+      "",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "S",
+      "en io rP artnero fMessrs",
+      "",
+      "",
+      "(Also ChairmanofAud",
+      "itComm",
+      "ittee)\n.",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "C",
+      "rawfordBayley&Co\n.",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "2\n.",
+      "",
+      "ColgatePalmoliveInd",
+      "iaLimited",
+      ".",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "S\n-",
+      "pecialisesinabroad",
+      "",
+      "",
+      "(AlsoChairmanofAud",
+      "itComm",
+      "ittee)\n.",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "s",
+      "pectrumofCorporate",
+      "3",
+      "",
+      "AsianPaints(India)Li",
+      "mited",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "L\ns",
+      "awsingeneralwith\npeci al focuson Foreign",
+      ".\n4\n.",
+      "",
+      "AtulLimited",
+      ".",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "I",
+      "nvestments JointVentures\n,",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "T",
+      "echnolo andLicence",
+      "5",
+      "",
+      "TheBombayDyeing&",
+      "Mfg Co",
+      "mpany",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "gy",
+      ".",
+      "",
+      "",
+      ".",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "A",
+      "reement Intellectual",
+      "",
+      "",
+      "Limited",
+      "",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      "g\n,",
+      "",
+      "",
+      ".",
+      "",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "P",
+      "ropertyRights Mergers\n,",
+      "",
+      "",
+      "(AlsoChairmanofAud",
+      "itcommi",
+      "ttee)",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "a\nI\nT",
+      "ndAcquisitions\nstrialLicensi,\nndu ng Anti\n,\nrustLaws CompanyLaw",
+      "6\n.",
+      "",
+      "BASFIndiaLimited\n(Also aMem berofAu",
+      "ditComm",
+      "ittee)",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "a",
+      "axatio,\nndT n",
+      "7",
+      "",
+      "C l Ch Li t d",
+      "",
+      "",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "",
+      ".",
+      ".",
+      "",
+      "oour em me\nerofAu.\n(Alsoa Memb",
+      "ditComm",
+      "ittee)",
+      ""
+     ],
+     [
+      "",
+      "",
+      "",
+      "M\n-\nC",
+      "emberoftheManaging\ni fB b",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+     ]
+    ]
+   }
+  ]
+ },
+ "afe620b9_p13_text_also_collapsed": {
+  "source": "afe620b9beac86c1027b96d31d396407.pdf p13",
+  "expect": "lines",
+  "lines": [
+   {
+    "bbox": [
+     72.9,
+     374.7,
+     552.4,
+     513.4
+    ],
+    "rows": [
+     [
+      "Month",
+      "High(Rs)\n.",
+      "Low (Rs .)"
+     ],
+     [
+      "April2002\nMay2002\nJune2002\nJuly2002\nAugust2002\nSeptember2002\nOctober2002\nNovember2002\nDecember2002\nJanuary2003\nFebruary2003\nMarch2003",
+      "39000\n.\n39700\n.\n39500\n.\n42000\n.\n41000\n.\n37100\n.\n41500\n.\n36000\n.\n35000\n.\n34325\n.\n33490\n.\n32900\n.",
+      "34000\n.\n32000\n.\n36900\n.\n35000\n.\n34000\n.\n31000\n.\n32000\n.\n31850\n.\n30000\n.\n31850\n.\n31000\n.\n28600\n."
+     ]
+    ]
+   }
+  ],
+  "text": [
+   {
+    "bbox": [
+     78.7,
+     377.2,
+     493.3,
+     507.2
+    ],
+    "rows": [
+     [
+      "Month",
+      "High(Rs)\n.",
+      "Low (Rs .)"
+     ],
+     [
+      "April2002\nMay2002\nJune2002\nJuly2002\nAugust2002\nSeptember2002\nOctober2002\nNovember2002\nDecember2002\nJanuary2003\nFebruary2003\nMarch2003",
+      "39000\n.\n39700\n.\n39500\n.\n42000\n.\n41000\n.\n37100\n.\n41500\n.\n36000\n.\n35000\n.\n34325\n.\n33490\n.\n32900\n.",
+      "34000\n.\n32000\n.\n36900\n.\n35000\n.\n34000\n.\n31000\n.\n32000\n.\n31850\n.\n30000\n.\n31850\n.\n31000\n.\n28600\n."
+     ]
+    ]
+   }
+  ]
+ },
+ "nike_p11_single_content_column": {
+  "source": "NIKE_2021_10K.pdf p11",
+  "expect": "lines",
+  "lines": [
+   {
+    "bbox": [
+     17.5,
+     196.0,
+     593.3,
+     639.9
+    ],
+    "rows": [
+     [
+      "",
+      "J ino Jh an n J u. a D ryo 2n 0a 2h 0o ae n I dI , hP are ss bid ee en nt aan dd ir eC ch toie rf s E inx ce ecu 2t 0iv 1e 4 O Hff eic be rr i n— g sM er x. pD eo rn tisa eho ine ,d 6 ig1 i,t aw la cs o map mp eo ri cn eted te P chre ns oi ld oe gn yt aa nn dd gC loh bie af l E sx tre ac teu gti yve H O efficer\npr eviously serve das Pres ident a ndChief Exec utive.O ffic eratS erviceNow Inc Pr iortojoining, ServiceNow In c hes ervedas.\nPresident andChi efE xecutive Offic erofe Bay Inc H ealso he ldleadership, role. satB ai n&Com panyfortw, o de. c, ade s\n, . ."
+     ],
+     [
+      "",
+      "A Dn evd ere low p mC ea nm tp leio an d,i nC gh sie trf a O tep ge icra ati nn dg fO inf afi nce cir a — lp lM anr . n C ina gm Hpi eon w, a 4 s9 a, pjo pin oe ind te N dIK CE h iein f 2 F0 in0 a7 n a cis a lV Oic fe fi cP er re os fid te hn et No If K G Elo Bb ra al n P dla innn 2i 0n 1g 0 and\nresponsiblefo, rleading allaspe ctso ffinancia lmanage. men tfor theComp any's flagshipb rand In 20 14 hewa sapp oin tedS, eniorVice\nPresident S tra tegy Fin an ceandI nv estorRel ations Mr Ca mp ion assumedthe roleof Execu.t ive Vice,P re siden tandChie fFinan cial\nOfficerin,A ugust20, 15 InAp ril20 20 hew asappoin.t ed.C hiefOpe ratingOffi cer and lea dsNIKE's glob altechnolo gya nddig ital\ntransfo rm ation d eman.d a ndsu pplym, an agem ent manu factur ing distrib utionan dlo gistics sustai nability workplace des ignand\nconnectivity an, dprocur emen t Prior tojoiningNIK, E heheldlead, e rshiproles inst rategicp,l anning merge, rsandacq uisition s financial\nplanningand, ana lysis operatio. nsan dp lannin g inve, sto rrela tionsandta xatT he WaltDis neyCom, pany ,\n, , ."
+     ],
+     [
+      "",
+      "M Coa rt pth oe raw te F Sri te ran td e, g E yx ae nc dut Div ee v eV li oc pe m P ere ns tid ae nn dt wan ad s aC ph pie of i nF ti en dan Cc hia iel fO Ff if nic ae nr c — ial M Or f.f icF eri re on fd E, 4 m3 e, rj go ii nn ged M N arIK keE t sin in 2 20 00 19 1 as In S 2e 0n 1io 4r D Mir rec Ft ro ier no df was\nappointed ChiefFin anci alOfficerofG,l obal Cate gories Pro duct andFunct ions an d wassubse quently ap pointe. dC hiefF, ina. n cialOf ficer\noftheNIK EBran din2016 Hewa s alsoap pointedVic, e Preside nto fInvestorR, elati onsi n2019 Mr Fr iendwasa ppoin tedasEx ecutive\nVi ceP reside ntand C hiefF.i nan cial Office rofNIKE Inc inApril20 20 Priorto joiningNI KE hew. ork. e dinth efina ncialindus try including\nroles asVPof inves tmen tbanking andme rg ersan,d ac. q ui sition satG. oldma n Sachs andM, o rga nStanl ey\n."
+     ],
+     [
+      "",
+      "H Pril ea sr iy d eK n. t K ar na dn Ge , e E nex re ac lu Cti ove u nV si ec le i nPr 2e 0s 1id 0en Int , 2C 0h 1i 1ef hA ed rm rein sis pt ora nt siv ibe i liO tieff sic ee xr pa an nd d G eden ae nra dl sC ho eu bn ese cal — me M Vs ic. eKr Pa rn ee s,i d5 e7 n, tjo Gin ee nd e N raI lK CE o a us n sV eic le and\nCorporate Affa irs Ms K ranewa sa ppoin. ted Exec, utiv eVicePresiden t ChiefAd, m inis trati veOffice rand GeneralC, ounselin 2013 P rior\ntojoiningN IKE M. s K. ranew asG eneralCou nselandS enio rVicePre, s ident forCorporateA ffairsa tLev iStrauss &Co fr om 2006. to\n20 10 Fro m199, 6to. 2006 shew asaPa rtnerand Ass istantG ener alCounse lat Pricewate rhouse Co oper sLLP .\n. , ."
+     ],
+     [
+      "",
+      "M reo spn oiq nu se ib iS lit. i eM sa it nh te hs eo hn u, mE axe nc ru et siv oe u rV ci ec se fP ur ne cs ti id oe nnt S, hG elo wb aa sl H apu pm oa inn t eR des ao su Vrc ice es P— re M sids . e M nta ath ne ds So en n, i5 o4 r,B jo ui sn ie nd e sN sIK PE ar tin n e1 r9 i9 n8 2,0 w 1i 1th a p nr dim Va icry e\nPresident Chie fT ale ntandD iversityO fficerin2.0 12 Ms M athesonw as app ointedExe cutiv eVice President Global H uman\nResource, s in20 17 . . ,\n."
+     ],
+     [
+      "",
+      "H ine ci lud di iO ng'N Pe ri ell s, iP dere ns tid oe fn Nt I Kof E C Do in res cu tm wer h ea rn ed sM hear wke at spl ra ec se p o— n sM ibs le. O fo'N rNei Il Kl , E5 '6 s, cjo oi nn ne ed c N tioIK nE to in it s19 c9 o8 n, s a un md e h re gl ld o ba a v lla yr ti he rty o uo gf hle ta hd ee Crs oh mip p r ao nle ys 's,\nr be ut sa ii nl ea sn sd d ai ng dita lel - ac do im ngm te hr ece C b ou ms pin ae n, s ys 's. S Nh oe r t hal Aso m l ee rd ic N aI aK pE p's a rw eo lm b ue sn in' s e b ssus ain s e Vs Ps /f Go Mr se Mve s n O y 'e Na ers ill, wgr ao sw ain p g p oit i nin teto d a a sm Pu rlt ei - sb id ill eio nn t od follar\nC glo on bs au llyme, r and Market plac e in April 20 20 an d is resp onsible f or NIKE's Dir ect bus.in ess. includ ing a ll stores e -co mmerce a nd apps\n, ,\n."
+     ]
+    ]
+   }
+  ],
+  "text": []
+ }
+}

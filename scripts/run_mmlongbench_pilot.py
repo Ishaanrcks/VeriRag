@@ -10,9 +10,10 @@ given store; the score itself is not meaningful at this size.
         --v1 <MMLongBench-Doc>/data/samples.json --store <store dir> \
         --docs a.pdf,b.pdf,c.pdf --out pilot.json [--extractor gemini|deepseek]
 
-``--extractor auto`` (default) uses Gemini when GEMINI_API_KEY is set and
-otherwise falls back to the DeepSeek chat model, loudly, so the chain can be
-exercised without a Gemini key. Extractor calls and failures are counted.
+``--extractor deepseek`` (the default) uses the DeepSeek chat model;
+``--extractor gemini`` uses settings.gemini_extraction_model over Gemini's
+OpenAI-compatible endpoint and needs a billed GEMINI_API_KEY (the free tier
+allows 20 requests a day). Extractor calls and failures are counted.
 """
 
 from __future__ import annotations
@@ -79,8 +80,6 @@ def pick_questions(rows: list[dict], docs: list[str], n_unans: int, n_ans: int, 
 
 
 def build_extractor(kind: str):
-    if kind == "auto":
-        kind = "gemini" if settings.gemini_api_key else "deepseek"
     if kind == "gemini":
         if not settings.gemini_api_key:
             raise SystemExit("GEMINI_API_KEY is not set")
@@ -106,7 +105,7 @@ def main() -> None:
     parser.add_argument("--store", required=True)
     parser.add_argument("--docs", required=True, help="comma-separated doc_id filenames")
     parser.add_argument("--out", required=True)
-    parser.add_argument("--extractor", default="auto", choices=["auto", "gemini", "deepseek"])
+    parser.add_argument("--extractor", default="deepseek", choices=["deepseek", "gemini"])
     parser.add_argument("--unanswerable", type=int, default=3)
     parser.add_argument("--answerable", type=int, default=7)
     parser.add_argument("--seed", type=int, default=42)
