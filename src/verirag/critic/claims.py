@@ -122,19 +122,30 @@ _PASSAGE_IDENTITY_RE = re.compile(
 )
 
 
+# Presence can confirm that something IS there, never that it is NOT: a negated
+# claim whose words occur in the text ("the section ... does not discuss NATO"
+# when NATO is mentioned) would otherwise be certified.
+_NEGATION_RE = re.compile(
+    r"\b(?:not|no|never|none|neither|nor|without|cannot|can't|isn't|aren't|"
+    r"doesn't|don't|didn't|wasn't|weren't|lacks?|absent|fails?)\b",
+    re.IGNORECASE,
+)
+
+
 def structural_titles(text: str) -> list[str] | None:
-    """Quoted titles if ``text`` is a structural claim, else ``None``.
+    """Quoted titles if ``text`` is an AFFIRMATIVE structural claim, else ``None``.
 
     Structural = it quotes a title AND talks about a heading/section/chapter.
     A number outside the quotes means the claim asserts a measurement ("section
-    "Results" shows 92%"), which presence cannot verify, so it is left to NLI.
+    "Results" shows 92%"), which presence cannot verify, so it is left to NLI;
+    so is a negated claim, which presence cannot verify either.
     """
     quotes = [q.strip() for q in _QUOTED_RE.findall(text)]
     if not quotes or not _STRUCTURAL_WORD_RE.search(text):
         return None
     outside = _QUOTED_RE.sub(" ", text)
     outside = re.sub(r"\bpassages?\s+\d+\b|\[\d+\]", " ", outside, flags=re.IGNORECASE)
-    if re.search(r"\d", outside):
+    if re.search(r"\d", outside) or _NEGATION_RE.search(outside):
         return None
     return quotes
 
@@ -335,6 +346,10 @@ def _coerce_claim(item: object) -> Claim | None:
         found = structural_titles(text)
         if found is not None:
             raw_type, titles = "structural", found
+        elif raw_type == "structural":
+            # The model's own label is not enough: a claim that fails the
+            # deterministic test (negated, numeric, no quoted title) goes to NLI.
+            raw_type = "factual"
         elif raw_type == "factual" and _PASSAGE_IDENTITY_RE.match(text):
             raw_type = "meta"
 

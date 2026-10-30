@@ -274,3 +274,38 @@ def test_best_passage_snippet():
     snippet = gen.best_passage_snippet("East Germans close ties with Russia", text, width=200)
     assert "East Germans" in snippet and len(snippet) < 400
     assert gen.best_passage_snippet("x", "") == ""
+
+
+# --------------------------------------------------------------------------
+# negated structural claims must not be certified by presence
+# --------------------------------------------------------------------------
+NEGATED = [
+    f'The section titled "{HEADING_1}" does not discuss security issues.',
+    f'The heading "{HEADING_1}" is not about defense budgeting.',
+    f'The section "{HEADING_1}" never mentions NATO.',
+]
+
+
+@pytest.mark.parametrize("text", NEGATED)
+def test_negated_structural_claims_are_not_routed_to_presence(text):
+    assert structural_titles(text) is None
+    # even when the model itself labels it "structural": it goes to NLI
+    # ("factual") or, for hedge wording like "does not discuss", to the absence probe
+    assert _coerced(text, "structural").claim_type in ("factual", "absence")
+
+
+@pytest.mark.parametrize("text", NEGATED)
+def test_negated_claim_is_not_certified_even_though_its_words_are_present(monkeypatch, text):
+    # Every word of each claim occurs in the chunk, so a presence check would
+    # pass it; the claim is false, and NLI (stubbed to no) must be the judge.
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(g2, "score_claim_against_premises",
+                        lambda claim, premises: [SimpleNamespace(entailment_prob=0.0) for _ in premises])
+    monkeypatch.setattr(g2, "check_entailment_windowed",
+                        lambda premise, claim: SimpleNamespace(entailment_prob=0.0))
+    chunk = f"{HEADING_1}\nSecurity issues, defense budgeting and NATO are discussed at length."
+    verdict = _run_gate2(monkeypatch, _answer([_hit("c1", chunk)]),
+                         [dict(text=text, claim_type="structural", cited_numbers=[1])])
+    assert verdict.claims[0].verdict in ("not_supported", "false_hedge")  # never supported_presence
+    assert not verdict.overall_grounded

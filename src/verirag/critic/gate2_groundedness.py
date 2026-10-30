@@ -50,6 +50,7 @@ from verirag.critic.nli import (
     normalize_premise,
     score_claim_against_premises,
 )
+from verirag.critic.table_claims import verify_numeric_claim
 from verirag.generation.generator import GeneratedAnswer
 from verirag.retrieval.types import SearchHit
 
@@ -270,6 +271,26 @@ def _check_structural(
         entailment_prob=1.0 if overlap is None else overlap,
         lexical_overlap=overlap,
     )
+
+
+def _verified_by_table(
+    claim_text: str,
+    resolved: list[tuple[str, str]],
+    hit_by_chunk_id: dict[str, SearchHit],
+) -> str | None:
+    """Chunk id of a cited TABLE chunk that backs ``claim_text`` cell-for-cell, else None.
+
+    Only table chunks are consulted, so this never changes how a claim resting on
+    text or caption evidence is checked. A claim it cannot verify is not
+    penalised here -- it simply falls through to NLI as before.
+    """
+    for chunk_id, text in resolved:
+        hit = hit_by_chunk_id.get(chunk_id)
+        if hit is None or hit.metadata.get("content_type") != "table":
+            continue
+        if verify_numeric_claim(claim_text, text):
+            return chunk_id
+    return None
 
 
 def _best_hits_for_topic(
@@ -504,6 +525,23 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
                     verdict="supported_presence" if present else "not_supported",
                     evidence_chunk_ids=all_chunk_ids_for(resolved),
                     entailment_prob=overlap,
+                )
+            )
+            continue
+
+        # A numeric claim whose every number is paired with a correctly named
+        # row and column of a cited TABLE chunk is verified by lookup: NLI reads
+        # a markdown table poorly (0.0057-0.49 on true cell values). Table chunks
+        # are document-derived, so this is certifying evidence like any text.
+        table_chunk = _verified_by_table(claim.text, resolved, hit_by_chunk_id)
+        if table_chunk is not None:
+            verdicts.append(
+                ClaimVerdict(
+                    claim_text=claim.text,
+                    claim_type=claim.claim_type,
+                    verdict="supported_presence",
+                    evidence_chunk_ids=[table_chunk],
+                    entailment_prob=1.0,
                 )
             )
             continue
