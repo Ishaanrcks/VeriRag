@@ -341,6 +341,10 @@ def friendly_step(technical: str) -> str:
     if t.startswith("finalize_verified:"):
         return "Done — answer passed both verification gates"
 
+    if t.startswith("finalize_partial:"):
+        return ("Done — some claims could not be verified, so they are marked "
+                "as unverified in the answer")
+
     if t.startswith("abstain_ungrounded:"):
         return ("Could not verify this answer — showing you the raw source "
                 "passages instead")
@@ -378,8 +382,9 @@ def _render_verification_row(result) -> None:
 
     corrections = result.regeneration_count
     plural = "" if corrections == 1 else "s"
+    verdict_word = "Partially verified" if result.outcome == "partial" else "Verified"
     st.caption(
-        f"**Verified** · {result.total_latency_ms / 1000:.1f}s · "
+        f"**{verdict_word}** · {result.total_latency_ms / 1000:.1f}s · "
         f"{corrections} self-correction{plural} · "
         f"~${result.estimated_cost_usd:.4f}"
     )
@@ -647,6 +652,12 @@ def _render_result(query: str, result) -> None:
         _render_abstention(result)
     else:
         st.subheader("Answer")
+        if result.outcome == "partial":
+            st.warning(
+                "**Partially verified.** Some statements in this answer could "
+                "not be verified against the sources. The ones that were are "
+                "listed under *Verified facts*; treat the rest with caution."
+            )
         st.markdown(result.answer or "")
         _render_verification_row(result)
         if result.citations:

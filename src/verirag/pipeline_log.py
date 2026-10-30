@@ -244,8 +244,12 @@ def gate2_event(claim_verdicts: list[Any], hit_types: dict[str, str]) -> LogEven
     )
 
 
-def answer_event(text: str) -> LogEvent:
-    return LogEvent(stage="answer", summary="Answered", detail={"text": text})
+def answer_event(text: str, partial: bool = False) -> LogEvent:
+    return LogEvent(
+        stage="answer",
+        summary="Answered (partially verified)" if partial else "Answered",
+        detail={"text": text, "partial": partial},
+    )
 
 
 def abstain_event(reason: str) -> LogEvent:

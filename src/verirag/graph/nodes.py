@@ -26,6 +26,11 @@ from verirag.generation.generator import (
     build_context_block,
     generate_answer,
 )
+from verirag.generation.partial import (
+    VERIFIED_VERDICTS,
+    collect_verified_facts,
+    render_partial_answer,
+)
 from verirag.graph.state import VeriRAGState
 from verirag.ingest import ingest_documents
 from verirag.llm.client import chat_completion
@@ -618,6 +623,40 @@ def finalize_verified_node(state: VeriRAGState) -> VeriRAGState:
         "trace": [
             "finalize_verified: answer passed both gates "
             f"(regenerations={state.get('regeneration_count', 0)})"
+        ],
+    }
+
+
+def has_verified_claim(state: VeriRAGState) -> bool:
+    """True if Gate 2's final check verified at least one claim."""
+    verdict = state.get("gate2_verdict")
+    return bool(verdict and any(c.verdict in VERIFIED_VERDICTS for c in verdict.claims))
+
+
+@_timed("finalize_partial")
+def finalize_partial_node(state: VeriRAGState) -> VeriRAGState:
+    """Answer although Gate 2 left some claims unverified, saying which were.
+
+    Reached only when the final check has AT LEAST ONE verified claim; with none
+    there is nothing to stand behind and the query abstains instead. The
+    generator's text is returned unchanged -- an unverified claim is never
+    removed -- followed by the list of claims that did pass, each with its source.
+    """
+    answer = state["generated_answer"]
+    verdict = state["gate2_verdict"]
+    facts = collect_verified_facts(verdict.claims, answer.citations, answer.hits_used)
+    text = render_partial_answer(answer.answer_text, facts)
+    return {
+        "final_answer": text,
+        "final_citations": answer.citations,
+        "abstained": False,
+        "answer_is_partial": True,
+        "verified_facts": facts,
+        "pipeline_log": [answer_event(text, partial=True)],
+        "trace": [
+            f"finalize_partial: {len(facts)} verified fact(s) listed, "
+            f"{len(verdict.unsupported_claims)} unverified claim(s) left visible "
+            f"in the answer (regenerations={state.get('regeneration_count', 0)})"
         ],
     }
 

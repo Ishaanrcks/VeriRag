@@ -25,6 +25,8 @@ Changes from upstream (the scoring rules themselves are reproduced unchanged):
 * The question + analysis are sent in the same user message as the extraction
   prompt. Upstream sends them as a trailing *assistant* message, which not
   every OpenAI-compatible endpoint accepts.
+* ``extract_answer`` points the extractor at the "Verified facts" section when
+  the output has one (partial answers; see generation/partial.py).
 * ``extract_answer`` retries rate limits / transient errors (upstream returns
   "Failed" on the first error, which would score a throttled run as 0).
 * The three inline lines in ``run_api.py`` that parse the extractor's reply
@@ -47,9 +49,23 @@ from collections.abc import Callable
 from math import isclose
 from pathlib import Path
 
+from verirag.generation.partial import split_verified_facts
+
 EXTRACTION_PROMPT_PATH = Path(__file__).with_name("mmlongbench_extraction_prompt.md")
 
 FAILED_TO_EXTRACT = "Failed to extract"
+
+# Added to the extraction request when the system's output carries a "Verified
+# facts" section. A partial answer can open with hedging ("the documents do not
+# address this question as worded") and still contain the figures that answer
+# it; the extractor must read the verified list, not just the opening prose.
+_VERIFIED_FACTS_NOTE = (
+    "\n\nNote: the analysis ends with a 'Verified facts' list. Those are the "
+    "claims that were checked against the source documents. Extract the answer "
+    "from them if they contain it, even when the opening sentences hedge or "
+    "decline. Answer \"Not answerable\" only if the verified facts themselves "
+    "do not contain the answer.\n\nVerified facts:\n{facts}\n"
+)
 
 
 # --------------------------------------------------------------------------
@@ -331,6 +347,9 @@ def extract_answer(
     exhausted or on a non-retryable error (upstream behaviour).
     """
     message = f"{prompt}\n\nQuestion:{question}\nAnalysis:{output}\n"
+    _, facts = split_verified_facts(output)
+    if facts:
+        message += _VERIFIED_FACTS_NOTE.format(facts=facts)
     for attempt in range(max_attempts):
         try:
             response = client.chat.completions.create(

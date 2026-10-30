@@ -34,8 +34,17 @@ flowchart TD
     G2 -->|unsupported claim| LOOP{"retries left?"}
     LOOP -->|yes| RG["Regenerate<br/>avoiding those claims"]
     RG --> G2
-    LOOP -->|no| AB2["Abstain<br/>'could not verify a claim'"]
+    LOOP -->|no| SOME{"any claim<br/>verified?"}
+    SOME -->|yes| PA["Partial answer<br/>full text + 'Verified facts' list;<br/>unverified parts stay visible"]
+    SOME -->|no| AB2["Abstain<br/>'could not verify a claim'"]
 ```
+
+When the retries are spent, an answer with **at least one** verified claim is
+returned as a *partial* answer rather than withheld: the generator's text is
+shown unchanged, followed by a **Verified facts** list of exactly the claims
+that passed (each with its source and page). A statement in the answer that is
+not in that list was not verified, and the answer says so. With **no** verified
+claim there is nothing to stand behind, and the query abstains as before.
 
 Gate 1 reads the cross-encoder's absolute relevance score, short-circuiting
 cheaply at either extreme and escalating only a borderline band to an LLM

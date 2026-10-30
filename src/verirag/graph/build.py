@@ -44,6 +44,8 @@ from verirag.graph.nodes import (
     gate2_node,
     generate_node,
     regenerate_node,
+    finalize_partial_node,
+    has_verified_claim,
     resolve_intent_node,
     retrieve_node,
     summarize_document_node,
@@ -72,6 +74,9 @@ class VeriRAGResult:
 
     # Presentation-only. These are the SAME values already computed for the
     # metrics row, surfaced so the UI need not recompute or re-derive them.
+    # "verified" | "partial" | "abstained_insufficient" | "abstained_ungrounded".
+    # "partial": some claims verified, some not; the answer is returned with an
+    # explicit list of the verified ones (verified_facts).
     outcome: str = "verified"
     total_latency_ms: float = 0.0
     llm_call_count: int = 0
@@ -88,6 +93,8 @@ class VeriRAGResult:
     # Structured per-stage events (retrieval, context, gates, regeneration,
     # outcome) for the UI's Pipeline Log tab. Presentation-only.
     pipeline_log: list[LogEvent] = field(default_factory=list)
+    # For outcome == "partial": the claims that passed Gate 2 (VerifiedFact).
+    verified_facts: list = field(default_factory=list)
 
 
 def _route_after_resolve_intent(state: VeriRAGState) -> str:
@@ -120,24 +127,24 @@ def _route_after_gate1(state: VeriRAGState) -> str:
 
 
 def _route_after_gate2(state: VeriRAGState) -> str:
-    """Finalize, regenerate within bounds, or abstain."""
+    """Finalize, regenerate within bounds, answer partially, or abstain.
+
+    Once regeneration is over, a final check with at least one verified claim
+    answers (``finalize_partial``) and one with none abstains.
+    """
     verdict = state.get("gate2_verdict")
     if verdict is not None and verdict.overall_grounded:
         return "finalize_verified"
 
     # No regeneration on the summarization path: regenerate_node runs the
     # question-answering generator, which would silently replace a summary
-    # with a Q&A answer. An ungrounded summary abstains instead, preserving
-    # the "never return unverified" invariant.
-    if state.get("is_summarization_intent"):
-        return "abstain_ungrounded"
-
-    if (
+    # with a Q&A answer. It goes straight to the end-of-loop decision below.
+    if not state.get("is_summarization_intent") and (
         state.get("regeneration_count", 0) < settings.max_critic_iterations
         and state.get("llm_call_count", 0) < settings.max_llm_calls_per_query
     ):
         return "regenerate"
-    return "abstain_ungrounded"
+    return "finalize_partial" if has_verified_claim(state) else "abstain_ungrounded"
 
 
 def _build_graph() -> StateGraph:
@@ -156,6 +163,7 @@ def _build_graph() -> StateGraph:
         "abstain_insufficient_coverage", abstain_insufficient_coverage_node
     )
     graph.add_node("abstain_ungrounded", abstain_ungrounded_node)
+    graph.add_node("finalize_partial", finalize_partial_node)
 
     graph.add_edge(START, "resolve_intent")
     graph.add_conditional_edges(
@@ -192,12 +200,14 @@ def _build_graph() -> StateGraph:
         {
             "finalize_verified": "finalize_verified",
             "regenerate": "regenerate",
+            "finalize_partial": "finalize_partial",
             "abstain_ungrounded": "abstain_ungrounded",
         },
     )
     graph.add_edge("regenerate", "gate2")
 
     graph.add_edge("finalize_verified", END)
+    graph.add_edge("finalize_partial", END)
     graph.add_edge("abstain_insufficient_coverage", END)
     graph.add_edge("abstain_ungrounded", END)
 
@@ -232,6 +242,8 @@ def _initial_state(
         "final_citations": [],
         "abstained": False,
         "abstention_reason": None,
+        "answer_is_partial": False,
+        "verified_facts": [],
         "trace": [],
         "node_timings": [],
         "pipeline_log": [],
@@ -244,7 +256,7 @@ def _initial_state(
 def _derive_outcome(final_state: VeriRAGState) -> str:
     """Classify how the query ended, from the state rather than message text."""
     if not final_state.get("abstained"):
-        return "verified"
+        return "partial" if final_state.get("answer_is_partial") else "verified"
     # Coverage abstention happens before generation, so gate2 never ran.
     gate2_verdict = final_state.get("gate2_verdict")
     if gate2_verdict is not None and not gate2_verdict.overall_grounded:
@@ -357,6 +369,7 @@ def _build_result(
         gate2_verdict=final_state.get("gate2_verdict"),
         retrieved_citations=retrieved_citations,
         pipeline_log=list(final_state.get("pipeline_log") or []),
+        verified_facts=list(final_state.get("verified_facts") or []),
     )
 
 

@@ -140,6 +140,8 @@ def main() -> None:
             n=n, doc_id=row["doc_id"], question=row["question"], answer=row["answer"],
             answer_format=row["answer_format"], evidence_pages=row["evidence_pages"],
             abstained=result.abstained, abstention_reason=result.abstention_reason,
+            outcome=result.outcome,
+            verified_facts=[f.text for f in result.verified_facts],
             system_answer=result.answer, response=response, extracted_res=extracted,
             pred=pred, score=score,
             gate1=(f"{g1.verdict}/{g1.decision_path}/{g1.max_rerank_score:.3f}" if g1 else None),
@@ -154,7 +156,7 @@ def main() -> None:
             trace=result.trace,
         ))
         print(f"[{n}/{len(questions)}] score={score:.2f} gt={row['answer'][:30]!r} "
-              f"pred={pred[:30]!r} abstained={result.abstained}", flush=True)
+              f"pred={pred[:30]!r} outcome={result.outcome}", flush=True)
 
     acc, f1 = eval_acc_and_f1(samples)
     answerable = [s for s in samples if s["answer"] != "Not answerable"]

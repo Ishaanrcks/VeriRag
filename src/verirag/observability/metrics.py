@@ -26,7 +26,9 @@ from verirag.config import settings
 
 logger = logging.getLogger(__name__)
 
-Outcome = Literal["verified", "abstained_insufficient", "abstained_ungrounded"]
+Outcome = Literal[
+    "verified", "partial", "abstained_insufficient", "abstained_ungrounded"
+]
 
 _TABLE_DDL = """
 CREATE TABLE IF NOT EXISTS query_metrics (

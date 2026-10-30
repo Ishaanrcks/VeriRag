@@ -68,6 +68,11 @@ class VeriRAGState(TypedDict, total=False):
     final_citations: list[Citation]
     abstained: bool
     abstention_reason: str | None
+    # Set when Gate 2 verified some claims but not all and the answer was
+    # returned anyway (see finalize_partial_node); verified_facts lists the ones
+    # that passed.
+    answer_is_partial: bool
+    verified_facts: list
 
     # --- observability ---
     trace: Annotated[list[str], operator.add]
