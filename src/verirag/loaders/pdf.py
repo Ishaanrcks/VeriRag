@@ -8,7 +8,9 @@ Per page, the loader emits (in this order):
   * ``content_type="text"`` Documents -- the page's text via
     ``page.get_text()`` (one per page that has text).
   * ``content_type="figure_caption"`` Documents -- a vision-model caption for
-    each embedded image large enough to be a real figure. The raw image bytes
+    each embedded image large enough to be a real figure, AND for each chart drawn as
+    vector paths (no embedded image): those are found by ``vector_charts``, rendered to
+    a crop, and tagged ``figure_source="vector_render"``. The raw image bytes
     are ALSO saved to ``IMAGES_DIR`` and the path recorded in the chunk's
     ``image_path`` metadata, so the UI can show the real figure later.
 
@@ -34,6 +36,7 @@ from langchain_core.documents import Document
 from verirag.config import settings
 from verirag.loaders.base import compute_doc_id, make_document
 from verirag.loaders.captioning import caption_image_with_status
+from verirag.loaders.vector_charts import find_vector_charts, render_region
 
 logger = logging.getLogger(__name__)
 
@@ -300,7 +303,9 @@ def extract_tables_from_page(
     return documents
 
 
-def _save_image(image_bytes: bytes, ext: str, pdf_stem: str, page_num: int, xref: int) -> str | None:
+def _save_image(
+    image_bytes: bytes, ext: str, pdf_stem: str, page_num: int, xref: int | str
+) -> str | None:
     """Persist raw image bytes under IMAGES_DIR; return the path, or None.
 
     The filename is stable (``{stem}_p{page}_x{xref}.{ext}``) so re-ingesting
@@ -321,6 +326,55 @@ def _save_image(image_bytes: bytes, ext: str, pdf_stem: str, page_num: int, xref
             img_path, exc,
         )
         return None
+
+
+def _figure_document(
+    image_bytes: bytes,
+    ext: str,
+    *,
+    doc_id: str,
+    source_path: str,
+    pdf_stem: str,
+    page_num: int,
+    ref: int | str,
+    where: str,
+) -> Document | None:
+    """Persist ``image_bytes``, caption it, and build its ``figure_caption`` Document.
+
+    The one path every figure takes, whether it was an embedded raster image or a
+    vector chart rendered to a crop (see ``vector_charts``). ``ref`` names the image
+    file (an xref, or ``v<n>`` for a crop); ``where`` identifies it in log lines.
+    Returns ``None`` if captioning failed.
+    """
+    # Persist the raw bytes BEFORE captioning, so even a failed
+    # vision call leaves the image file on disk for later display.
+    image_path = _save_image(image_bytes, ext, pdf_stem, page_num, ref)
+
+    caption = caption_image_with_status(image_bytes)
+    if caption is None:
+        logger.warning(
+            "Captioning failed; skipping image (doc_id=%s page=%s %s)",
+            doc_id, page_num, where,
+        )
+        return None
+
+    figure = make_document(
+        caption.text,
+        doc_id=doc_id,
+        source_path=source_path,
+        fmt="pdf",
+        content_type="figure_caption",
+        page=page_num,
+    )
+    # Omitted entirely when the write failed (None), so the chunk
+    # degrades to caption-only rather than carrying a dead path.
+    if image_path is not None:
+        figure.metadata["image_path"] = image_path
+    # Set only when the caption hit the model's length limit even
+    # after a retry, so a cut-off caption is identifiable later.
+    if caption.truncated:
+        figure.metadata["caption_truncated"] = True
+    return figure
 
 
 def load_pdf(path: str | Path) -> list[Document]:
@@ -397,41 +451,44 @@ def load_pdf(path: str | Path) -> list[Document]:
                     )
                     continue
 
-                # Persist the raw bytes BEFORE captioning, so even a failed
-                # vision call leaves the image file on disk for later display.
-                image_path = _save_image(
+                figure = _figure_document(
                     extracted["image"],
                     extracted.get("ext", "png"),
-                    pdf_stem,
-                    page_num,
-                    xref,
-                )
-
-                caption = caption_image_with_status(extracted["image"])
-                if caption is None:
-                    logger.warning(
-                        "Captioning failed; skipping image "
-                        "(doc_id=%s page=%s img=%s)",
-                        doc_id, page_num, image_index,
-                    )
-                    continue
-
-                figure = make_document(
-                    caption.text,
                     doc_id=doc_id,
                     source_path=source_path,
-                    fmt="pdf",
-                    content_type="figure_caption",
-                    page=page_num,
+                    pdf_stem=pdf_stem,
+                    page_num=page_num,
+                    ref=xref,
+                    where=f"img={image_index}",
                 )
-                # Omitted entirely when the write failed (None), so the chunk
-                # degrades to caption-only rather than carrying a dead path.
-                if image_path is not None:
-                    figure.metadata["image_path"] = image_path
-                # Set only when the caption hit the model's length limit even
-                # after a retry, so a cut-off caption is identifiable later.
-                if caption.truncated:
-                    figure.metadata["caption_truncated"] = True
-                figure_docs.append(figure)
+                if figure is not None:
+                    figure_docs.append(figure)
+
+            # Charts drawn as vector paths have no embedded image, so the loop above
+            # never sees them. Render each such region to an image and send it down
+            # the same caption flow as any other figure.
+            for region_index, region in enumerate(
+                find_vector_charts(page, min_raster_px=min_dim)
+            ):
+                crop, width, height = render_region(page, region.rect)
+                if width < min_dim or height < min_dim:
+                    logger.debug(
+                        "Skipping small vector chart %sx%s (doc_id=%s page=%s region=%s)",
+                        width, height, doc_id, page_num, region_index,
+                    )
+                    continue
+                figure = _figure_document(
+                    crop,
+                    "png",
+                    doc_id=doc_id,
+                    source_path=source_path,
+                    pdf_stem=pdf_stem,
+                    page_num=page_num,
+                    ref=f"v{region_index}",
+                    where=f"vector={region_index}",
+                )
+                if figure is not None:
+                    figure.metadata["figure_source"] = "vector_render"
+                    figure_docs.append(figure)
 
     return table_docs + text_docs + figure_docs
