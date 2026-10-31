@@ -395,3 +395,63 @@ def score_response(
     scored = dict(sample, response=response, extracted_res=extracted, pred=pred)
     scored["score"] = eval_score(sample["answer"], pred, sample["answer_format"])
     return scored
+
+
+# --------------------------------------------------------------------------
+# strict vs lenient scoring of partial answers
+# --------------------------------------------------------------------------
+STRICT_LABEL = "STRICT (headline): extraction restricted to the Verified facts"
+LENIENT_LABEL = "LENIENT (upper bound, includes unverified statements)"
+_STRICT_PREAMBLE = (
+    "Verified facts only (the statements the system checked against the sources):\n"
+)
+
+
+def strict_input(response: str) -> str:
+    """What the STRICT pass may read: only the "Verified facts" section.
+
+    A fully verified answer has no such section and is returned unchanged -- every
+    statement in it was verified, so strict and lenient coincide. For a partial
+    answer the body is dropped: a value that appears only there is an unverified
+    statement, and the system did not vouch for it.
+    """
+    _, facts = split_verified_facts(response)
+    return response if facts is None else _STRICT_PREAMBLE + facts
+
+
+def score_response_dual(
+    sample: dict,
+    response: str,
+    extractor: Callable[[str, str], str],
+) -> dict:
+    """Score one response both ways: ``{"strict", "lenient", "partial"}``.
+
+    * lenient: the full response (for a partial answer, with the extractor pointed
+      at its Verified facts, as :func:`extract_answer` does). It can credit a
+      value the system itself left unverified, so it is an upper bound.
+    * strict: only the Verified facts. If the answer value is not among them the
+      question scores as "Not answerable" -- the system did not vouch for it.
+
+    For a response without a Verified facts section the two passes are identical,
+    so the extractor is called once.
+    """
+    lenient = score_response(sample, response, extractor)
+    partial = split_verified_facts(response)[1] is not None
+    strict = score_response(sample, strict_input(response), extractor) if partial else lenient
+    return {"strict": strict, "lenient": lenient, "partial": partial}
+
+
+def pooled_metrics(samples: list[dict]) -> dict:
+    """Accuracy, F1, recall and precision over scored samples (see eval_acc_and_f1)."""
+    acc, f1 = eval_acc_and_f1(samples)
+    answerable = [s for s in samples if s["answer"] != "Not answerable"]
+    predicted = [s for s in samples if s["pred"] != "Not answerable"]
+    numerator = sum(s["score"] for s in answerable)
+    return dict(
+        n=len(samples),
+        accuracy=acc,
+        f1=f1,
+        recall=numerator / len(answerable) if answerable else None,
+        precision=numerator / len(predicted) if predicted else None,
+        failed_to_extract=sum(1 for s in samples if s["pred"] == FAILED_TO_EXTRACT),
+    )

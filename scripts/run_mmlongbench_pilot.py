@@ -10,6 +10,10 @@ given store; the score itself is not meaningful at this size.
         --v1 <MMLongBench-Doc>/data/samples.json --store <store dir> \
         --docs a.pdf,b.pdf,c.pdf --out pilot.json [--extractor gemini|deepseek]
 
+Every question is scored two ways: STRICT (the headline; for a partial answer the
+extractor reads only its Verified facts) and LENIENT (the whole response; an
+upper bound that can credit statements the system left unverified).
+
 ``--extractor deepseek`` (the default) uses the DeepSeek chat model;
 ``--extractor gemini`` uses settings.gemini_extraction_model over Gemini's
 OpenAI-compatible endpoint and needs a billed GEMINI_API_KEY (the free tier
@@ -29,13 +33,13 @@ from pathlib import Path
 from verirag.config import settings
 from verirag.eval.harness import configure_store
 from verirag.eval.mmlongbench_scorer import (
-    FAILED_TO_EXTRACT,
-    eval_acc_and_f1,
+    LENIENT_LABEL,
+    STRICT_LABEL,
     extract_answer,
     load_extraction_prompt,
     make_extraction_client,
-    parse_extraction,
-    eval_score,
+    pooled_metrics,
+    score_response_dual,
 )
 
 
@@ -130,11 +134,16 @@ def main() -> None:
         started = time.perf_counter()
         result = run_query(row["question"], AnswerFormat.CONCISE, corpus_only=True)
         response = response_text(result)
-        extracted = extract_answer(
-            row["question"], response, prompt, client=client, model=model
+        # Both passes: STRICT reads only the Verified facts (the headline),
+        # LENIENT the whole response. They differ only for partial answers.
+        dual = score_response_dual(
+            row,
+            response,
+            lambda q, text: extract_answer(q, text, prompt, client=client, model=model),
         )
-        pred = parse_extraction(extracted)
-        score = eval_score(row["answer"], pred, row["answer_format"])
+        strict, lenient = dual["strict"], dual["lenient"]
+        pred, score = strict["pred"], strict["score"]
+        extracted = strict["extracted_res"]
         g1 = result.gate1_verdict
         samples.append(dict(
             n=n, doc_id=row["doc_id"], question=row["question"], answer=row["answer"],
@@ -143,7 +152,9 @@ def main() -> None:
             outcome=result.outcome,
             verified_facts=[f.text for f in result.verified_facts],
             system_answer=result.answer, response=response, extracted_res=extracted,
-            pred=pred, score=score,
+            pred=pred, score=score,  # STRICT, the headline
+            lenient_pred=lenient["pred"], lenient_score=lenient["score"],
+            lenient_extracted_res=lenient["extracted_res"],
             gate1=(f"{g1.verdict}/{g1.decision_path}/{g1.max_rerank_score:.3f}" if g1 else None),
             regenerations=result.regeneration_count,
             # Full gate output and the structured per-stage log, for diagnosing
@@ -155,26 +166,28 @@ def main() -> None:
             elapsed_s=round(time.perf_counter() - started, 1),
             trace=result.trace,
         ))
-        print(f"[{n}/{len(questions)}] score={score:.2f} gt={row['answer'][:30]!r} "
-              f"pred={pred[:30]!r} outcome={result.outcome}", flush=True)
+        flag = "" if lenient["score"] == score else f"   (lenient {lenient['score']:.2f})"
+        print(f"[{n}/{len(questions)}] strict={score:.2f} gt={row['answer'][:30]!r} "
+              f"pred={pred[:30]!r} outcome={result.outcome}{flag}", flush=True)
 
-    acc, f1 = eval_acc_and_f1(samples)
-    answerable = [s for s in samples if s["answer"] != "Not answerable"]
-    predicted = [s for s in samples if s["pred"] != "Not answerable"]
-    num = sum(s["score"] for s in answerable)
+    strict_metrics = pooled_metrics(
+        [dict(s, pred=s["pred"], score=s["score"]) for s in samples]
+    )
+    lenient_metrics = pooled_metrics(
+        [dict(s, pred=s["lenient_pred"], score=s["lenient_score"]) for s in samples]
+    )
     payload = dict(
         extractor=dict(kind=kind, model=model, calls=client.calls, errors=client.errors),
-        metrics=dict(
-            n=len(samples), accuracy=acc, f1=f1,
-            recall=num / len(answerable) if answerable else None,
-            precision=num / len(predicted) if predicted else None,
-            failed_to_extract=sum(1 for s in samples if s["pred"] == FAILED_TO_EXTRACT),
-        ),
+        metrics=strict_metrics,  # the headline is STRICT
+        metrics_strict=strict_metrics,
+        metrics_lenient=lenient_metrics,
         samples=samples,
     )
     Path(args.out).write_text(json.dumps(payload, indent=2, default=str))
-    print(json.dumps(payload["metrics"], indent=2))
-    print(f"extractor calls: {client.calls}; errors: {len(client.errors)}")
+    for label, m in ((STRICT_LABEL, strict_metrics), (LENIENT_LABEL, lenient_metrics)):
+        print(f"\n{label}\n  accuracy={m['accuracy']:.3f}  f1={m['f1']:.3f}  "
+              f"recall={m['recall']:.3f}  precision={m['precision']}  n={m['n']}")
+    print(f"\nextractor calls: {client.calls}; errors: {len(client.errors)}")
 
 
 if __name__ == "__main__":

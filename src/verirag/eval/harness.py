@@ -54,6 +54,7 @@ _REFUSAL_MARKERS = (
     "not addressed",
     "no information",
     "do not provide",
+    "do not give",
     "do not state",
     "do not fully address",
 )
