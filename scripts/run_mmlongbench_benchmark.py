@@ -59,6 +59,8 @@ def main() -> int:
                         help="run only questions whose document is in the store")
     parser.add_argument("--allow-missing", action="store_true",
                         help="record questions with no document as skipped instead of refusing")
+    parser.add_argument("--tag", default="",
+                        help="appended to the output names (e.g. tier1) so tiers do not overwrite each other")
     parser.add_argument("--no-resume", action="store_true")
     parser.add_argument("--dry-run", action="store_true",
                         help="preflight only: coverage and current memory; loads no model")
@@ -92,7 +94,7 @@ def main() -> int:
         run_benchmark(
             args.subset, args.store, extractor_kind=args.extractor, out_dir=args.out_dir,
             scope=args.scope, ids=ids, limit=args.limit, only_ingested=args.only_ingested,
-            allow_missing=args.allow_missing, resume=not args.no_resume,
+            allow_missing=args.allow_missing, resume=not args.no_resume, tag=args.tag,
             min_available_gb=args.min_available_gb,
             min_available_gb_during=args.min_available_gb_during,
             max_seconds_per_question=args.max_seconds_per_question,

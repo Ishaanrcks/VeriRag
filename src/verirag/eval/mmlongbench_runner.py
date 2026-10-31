@@ -497,6 +497,7 @@ def run_benchmark(
     only_ingested: bool = False,
     allow_missing: bool = False,
     resume: bool = True,
+    tag: str = "",
     min_available_gb: float = MIN_AVAILABLE_GB,
     min_available_gb_during: float = MIN_AVAILABLE_GB_DURING,
     max_seconds_per_question: float = MAX_SECONDS_PER_QUESTION,
@@ -530,6 +531,13 @@ def run_benchmark(
 
     plan = make_plan(subset["questions"], ingested_docs, only_ingested=only_ingested,
                      allow_missing=allow_missing, ids=ids, limit=limit)
+    if not plan.todo:
+        raise RunnerError(
+            f"No questions to run: {len(plan.docs_present)} of {len(plan.docs_needed)} needed "
+            f"documents are in the store, so {len(plan.skipped)} question(s) have no document. "
+            "Nothing was run and no report was written; ingest documents first (an empty "
+            "run must not look like a successful one)."
+        )
     log(f"store {store_path}: {len(plan.docs_present)}/{len(plan.docs_needed)} needed "
         f"documents present; {len(plan.todo)} questions to run, "
         f"{len(plan.skipped)} skipped (no document)")
@@ -544,7 +552,7 @@ def run_benchmark(
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    name = subset.get("name", "mmlongbench")
+    name = subset.get("name", "mmlongbench") + (f"_{tag}" if tag else "")
     checkpoint = out / f"{name}_PARTIAL.json"
     done: list[dict] = []
     if resume and checkpoint.exists():

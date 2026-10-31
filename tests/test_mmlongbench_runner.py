@@ -198,3 +198,19 @@ def test_no_resume_starts_over(tmp_path):
     again = FakePipeline()
     _run(tmp_path, pipeline=again, resume=False)
     assert len(again.asked) == 3
+
+
+# --------------------------------------------------------------------------
+# an empty run must not look like a successful one
+# --------------------------------------------------------------------------
+def test_a_run_with_no_runnable_questions_refuses_and_writes_nothing(tmp_path):
+    pipeline = FakePipeline()
+    with pytest.raises(R.RunnerError, match="No questions to run"):
+        _run(tmp_path, pipeline=pipeline, ingested_docs=[{"source_path": "/data/other.pdf"}])
+    assert pipeline.asked == []
+    assert not (tmp_path / "out").exists()  # no PARTIAL checkpoint, no report with n=0
+
+
+def test_a_filter_that_matches_nothing_also_refuses(tmp_path):
+    with pytest.raises(R.RunnerError, match="No questions to run"):
+        _run(tmp_path, ids=[999])
