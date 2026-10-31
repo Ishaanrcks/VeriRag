@@ -94,14 +94,25 @@ class Settings(BaseSettings):
     retrieval_guaranteed_top_k: int = 5
 
     # --- Critic: Gate 1 (coverage) ---
-    # HAND-SET development defaults, not calibrated values. Gate 1 compares
-    # max_rerank_score against these two numbers directly; there is no
-    # fitted decision function behind them. The architecture doc specifies a
-    # logistic regression over three features (max score, rank-1 margin,
-    # top-k entropy) reported as a risk-coverage curve; that is NOT what is
-    # implemented. Fitting it is future work, and the 59-question stratified
-    # eval is the labeled set that would make it possible.
-    gate1_high_threshold: float = 0.5
+    # Gate 1 compares max_rerank_score against these two numbers directly; there
+    # is still no fitted decision function behind them (the architecture doc
+    # specifies a logistic regression over three features reported as a
+    # risk-coverage curve; that is NOT what is implemented).
+    #
+    # high_threshold was 0.5 and is now 0.15, from the tier-1 MMLongBench-Doc run
+    # (eval_results/.../tier1_2026-10-31.json, 36 questions). In the escalation
+    # band the LLM judge declined 9 questions and was WRONG on 8 of them: the
+    # annotated evidence page had actually been retrieved for 7 of those 8, so the
+    # judge was refusing evidence it had. Lowering the ceiling to 0.15 skips the
+    # judge for the 5 clearest of them (scores 0.169-0.383).
+    #
+    # Why not lower still: the only unanswerable question the judge correctly
+    # declined scored 0.052, and the lowest wrongly-declined answerable one scored
+    # 0.056. Freeing all 8 therefore needs ~0.055, which leaves the judge a
+    # 0.05-0.055 band -- effectively deleting it -- on a 0.004 margin fitted to one
+    # 36-question sample. 0.15 keeps a real judge band and ~3x that margin.
+    # Re-fit this on the full 200-question subset before trusting it further.
+    gate1_high_threshold: float = 0.15
     gate1_low_threshold: float = 0.05
 
     # --- Critic: Gate 2 (groundedness) ---

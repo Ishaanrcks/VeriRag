@@ -82,3 +82,27 @@ def test_tag_keeps_tiers_from_overwriting_each_other(tmp_path):
     names = sorted(p.name for p in (tmp_path / "out").glob("*.json"))
     assert any("bench_tier1_" in n for n in names) and any("bench_tier2_" in n for n in names)
     assert "bench_tier1_PARTIAL.json" in names and "bench_tier2_PARTIAL.json" in names
+
+
+# --------------------------------------------------------------------------
+# --force: which documents the ingestion script skips
+# --------------------------------------------------------------------------
+LOG = [
+    dict(doc_id="done.pdf", status="ingested"),
+    dict(doc_id="failed.pdf", status="failed"),
+    dict(doc_id="also_done.pdf", status="ingested"),
+]
+
+
+def test_without_force_documents_already_ingested_are_skipped():
+    from verirag.eval.mmlongbench_tiers import already_ingested
+
+    # a failed document is retried; only successes are skipped
+    assert already_ingested(LOG) == {"done.pdf", "also_done.pdf"}
+    assert already_ingested([]) == set()
+
+
+def test_force_skips_nothing_so_every_document_is_re_ingested():
+    from verirag.eval.mmlongbench_tiers import already_ingested
+
+    assert already_ingested(LOG, force=True) == set()

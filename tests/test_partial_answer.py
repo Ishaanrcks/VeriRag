@@ -229,3 +229,22 @@ def test_system_prompt_separates_nothing_found_from_something_found():
     # the old unconditional instruction is gone, but a true refusal is kept
     assert "If the passages do not actually address the question" not in prompt
     assert '"The provided documents do not address this question."' in prompt
+
+
+# --------------------------------------------------------------------------
+# the generator must commit to the value, not describe the passages
+# --------------------------------------------------------------------------
+def test_system_prompt_requires_leading_with_the_direct_answer():
+    prompt = " ".join(gen._SYSTEM_PROMPT.split())
+    assert "LEAD WITH THE DIRECT ANSWER" in prompt
+    # the failure it exists to prevent: an answer that reports what the passages
+    # say without ever committing, which the extractor reads as a refusal
+    assert "reads as a refusal" in prompt
+    assert "FIRST sentence must be that value" in prompt
+
+
+def test_system_prompt_asks_for_a_bare_option_label():
+    # "C) Online" fails the benchmark's exact match where "C" passes, so the
+    # label must be given alone
+    prompt = " ".join(gen._SYSTEM_PROMPT.split())
+    assert "label ALONE" in prompt and '"C", not "C) Online"' in prompt

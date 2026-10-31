@@ -7,6 +7,10 @@ Tiers nest: ``--extends tier1`` picks the next documents that add the most cover
 HuggingFace repo into ``<store>/docs`` and ingested ONE AT A TIME into ``<store>``;
 both live under ``eval_store/``, which is gitignored (the PDFs must not be committed).
 
+``--force`` re-ingests documents that are already in the store as a clean replace
+(old chunks deleted first, then ingested with the current code); without it a document
+already ingested is skipped, however old its chunks.
+
 Memory is checked before the first document and before every later one, and the
 script stops (exit 3) rather than thrash. A document that fails to download or to
 ingest is logged and skipped, never silently: the log and the exit code (1) say so.
@@ -35,7 +39,12 @@ from verirag.eval.mmlongbench_runner import (
     MemoryLow,
     check_memory,
 )
-from verirag.eval.mmlongbench_tiers import DEFAULT_MAX_BYTES, coverage, rank_documents
+from verirag.eval.mmlongbench_tiers import (
+    DEFAULT_MAX_BYTES,
+    already_ingested,
+    coverage,
+    rank_documents,
+)
 
 HF = "https://huggingface.co/datasets/yubo2333/MMLongBench-Doc"
 
@@ -92,6 +101,12 @@ def main() -> int:
     parser.add_argument("--max-mb", type=float, default=DEFAULT_MAX_BYTES / 1e6)
     parser.add_argument("--max-pages", type=int, default=100,
                         help="skip a document longer than this (decided after download)")
+    parser.add_argument("--force", action="store_true",
+                        help="re-ingest documents already in the store: ignore ingest_log.json and "
+                             "pass force=True to ingest_file, which first DELETES the document's old "
+                             "chunks from both stores (a clean replace, not an append). Needed after "
+                             "the ingestion code changes. Costs a full re-ingest of each document, and "
+                             "a document is missing from the store until its re-ingest finishes.")
     args = parser.parse_args()
 
     # 1. memory, before anything is loaded
@@ -165,7 +180,7 @@ def main() -> int:
 
     log = json.loads(log_path.read_text()) if log_path.exists() else {"documents": []}
     log.update(tier=args.tier, started_at=datetime.now(timezone.utc).isoformat())
-    done = {d["doc_id"] for d in log["documents"] if d.get("status") == "ingested"}
+    done = already_ingested(log["documents"], force=args.force)
     failures = 0
     t_all = time.time()
     for n, doc in enumerate(accepted, 1):
@@ -183,7 +198,7 @@ def main() -> int:
         started = time.perf_counter()
         entry = dict(doc_id=name, pages=doc["pages"], bytes=doc["bytes"])
         try:
-            result = ingest_file(docs_dir / name)
+            result = ingest_file(docs_dir / name, force=args.force)
             collection = vector_store.get_collection().get(
                 where={"doc_id": result.doc_id}, include=["metadatas"])
             metas = collection["metadatas"] or []

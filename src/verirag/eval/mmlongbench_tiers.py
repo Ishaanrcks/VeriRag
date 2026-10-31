@@ -107,3 +107,17 @@ def coverage(questions: list[dict], docs: list[str]) -> dict:
         cross_page_documents=sum(p.cross_page for p in chosen),
         all_groups_present=sorted({g for g in (q["group"] for q in questions)} - set(groups)) == [],
     )
+
+
+def already_ingested(log_documents: list[dict], *, force: bool = False) -> set[str]:
+    """Documents the ingestion script should SKIP because its log says they are done.
+
+    ``force`` returns an empty set: nothing is skipped, so every document is handed to
+    ``ingest_file(..., force=True)``, which deletes the document's old chunks from both
+    stores and ingests it afresh (a clean replace, never an append). Needed when the
+    ingestion code itself has changed (e.g. vector-chart captioning), because a document
+    already in the store is otherwise skipped, old chunks and all.
+    """
+    if force:
+        return set()
+    return {d["doc_id"] for d in log_documents if d.get("status") == "ingested"}

@@ -98,7 +98,19 @@ Rules you must follow:
   (for example, that a response category matches the question's wording only
   approximately).
 - Answering partially is fine: state what the passages do support, and say
-  plainly which part of the question they do not."""
+  plainly which part of the question they do not.
+- LEAD WITH THE DIRECT ANSWER. When the question asks for a specific value --
+  a number, a percentage, a date, a name or a list -- your FIRST sentence must be
+  that value, stated as the answer, and nothing else. Then explain and cite.
+  Write "16 weeks [1]. The Work Experience Milestone lists ...", NOT "The
+  passages describe the Work Experience Milestone as ...". Describing what the
+  passages report, without ever committing to the value they imply, reads as a
+  refusal even when the right number is somewhere in your answer. If you are
+  confident enough to cite the value, state it first.
+- If the question offers labelled options (A/B/C/D or 1/2/3/4), answer with the
+  label ALONE -- "C", not "C) Online" and not the option's text -- then explain.
+  Where a question asks for a value in a stated format, follow that format
+  exactly and add no words to it."""
 
 _AVOID_CLAIMS_INSTRUCTION = """\
 
