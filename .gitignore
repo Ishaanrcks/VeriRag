@@ -44,3 +44,7 @@ dist/
 
 # OS
 .DS_Store
+
+# Modal: the client token lives in ~/.modal.toml (outside the repo), but never commit a copy
+.modal.toml
+.modal/
