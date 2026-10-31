@@ -72,6 +72,33 @@ def _selftest() -> int:
             "factoid", "multi_hop", "unanswerable", "false_premise"},
         "factoid wrong == 1": m.by_group["factoid"]["wrong"] == 1,
     }
+    # --- partial as a third outcome (hand-computed) ---
+    # 2 should-answer: one answered in full, one partial.
+    # 3 should-decline: one declined, one partial, one answered in full.
+    more = [
+        dict(id=1, group="g", expected_verdict="answer", outcome="answered",
+             correct=True, regeneration_count=0),
+        dict(id=2, group="g", expected_verdict="answer", outcome="partial",
+             correct=False, regeneration_count=2),
+        dict(id=3, group="g", expected_verdict="decline", outcome="abstained",
+             correct=None, regeneration_count=0),
+        dict(id=4, group="g", expected_verdict="decline", outcome="partial",
+             correct=None, regeneration_count=2),
+        dict(id=5, group="g", expected_verdict="decline", outcome="answered",
+             correct=None, regeneration_count=1),
+    ]
+    p = compute_metrics(more)
+    checks.update({
+        "partial: 2 of 5": p.partial == 2 and abs(p.partial_rate - 0.4) < 1e-9,
+        "recall counts only full answers (1/2)": abs(p.recall - 0.5) < 1e-9,
+        "recall incl. partial (2/2)": abs(p.recall_incl_partial - 1.0) < 1e-9,
+        "FPR counts any answer (2/3)": abs(p.false_positive_rate - 2 / 3) < 1e-9,
+        "FPR verified-only (1/3)": abs(p.false_positive_rate_verified_only - 1 / 3) < 1e-9,
+        "partial split by expectation": (p.partial_on_answerable, p.partial_on_decline) == (1, 1),
+        "refusal precision ignores partial (1/1)": abs(p.refusal_precision - 1.0) < 1e-9,
+        "hallucination rate is full answers only (0)": p.hallucination_rate == 0.0,
+        "wrong partial listed separately": p.partial_wrong == [2],
+    })
     for name, passed in checks.items():
         print(f"  {'PASS' if passed else 'FAIL'}  {name}")
     failed = [n for n, p in checks.items() if not p]

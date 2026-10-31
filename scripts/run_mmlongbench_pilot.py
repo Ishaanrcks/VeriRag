@@ -30,36 +30,16 @@ import random
 import time
 from pathlib import Path
 
-from verirag.config import settings
 from verirag.eval.harness import configure_store
+from verirag.eval.mmlongbench_runner import CountingClient, build_extractor, response_text
 from verirag.eval.mmlongbench_scorer import (
     LENIENT_LABEL,
     STRICT_LABEL,
     extract_answer,
     load_extraction_prompt,
-    make_extraction_client,
     pooled_metrics,
     score_response_dual,
 )
-
-
-class CountingClient:
-    """Wraps an OpenAI-compatible client, counting calls and recording errors."""
-
-    def __init__(self, client) -> None:
-        self._client = client
-        self.calls = 0
-        self.errors: list[str] = []
-        self.chat = self
-        self.completions = self
-
-    def create(self, **kwargs):
-        self.calls += 1
-        try:
-            return self._client.chat.completions.create(**kwargs)
-        except Exception as exc:  # noqa: BLE001 - recorded, then re-raised
-            self.errors.append(f"{type(exc).__name__}: {str(exc)[:160]}")
-            raise
 
 
 def pick_questions(rows: list[dict], docs: list[str], n_unans: int, n_ans: int, seed: int):
@@ -81,26 +61,6 @@ def pick_questions(rows: list[dict], docs: list[str], n_unans: int, n_ans: int, 
             picked.append(rng.choice(choices))
         i += 1
     return picked
-
-
-def build_extractor(kind: str):
-    if kind == "gemini":
-        if not settings.gemini_api_key:
-            raise SystemExit("GEMINI_API_KEY is not set")
-        client = make_extraction_client(settings.gemini_api_key, settings.gemini_base_url)
-        model = settings.gemini_extraction_model
-    else:
-        client = make_extraction_client(settings.deepseek_api_key, settings.deepseek_base_url)
-        model = settings.deepseek_chat_model
-    return kind, model, CountingClient(client)
-
-
-def response_text(result) -> str:
-    """What the extractor reads: the answer, or a plain statement of the abstention."""
-    if not result.abstained and result.answer:
-        return result.answer
-    reason = result.abstention_reason or "the retrieved documents do not cover it"
-    return f"I cannot answer this question from the provided documents. {reason}"
 
 
 def main() -> None:

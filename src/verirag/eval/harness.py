@@ -27,6 +27,18 @@ of them. It is a deliberately lexical proxy -- a correct answer phrased in an
 unanticipated way counts as incorrect -- so a flagged hallucination should
 always be read before being believed. Questions without ``must_contain`` are
 counted as answered but not scored for correctness.
+
+Outcomes are FOUR, not two: ``answered`` (a fully verified answer), ``partial``
+(Gate 2 verified some claims and not others; the answer is returned with an
+explicit Verified facts list), ``refused`` (a prose decline) and ``abstained`` (a
+gate declined). ``partial`` is taken from the pipeline's own ``outcome`` rather
+than re-derived from the text, so the harness cannot disagree with the system.
+
+STRICT is the headline wherever a number could be flattered by an unverified
+statement. For a ``partial`` answer, correctness (``must_contain``) is checked
+against the Verified facts ONLY; the whole-response check is kept as
+``correct_lenient``, an upper bound. The same two-pass idea scores the
+MMLongBench-Doc benchmark (see eval/mmlongbench_scorer.py).
 """
 
 from __future__ import annotations
@@ -40,6 +52,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Any
+
+from verirag.generation.partial import split_verified_facts
 
 logger = logging.getLogger(__name__)
 
@@ -62,23 +76,53 @@ _REFUSAL_MARKERS = (
 
 @dataclass
 class EvalMetrics:
-    """Programmatically computed, never hand-counted."""
+    """Programmatically computed, never hand-counted.
+
+    How ``partial`` is counted, and why (it is a real third outcome, so every
+    rate says where it sits):
+
+    * ``recall`` counts only FULLY verified answers. A partial answer carries
+      statements the system did not vouch for, so crediting it would flatter the
+      headline; ``recall_incl_partial`` is the upper bound.
+    * ``false_positive_rate`` counts ANY answer returned where a decline was
+      expected, partial included: handing the reader content they should not have
+      been given is a cost even when it is labelled. ``false_positive_rate_
+      verified_only`` is the lower bound, and ``partial_on_decline`` is the
+      accepted partial-mode tradeoff, tracked on its own so it is never hidden
+      inside either number.
+    * ``refusal_precision`` and ``hallucination_rate`` are unchanged: a partial
+      answer is not a decline, and the hallucination invariant is about fully
+      verified answers. A partial answer whose VERIFIED FACTS are wrong is listed
+      in ``partial_wrong`` instead.
+
+    Both choices are the pessimistic reading (strict, like the benchmark
+    headline), with the optimistic reading reported beside it.
+    """
 
     total: int
     answered: int
     declined: int
-    # Of questions that SHOULD be answered, how many were.
+    # Of questions that SHOULD be answered, how many were answered (verified in full).
     recall: float
     # Of the times the system declined, how often declining was right.
     refusal_precision: float
-    # Of questions that should have been declined, how many got answered.
+    # Of questions that should have been declined, how many got an answer
+    # (full or partial). HEADLINE; see the class docstring.
     false_positive_rate: float
-    # Of scored answers, how many were factually wrong. MUST be 0.
+    # Of scored fully-verified answers, how many were factually wrong. MUST be 0.
     hallucination_rate: float
     scored_answers: int
     hallucinations: list[int] = field(default_factory=list)
     avg_regenerations: float = 0.0
     by_group: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # --- the third outcome ---
+    partial: int = 0
+    partial_rate: float = 0.0  # partial / total
+    partial_on_answerable: int = 0
+    partial_on_decline: int = 0
+    recall_incl_partial: float = 0.0
+    false_positive_rate_verified_only: float = 0.0
+    partial_wrong: list[int] = field(default_factory=list)
 
 
 def load_question_set(path: str | Path) -> dict:
@@ -95,11 +139,20 @@ def load_question_set(path: str | Path) -> dict:
     return data
 
 
-def classify_outcome(abstained: bool, answer: str | None) -> str:
-    """answered | refused | abstained.
+def classify_outcome(
+    abstained: bool, answer: str | None, pipeline_outcome: str | None = None
+) -> str:
+    """answered | partial | refused | abstained.
 
-    A prose refusal LEADS with its declination ("The provided documents do not
-    address this question."), because the generator is instructed to say so
+    ``partial`` comes straight from ``pipeline_outcome`` (the pipeline's own
+    ``VeriRAGResult.outcome``): the harness reuses the signal that triggered
+    partial mode instead of guessing from the text, so a partial answer whose
+    opening happens to be a refusal ("The passages do not give ...") or a premise
+    correction ("... appears in the QpiGNN paper, not in GFM-RAG") is still
+    ``partial``, not forced into answered/declined by phrase detection.
+
+    Otherwise: a prose refusal LEADS with its declination ("The provided documents
+    do not address this question."), because the generator is instructed to say so
     directly and stop. Scanning the WHOLE answer for a refusal marker instead
     misclassifies a substantive, verified answer that merely uses a negation in
     passing ("GFM-RAG does not state a GPU-hour cost, but reports ...") as a
@@ -108,6 +161,8 @@ def classify_outcome(abstained: bool, answer: str | None) -> str:
     answer can also hide a hallucination). So the marker check is restricted to
     the first sentence: only a leading declination counts as a refusal.
     """
+    if pipeline_outcome == "partial" and not abstained:
+        return "partial"
     if abstained:
         return "abstained"
     text = (answer or "").strip()
@@ -136,40 +191,47 @@ def check_must_contain(
 def compute_metrics(records: list[dict]) -> EvalMetrics:
     total = len(records)
     answered = [r for r in records if r["outcome"] == "answered"]
+    partial = [r for r in records if r["outcome"] == "partial"]
     declined = [r for r in records if r["outcome"] in ("refused", "abstained")]
 
     want_answer = [r for r in records if r["expected_verdict"] == "answer"]
     want_decline = [r for r in records if r["expected_verdict"] == "decline"]
 
-    recall = (
-        len([r for r in want_answer if r["outcome"] == "answered"]) / len(want_answer)
-        if want_answer else 0.0
+    def share(part: list[dict], whole: list[dict]) -> float:
+        return len(part) / len(whole) if whole else 0.0
+
+    recall = share([r for r in want_answer if r["outcome"] == "answered"], want_answer)
+    recall_incl_partial = share(
+        [r for r in want_answer if r["outcome"] in ("answered", "partial")], want_answer
     )
-    refusal_precision = (
-        len([r for r in declined if r["expected_verdict"] == "decline"])
-        / len(declined)
-        if declined else 0.0
+    refusal_precision = share(
+        [r for r in declined if r["expected_verdict"] == "decline"], declined
     )
-    false_positive_rate = (
-        len([r for r in want_decline if r["outcome"] == "answered"])
-        / len(want_decline)
-        if want_decline else 0.0
+    false_positive_rate = share(
+        [r for r in want_decline if r["outcome"] in ("answered", "partial")], want_decline
+    )
+    false_positive_rate_verified_only = share(
+        [r for r in want_decline if r["outcome"] == "answered"], want_decline
     )
 
     scored = [r for r in answered if r["correct"] is not None]
     hallucinations = [r["id"] for r in scored if r["correct"] is False]
     hallucination_rate = len(hallucinations) / len(scored) if scored else 0.0
+    partial_wrong = [r["id"] for r in partial if r.get("correct") is False]
 
     by_group: dict[str, dict[str, Any]] = {}
     for record in records:
         bucket = by_group.setdefault(
-            record["group"], {"total": 0, "answered": 0, "declined": 0, "wrong": 0}
+            record["group"],
+            {"total": 0, "answered": 0, "partial": 0, "declined": 0, "wrong": 0},
         )
         bucket["total"] += 1
         if record["outcome"] == "answered":
             bucket["answered"] += 1
             if record["correct"] is False:
                 bucket["wrong"] += 1
+        elif record["outcome"] == "partial":
+            bucket["partial"] += 1
         else:
             bucket["declined"] += 1
 
@@ -187,6 +249,13 @@ def compute_metrics(records: list[dict]) -> EvalMetrics:
             sum(r["regeneration_count"] for r in records) / total if total else 0.0
         ),
         by_group=by_group,
+        partial=len(partial),
+        partial_rate=len(partial) / total if total else 0.0,
+        partial_on_answerable=len([r for r in want_answer if r["outcome"] == "partial"]),
+        partial_on_decline=len([r for r in want_decline if r["outcome"] == "partial"]),
+        recall_incl_partial=recall_incl_partial,
+        false_positive_rate_verified_only=false_positive_rate_verified_only,
+        partial_wrong=partial_wrong,
     )
 
 
@@ -238,12 +307,17 @@ def run_question_set(
         result = run_query(
             question["question"], AnswerFormat.CONCISE, corpus_only=corpus_only
         )
-        outcome = classify_outcome(result.abstained, result.answer)
-        correct = (
-            check_must_contain(result.answer, question.get("must_contain"))
-            if outcome == "answered"
-            else None
-        )
+        outcome = classify_outcome(result.abstained, result.answer, result.outcome)
+        must = question.get("must_contain")
+        if outcome == "partial":
+            # STRICT: only the Verified facts may satisfy must_contain; the
+            # whole-response check is the lenient upper bound.
+            _, facts = split_verified_facts(result.answer or "")
+            correct = check_must_contain(facts, must)
+            correct_lenient = check_must_contain(result.answer, must)
+        else:
+            correct = check_must_contain(result.answer, must) if outcome == "answered" else None
+            correct_lenient = correct
         meets = (
             outcome == "answered"
             if question["expected_verdict"] == "answer"
@@ -260,6 +334,9 @@ def run_question_set(
             outcome=outcome,
             meets_expectation=meets,
             correct=correct,
+            correct_lenient=correct_lenient,
+            pipeline_outcome=result.outcome,
+            verified_facts=[f.text for f in result.verified_facts],
             answer=result.answer,
             abstention_reason=result.abstention_reason,
             regeneration_count=result.regeneration_count,
@@ -287,6 +364,8 @@ def run_question_set(
 
         flag = "ok" if meets else "MISMATCH"
         extra = "" if correct is None else (" correct" if correct else " WRONG")
+        if outcome == "partial":
+            extra += " (strict)"
         print(f"  [Q{question['id']:>3}] {question['group']:22} "
               f"{outcome:10} want={question['expected_verdict']:7} "
               f"{flag}{extra}  ({records[-1]['elapsed_s']}s)", flush=True)
@@ -328,6 +407,8 @@ def diff_against_baseline(
             change = "unchanged"
         elif record["outcome"] == "answered":
             change = "now answers"
+        elif record["outcome"] == "partial":
+            change = "now partial"
         elif before_outcome == "answered":
             change = "now declines"
         else:
@@ -372,14 +453,22 @@ def render_markdown(payload: dict, baseline: dict | None = None) -> str:
     lines.append("| metric | value |")
     lines.append("|---|---|")
     lines.append(f"| questions | {metrics['total']} |")
-    lines.append(f"| answered | {metrics['answered']} |")
+    lines.append(f"| answered (fully verified) | {metrics['answered']} |")
+    lines.append(f"| partial (some claims unverified) | {metrics.get('partial', 0)} |")
     lines.append(f"| declined | {metrics['declined']} |")
-    lines.append(f"| **recall** (answerable actually answered) | "
+    lines.append(f"| **recall** (answerable answered in full; partial not counted) | "
                  f"**{metrics['recall']:.1%}** |")
+    lines.append(f"| recall incl. partial (upper bound) | "
+                 f"{metrics.get('recall_incl_partial', metrics['recall']):.1%} |")
     lines.append(f"| **refusal precision** (declines that were right) | "
                  f"**{metrics['refusal_precision']:.1%}** |")
-    lines.append(f"| **false positive rate** (should decline, answered) | "
+    lines.append(f"| **false positive rate** (should decline, got ANY answer incl. partial) | "
                  f"**{metrics['false_positive_rate']:.1%}** |")
+    lines.append(f"| false positive rate, verified answers only (lower bound) | "
+                 f"{metrics.get('false_positive_rate_verified_only', metrics['false_positive_rate']):.1%} |")
+    lines.append(f"| partial on should-decline (accepted partial-mode tradeoff) | "
+                 f"{metrics.get('partial_on_decline', 0)} |")
+    lines.append(f"| partial on should-answer | {metrics.get('partial_on_answerable', 0)} |")
     lines.append(f"| **hallucination rate** (scored answers wrong) | "
                  f"**{metrics['hallucination_rate']:.1%}** "
                  f"({metrics['scored_answers']} scored) |")
@@ -388,11 +477,12 @@ def render_markdown(payload: dict, baseline: dict | None = None) -> str:
 
     lines.append("## By stratum")
     lines.append("")
-    lines.append("| stratum | n | answered | declined | wrong |")
-    lines.append("|---|---|---|---|---|")
+    lines.append("| stratum | n | answered | partial | declined | wrong |")
+    lines.append("|---|---|---|---|---|---|")
     for group, bucket in sorted(metrics["by_group"].items()):
         lines.append(f"| {group} | {bucket['total']} | {bucket['answered']} "
-                     f"| {bucket['declined']} | {bucket['wrong']} |")
+                     f"| {bucket.get('partial', 0)} | {bucket['declined']} "
+                     f"| {bucket['wrong']} |")
     lines.append("")
 
     if baseline is not None:
