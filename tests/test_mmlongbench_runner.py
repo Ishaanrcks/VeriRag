@@ -70,10 +70,16 @@ def _extract(question, text):
     return "Extracted answer: Not answerable\nAnswer format: String"
 
 
+def healthy_memory():
+    """A mocked gauge: these tests must not depend on the machine they run on."""
+    return R.MemoryStatus(available_bytes=16 * R.GB, total_bytes=32 * R.GB)
+
+
 def _run(tmp_path, pipeline=None, **kwargs):
     pipeline = pipeline or FakePipeline()
     options = dict(out_dir=tmp_path / "out", ingested_docs=INGESTED, query_fn=pipeline,
-                   extract_fn=_extract, log=lambda m: None, only_ingested=True)
+                   extract_fn=_extract, log=lambda m: None, only_ingested=True,
+                   memory_reader=healthy_memory)
     options.update(kwargs)
     payload = R.run_benchmark(_write_subset(tmp_path), tmp_path / "store", **options)
     return payload, pipeline

@@ -25,6 +25,15 @@ is told what to do about missing documents: ``only_ingested`` (run just the
 questions whose document is present; how tiered ingestion is measured) or
 ``allow_missing`` (record them as skipped, excluded from every metric).
 
+MEMORY. The embedding, reranker and NLI models are resident for the whole run
+(about 1.25 GB of resident memory at peak, measured, plus Metal buffers), and on an
+8 GB machine shared with browsers an unhealthy start does not fail: the process is
+paged out into uninterruptible I/O and crawls (one question took 33 minutes).
+So the runner checks AVAILABLE memory (what can be reclaimed without swapping, not
+the near-zero "free" figure macOS always reports) before loading anything, refuses
+to start below ``MIN_AVAILABLE_GB``, and re-checks before every question so a run
+squeezed later stops at a checkpoint with a clear message instead of wedging.
+
 SCOPE. ``pooled`` (default) searches the whole store, which is what a real corpus
 looks like and what corpus-size calibration needs. ``doc`` prefixes the question
 with its filename, which the production document resolver turns into a retrieval
@@ -35,6 +44,9 @@ from __future__ import annotations
 
 import collections
 import json
+import platform
+import re
+import subprocess
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import date
@@ -103,6 +115,158 @@ def response_text(result) -> str:
         return result.answer
     reason = result.abstention_reason or "the retrieved documents do not cover it"
     return f"I cannot answer this question from the provided documents. {reason}"
+
+
+# --------------------------------------------------------------------------
+# memory preflight
+# --------------------------------------------------------------------------
+GB = 1024**3
+# Available memory required to START. Measured on this 8 GB machine, loading the
+# three models took 1.2 GB and, in a second sample, 2.5 GB off "available" (it varies
+# with how much cache the OS can evict; resident memory peaks at ~1.25 GB and Metal
+# buffers add wired memory). Starting below the worst case means the OS must swap
+# out other applications' ACTIVE pages as the models load, which is how the stalls
+# began. 2.5 GB is that worst case: a bit above the ~2 GB first guessed, and below
+# the 2.7-4.6 GB seen on an idle machine.
+MIN_AVAILABLE_GB = 2.5
+# Available memory required to KEEP RUNNING. With the models resident (and already
+# subtracted) a HEALTHY run read 0.8 and 1.5 GB available, so a start-style floor
+# would stop good runs. The stalls read 0.5 and 1.1 GB, so no number separates the
+# two: this floor only catches a severe squeeze. The slow-question guard below is
+# the check that caught the real failure.
+MIN_AVAILABLE_GB_DURING = 0.5
+# One question normally takes 5-320 s; the wedged one took 2008 s. A question slower
+# than this means the machine is paging, whatever the gauge says, so the run stops
+# at its checkpoint (0 disables).
+MAX_SECONDS_PER_QUESTION = 900.0
+
+
+class MemoryLow(RunnerError):
+    """Not enough memory to start (or keep running) without thrashing."""
+
+
+class StallDetected(RunnerError):
+    """A question took far longer than any healthy one: the machine is paging."""
+
+
+@dataclass(frozen=True)
+class MemoryStatus:
+    """What is reclaimable right now, not what is merely 'free'."""
+
+    available_bytes: int
+    total_bytes: int
+    swap_used_bytes: int | None = None
+    swap_total_bytes: int | None = None
+
+    @property
+    def available_gb(self) -> float:
+        return self.available_bytes / GB
+
+    def describe(self) -> str:
+        text = f"{self.available_gb:.1f} GB available of {self.total_bytes / GB:.1f} GB"
+        if self.swap_used_bytes is not None and self.swap_total_bytes:
+            text += (f"; swap {self.swap_used_bytes / GB:.1f} of "
+                     f"{self.swap_total_bytes / GB:.1f} GB used")
+        return text
+
+
+def parse_vm_stat(text: str) -> int:
+    """Available bytes from macOS ``vm_stat`` output.
+
+    free + inactive + speculative + purgeable pages: memory the OS can hand over
+    without paging anything out. ("Pages free" alone sits near zero on a healthy
+    Mac, because the OS keeps it full of cache.) Active file-backed pages are also
+    reclaimable but are left out: under-counting errs toward refusing.
+    """
+    page = re.search(r"page size of (\d+) bytes", text)
+    if not page:
+        raise ValueError("no page size in vm_stat output")
+    pages = {
+        name: int(count)
+        for name, count in re.findall(r"^Pages ([a-z ]+?):\s+(\d+)\.", text, re.MULTILINE)
+    }
+    reclaimable = sum(pages.get(k, 0) for k in ("free", "inactive", "speculative", "purgeable"))
+    return reclaimable * int(page.group(1))
+
+
+def parse_swapusage(text: str) -> tuple[int, int]:
+    """``(used, total)`` bytes from ``sysctl vm.swapusage``."""
+    def to_bytes(label: str) -> int:
+        match = re.search(rf"{label} = ([\d.]+)([MGK])", text)
+        if not match:
+            raise ValueError(f"no {label} in swapusage output")
+        return int(float(match.group(1)) * {"K": 1024, "M": 1024**2, "G": GB}[match.group(2)])
+
+    return to_bytes("used"), to_bytes("total")
+
+
+def parse_meminfo(text: str) -> MemoryStatus:
+    """Linux ``/proc/meminfo``."""
+    kib = {k: int(v) * 1024 for k, v in re.findall(r"^(\w+):\s+(\d+) kB", text, re.MULTILINE)}
+    swap_total = kib.get("SwapTotal", 0)
+    return MemoryStatus(
+        available_bytes=kib["MemAvailable"], total_bytes=kib["MemTotal"],
+        swap_used_bytes=swap_total - kib.get("SwapFree", 0), swap_total_bytes=swap_total,
+    )
+
+
+def read_memory_status() -> MemoryStatus | None:
+    """Current memory, or ``None`` if this platform cannot be read (the check then
+    fails open: an unreadable gauge must not block a run that may be fine)."""
+    try:
+        if platform.system() == "Darwin":
+            def run(*cmd: str) -> str:
+                return subprocess.run(cmd, capture_output=True, text=True, timeout=10,
+                                      check=True).stdout
+
+            used, total = parse_swapusage(run("sysctl", "vm.swapusage"))
+            return MemoryStatus(
+                available_bytes=parse_vm_stat(run("vm_stat")),
+                total_bytes=int(run("sysctl", "-n", "hw.memsize").strip()),
+                swap_used_bytes=used, swap_total_bytes=total,
+            )
+        if platform.system() == "Linux":
+            return parse_meminfo(Path("/proc/meminfo").read_text())
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError):
+        return None
+    return None
+
+
+def check_memory(
+    min_available_gb: float,
+    *,
+    reader: Callable[[], MemoryStatus | None] = read_memory_status,
+    stage: str = "start",
+) -> MemoryStatus | None:
+    """Raise :class:`MemoryLow` if less than ``min_available_gb`` is available."""
+    status = reader()
+    if status is None or min_available_gb <= 0:
+        return status
+    if status.available_gb < min_available_gb:
+        verb = "start" if stage == "start" else "keep running"
+        raise MemoryLow(
+            f"Only {status.describe()}; the benchmark needs at least "
+            f"{min_available_gb:.1f} GB available to {verb} without thrashing. "
+            "Close other applications (browsers, editors, any other model-loading "
+            "process) and run it again."
+        )
+    return status
+
+
+def memory_summary(
+    min_available_gb: float = MIN_AVAILABLE_GB,
+    *,
+    reader: Callable[[], MemoryStatus | None] = read_memory_status,
+) -> tuple[str, bool]:
+    """One line about memory for ``--dry-run``, and whether a real run would start."""
+    status = reader()
+    if status is None:
+        return "memory: could not be read on this platform; the check is skipped", True
+    if status.available_gb < min_available_gb:
+        return (f"memory: {status.describe()} -- a real run would REFUSE to start "
+                f"(needs at least {min_available_gb:.1f} GB available)", False)
+    return (f"memory: {status.describe()} -- OK to start "
+            f"(needs at least {min_available_gb:.1f} GB available)", True)
 
 
 # --------------------------------------------------------------------------
@@ -333,6 +497,10 @@ def run_benchmark(
     only_ingested: bool = False,
     allow_missing: bool = False,
     resume: bool = True,
+    min_available_gb: float = MIN_AVAILABLE_GB,
+    min_available_gb_during: float = MIN_AVAILABLE_GB_DURING,
+    max_seconds_per_question: float = MAX_SECONDS_PER_QUESTION,
+    memory_reader: Callable[[], MemoryStatus | None] = read_memory_status,
     ingested_docs: list[dict] | None = None,
     query_fn: Callable[[str], Any] | None = None,
     extract_fn: Callable[[str, str], str] | None = None,
@@ -340,12 +508,19 @@ def run_benchmark(
 ) -> dict:
     """Run the benchmark sequentially and return (and write) the payload.
 
-    ``ingested_docs``, ``query_fn`` and ``extract_fn`` are injection points for
-    tests; left as ``None`` they use the store, the real pipeline and the real
-    extractor.
+    Memory is checked before anything is loaded (``min_available_gb``) and again
+    before every question (``min_available_gb_during``); a question slower than
+    ``max_seconds_per_question`` also stops the run. Each raises (:class:`MemoryLow`
+    / :class:`StallDetected`) and leaves the checkpoint resumable. ``ingested_docs``,
+    ``query_fn``, ``extract_fn`` and ``memory_reader`` are injection points for
+    tests; left as ``None``/default they use the store, the real pipeline, the
+    real extractor and the real memory gauge.
     """
     if scope not in SCOPES:
         raise RunnerError(f"scope must be one of {SCOPES}")
+    status = check_memory(min_available_gb, reader=memory_reader, stage="start")
+    if status is not None:
+        log(f"memory: {status.describe()}")
     subset = json.loads(Path(subset_path).read_text())
     store_path = configure_store(store)
     if ingested_docs is None:
@@ -396,12 +571,30 @@ def run_benchmark(
     records = list(done)
     todo = [q for q in plan.todo if q["id"] not in finished]
     for n, row in enumerate(todo, 1):
+        try:
+            check_memory(min_available_gb_during, reader=memory_reader, stage="during")
+        except MemoryLow as exc:
+            raise MemoryLow(
+                f"{exc} {len(records)} question(s) are checkpointed in {checkpoint}; "
+                "re-run the same command to resume."
+            ) from None
         record = process_question(row, query_fn=query_fn, extractor=extract_fn, scope=scope)
         records.append(record)
         checkpoint.write_text(json.dumps(payload_for(records, False), indent=2, default=str))
         flag = "" if record["score"] == record["lenient_score"] else f" (lenient {record['lenient_score']:.2f})"
         log(f"[{n}/{len(todo)}] Q{record['id']:>4} {record['group']:20} "
             f"{record['outcome']:9} strict={record['score']:.2f}{flag} ({record['elapsed_s']}s)")
+        if (max_seconds_per_question and n < len(todo)
+                and record["elapsed_s"] > max_seconds_per_question):
+            now = memory_reader()
+            raise StallDetected(
+                f"Question {record['id']} took {record['elapsed_s']:.0f}s (limit "
+                f"{max_seconds_per_question:.0f}s); a healthy question takes seconds to "
+                "a few minutes, so the machine is almost certainly paging"
+                + (f" ({now.describe()})" if now else "")
+                + f". {len(records)} question(s) are checkpointed in {checkpoint}. "
+                "Close other applications and re-run the same command to resume."
+            )
 
     payload = payload_for(records, True)
     stem = f"{name}_{date.today().isoformat()}"
