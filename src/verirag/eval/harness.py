@@ -70,6 +70,10 @@ _REFUSAL_MARKERS = (
     "do not provide",
     "do not give",
     "do not state",
+    # the generator's required opening when it concludes the sources cannot settle
+    # the question (see generation/generator.py); without it such an answer is
+    # classified "answered" and counted as a false positive despite scoring 1.0
+    "cannot be determined",
     "do not fully address",
 )
 

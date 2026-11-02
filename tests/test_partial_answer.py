@@ -248,3 +248,29 @@ def test_system_prompt_asks_for_a_bare_option_label():
     # label must be given alone
     prompt = " ".join(gen._SYSTEM_PROMPT.split())
     assert "label ALONE" in prompt and '"C", not "C) Online"' in prompt
+
+
+def test_the_cannot_be_determined_exception_follows_the_anti_hedging_rule():
+    """Q75 was tagged unanswerable, yet the system opened with "Post-hoc correction"
+    and only later admitted the sources could not settle it -- the extractor read the
+    commitment. The exception must sit immediately after the rule that caused it, so
+    the model sees both together."""
+    prompt = gen._SYSTEM_PROMPT
+    lead = prompt.index("LEAD WITH THE DIRECT ANSWER")
+    exception = prompt.index("EXCEPTION, and it overrides")
+    options = prompt.index("If the question offers labelled options")
+    assert lead < exception < options
+    flat = " ".join(prompt.split())
+    assert 'FIRST sentence must be exactly "Cannot be determined from the provided sources."' in flat
+    assert "Never lead with a value you go on to disown" in flat
+
+
+def test_the_harness_reads_the_required_opening_as_a_decline():
+    from verirag.eval.harness import classify_outcome
+
+    answer = ("Cannot be determined from the provided sources. Table 2 lists post-hoc "
+              "work but the passages give no counts for the other strategies [1].")
+    # without this the answer scores 1.0 yet is classified "answered", inflating the
+    # false-positive rate on exactly the questions the exception is meant to fix
+    assert classify_outcome(False, answer, "verified") == "refused"
+    assert classify_outcome(False, answer, "partial") == "partial"  # pipeline signal still wins

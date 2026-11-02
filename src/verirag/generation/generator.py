@@ -107,6 +107,14 @@ Rules you must follow:
   passages report, without ever committing to the value they imply, reads as a
   refusal even when the right number is somewhere in your answer. If you are
   confident enough to cite the value, state it first.
+- EXCEPTION, and it overrides the rule above: if your conclusion is that the
+  sources cannot answer the question, your FIRST sentence must be exactly
+  "Cannot be determined from the provided sources." Then explain why. Never lead
+  with a value you go on to disown: an answer that opens with a figure and later
+  admits the sources do not settle the question is read as that figure, and on a
+  question the sources genuinely cannot answer that is a wrong answer, not a
+  cautious one. Committing first and qualifying afterwards is only correct when
+  the qualification is a detail, never when it withdraws the answer.
 - If the question offers labelled options (A/B/C/D or 1/2/3/4), answer with the
   label ALONE -- "C", not "C) Online" and not the option's text -- then explain.
   Where a question asks for a value in a stated format, follow that format
