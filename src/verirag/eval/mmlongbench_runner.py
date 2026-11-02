@@ -375,6 +375,7 @@ def process_question(
         correct=None, regeneration_count=result.regeneration_count,
         gate1=(f"{g1.verdict}/{g1.decision_path}/{g1.max_rerank_score:.3f}" if g1 else None),
         gate2_labels=dict(collections.Counter(c.verdict for c in g2.claims)) if g2 else {},
+        visual_checks=list(getattr(g2, "visual_checks", []) or []) if g2 else [],
         retrieved=_retrieved(result),
         citations=[dict(doc_id=c.doc_id, pages=c.pages,
                         chunk_ids=c.contributing_chunk_ids)

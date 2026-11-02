@@ -67,6 +67,15 @@ def ablate(config: str, ids: str) -> dict:
         unanswerable_correct=sum(1 for r in decline if r["score"] == 1.0),
         outcomes={k: sum(1 for r in rows if r["outcome"] == k)
                   for k in {r["outcome"] for r in rows}},
+        visual_checks=sum(len(r.get("visual_checks") or []) for r in rows),
+        visual_yes=sum(1 for r in rows for c in (r.get("visual_checks") or [])
+                       if c.get("verdict") == "YES"),
+        visual_verdicts={v: sum(1 for r in rows for c in (r.get("visual_checks") or [])
+                                if c.get("verdict") == v)
+                         for v in ("YES", "NO", "CANNOT_TELL")},
+        visual_image_sources={k: sum(1 for r in rows for c in (r.get("visual_checks") or [])
+                                     if (k == "page_render") == str(c.get("image", "")).startswith("page render"))
+                              for k in ("stored_image", "page_render")},
         per_question={str(r["id"]): dict(group=r["group"], score=r["score"],
                                          outcome=r["outcome"], pred=r["pred"][:40])
                       for r in rows},

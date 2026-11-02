@@ -115,6 +115,17 @@ class Settings(BaseSettings):
     gate1_high_threshold: float = 0.15
     gate1_low_threshold: float = 0.05
 
+    # --- Critic: Gate 2 visual verification of caption-only claims ---
+    # A claim supported only by a figure caption is not certified by that caption
+    # (one model vouching for another's output). Instead the FIGURE is shown to the
+    # vision model with the claim and a strict YES/NO/CANNOT_TELL question; only YES
+    # certifies. Bounded per answer because each check is a vision call.
+    gate2_visual_check_enabled: bool = True
+    gate2_visual_checks_per_answer: int = 6
+    # The vision model is a reasoning model: hidden reasoning counts against this,
+    # and the visible answer is one word.
+    gate2_visual_check_max_tokens: int = 2048
+
     # --- Critic: Gate 2 (groundedness) ---
     # Also HAND-SET, for the same reason as the Gate 1 bands above.
     gate2_entailment_threshold: float = 0.5

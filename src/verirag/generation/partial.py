@@ -28,7 +28,8 @@ UNVERIFIED_NOTE = (
 # NLI entailment on one chunk or several, and lookup by presence (which covers
 # structural claims, formula/figure references and the table-cell route).
 VERIFIED_VERDICTS = frozenset(
-    {"supported_single", "supported_combination", "supported_presence"}
+    {"supported_single", "supported_combination", "supported_presence",
+     "visually_verified"}
 )
 
 

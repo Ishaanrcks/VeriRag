@@ -51,6 +51,7 @@ from verirag.critic.nli import (
     score_claim_against_premises,
 )
 from verirag.critic.table_claims import verify_numeric_claim
+from verirag.critic.visual_check import VisualChecker
 from verirag.generation.generator import GeneratedAnswer
 from verirag.retrieval.types import SearchHit
 
@@ -61,6 +62,7 @@ ClaimVerdictLabel = Literal[
     "supported_combination",
     "supported_presence",
     "caption_only_uncertified",
+    "visually_verified",
     "not_supported",
     "external_unsupported",
     "absence_unverified",
@@ -293,6 +295,44 @@ def _verified_by_table(
     return None
 
 
+def _caption_claim_verdict(
+    claim,
+    caption_ids: list[str],
+    hit_by_chunk_id: dict[str, SearchHit],
+    entailment_prob: float | None,
+    checker: "VisualChecker | None",
+) -> "ClaimVerdict":
+    """``visually_verified`` if the FIGURE shows the claim, else the old rejection.
+
+    The caption still certifies nothing: the claim is put to the vision model
+    against the figure's own pixels, and only an unambiguous YES certifies it. NO,
+    CANNOT_TELL, a missing image or an exhausted budget all keep
+    ``caption_only_uncertified``.
+    """
+    if checker is not None:
+        for chunk_id in caption_ids:
+            hit = hit_by_chunk_id.get(chunk_id)
+            if hit is None:
+                continue
+            if checker.check(claim.text, hit) == "YES":
+                logger.info("Claim certified by the figure itself: %r", claim.text[:100])
+                return ClaimVerdict(
+                    claim_text=claim.text,
+                    claim_type=claim.claim_type,
+                    verdict="visually_verified",
+                    evidence_chunk_ids=[chunk_id],
+                    entailment_prob=entailment_prob,
+                )
+    return ClaimVerdict(
+        claim_text=claim.text,
+        claim_type=claim.claim_type,
+        verdict="caption_only_uncertified",
+        evidence_chunk_ids=caption_ids,
+        entailment_prob=entailment_prob,
+        figure_reference=_figure_pointer(caption_ids, hit_by_chunk_id),
+    )
+
+
 def _best_hits_for_topic(
     topic: str, hits: list[SearchHit], limit: int = 2
 ) -> list[tuple[str, float]]:
@@ -379,6 +419,8 @@ class Gate2Verdict:
     overall_grounded: bool
     claims: list[ClaimVerdict]
     unsupported_claims: list[ClaimVerdict]
+    # Every visual re-check made for this answer (claim, image, verdict).
+    visual_checks: list = field(default_factory=list)
 
 
 def _contributing_chunk_ids(
@@ -405,6 +447,8 @@ def _contributing_chunk_ids(
 def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
     """Verify every factual claim in ``answer`` against its cited chunks."""
     claims = extract_claims(answer)
+    # Per-answer budget for visual re-checks of caption-only claims.
+    checker = VisualChecker()
     citation_by_number = {c.number: c for c in answer.citations}
     text_by_chunk_id = {h.chunk_id: h.raw_text for h in answer.hits_used}
     hit_by_chunk_id = {h.chunk_id: h for h in answer.hits_used}
@@ -583,18 +627,10 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
                     "certifying: %r",
                     claim.text[:100],
                 )
-                verdicts.append(
-                    ClaimVerdict(
-                        claim_text=claim.text,
-                        claim_type=claim.claim_type,
-                        verdict="caption_only_uncertified",
-                        evidence_chunk_ids=caption_ids,
-                        entailment_prob=max(prob for _, prob in supporting),
-                        figure_reference=_figure_pointer(
-                            caption_ids, hit_by_chunk_id
-                        ),
-                    )
-                )
+                verdicts.append(_caption_claim_verdict(
+                    claim, caption_ids, hit_by_chunk_id,
+                    max(prob for _, prob in supporting), checker,
+                ))
                 continue
 
             local_supporting = [
@@ -691,18 +727,10 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
                             "caption(s); not certifying: %r",
                             claim.text[:100],
                         )
-                        verdicts.append(
-                            ClaimVerdict(
-                                claim_text=claim.text,
-                                claim_type=claim.claim_type,
-                                verdict="caption_only_uncertified",
-                                evidence_chunk_ids=generated,
-                                entailment_prob=combined_result.entailment_prob,
-                                figure_reference=_figure_pointer(
-                                    generated, hit_by_chunk_id
-                                ),
-                            )
-                        )
+                        verdicts.append(_caption_claim_verdict(
+                            claim, generated, hit_by_chunk_id,
+                            combined_result.entailment_prob, checker,
+                        ))
                         continue
                     # Certified without the captions: they are not part of the
                     # support set that decided the verdict.
@@ -749,8 +777,13 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
     # the abstention message. absence_unverified (a hedge we could not probe)
     # and meta_excluded deliberately do NOT count against grounding.
     unsupported = [v for v in verdicts if v.verdict in _BLOCKING_VERDICTS]
+    if checker.checks:
+        logger.info("Gate 2 made %d visual check(s) (%d billed): %s",
+                    len(checker.checks), checker.used,
+                    [(c.verdict, c.image[-40:]) for c in checker.checks])
     return Gate2Verdict(
         overall_grounded=not unsupported,
         claims=verdicts,
         unsupported_claims=unsupported,
+        visual_checks=[vars(c) for c in checker.checks],
     )
