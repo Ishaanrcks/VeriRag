@@ -254,3 +254,40 @@ def test_shards_are_disjoint_and_cover_everything():
     assert sorted(x for s in shards for x in s) == ids
     assert all(len(set(s)) == len(s) for s in shards)
     assert max(len(s) for s in shards) - min(len(s) for s in shards) <= 1
+
+
+# --------------------------------------------------------------------------
+# c1: a comma is a decimal point or a thousands separator, as context decides
+# --------------------------------------------------------------------------
+@pytest.mark.parametrize("raw,expected", [
+    ("1,300", 1300.0),            # thousands: comma + exactly 3 digits
+    ("1,300,000", 1300000.0),     # thousands, repeated
+    ("12,345,678", 12345678.0),
+    ("1,3", 1.3),                 # decimal: one comma + 1-2 trailing digits
+    ("20,7", 20.7),
+    ("12,34", 12.34),
+    ("0,5", 0.5),
+    ("1234", 1234.0),
+    ("1.3", 1.3),
+    ("", None),
+    ("abc", None),
+])
+def test_parse_number_reads_a_comma_as_decimal_or_separator(raw, expected):
+    assert g2.parse_number(raw) == expected
+
+
+def test_the_q110_comparison_that_used_to_fail():
+    """The vision model read "1,3 million" off the chart; the claim said
+    "1.3 million". Reading the comma as a thousands separator made that 13 million
+    and Gate 2 rejected a correct answer."""
+    reported = g2.normalised_numbers("Google Play Store, 1,3 million")
+    claim = g2.normalised_numbers("Google Play Store had 1.3 million apps in 2014.")
+    assert "1300000" in reported and "1300000" in claim
+    assert reported & claim                      # they now agree
+    assert "13000000" not in reported            # and not by reading it as 13 million
+
+
+def test_thousands_separated_values_are_unaffected():
+    assert "1300" in g2.normalised_numbers("1,300 units")
+    assert "1.3" not in g2.normalised_numbers("1,300 units")
+    assert "1300000" in g2.normalised_numbers("revenue of 1,300,000")

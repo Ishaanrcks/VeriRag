@@ -300,18 +300,41 @@ _NUM_RE = re.compile(r"(?<![\w.])(\d[\d,]*(?:\.\d+)?)\s*(%|percent|million|billi
 _SCALE = {"million": 1e6, "m": 1e6, "billion": 1e9, "bn": 1e9, "thousand": 1e3, "k": 1e3}
 
 
+def parse_number(raw: str) -> float | None:
+    """``raw`` as a float, reading a comma as a DECIMAL point where that is what
+    it must be.
+
+    A comma is a thousands separator when it is followed by exactly three digits
+    ("1,300" is 1300; "1,300,000" is 1300000). It is a decimal point when a single
+    comma is followed by one or two digits at the end ("1,3" is 1.3; "20,7" is
+    20.7), which is how much of the world and several corpus documents write it.
+    Getting this wrong read "1,3 million" as 13 million and made Gate 2 reject a
+    correct answer on Q110.
+    """
+    raw = raw.strip()
+    if not raw:
+        return None
+    if re.fullmatch(r"\d{1,3}(?:,\d{3})+", raw):          # 1,300 / 1,300,000
+        return float(raw.replace(",", ""))
+    if re.fullmatch(r"\d+,\d{1,2}", raw):                 # 1,3 / 20,75
+        return float(raw.replace(",", "."))
+    try:
+        return float(raw.replace(",", ""))
+    except ValueError:
+        return None
+
+
 def normalised_numbers(text: str) -> set[str]:
     """Numbers in ``text`` as comparable strings.
 
-    "20.7%", "20.7 percent" and "20.7" all become "20.7"; "1.3 million" and
-    "1300000" both become "1300000". Commas and currency are dropped. This is what
-    lets a claim's figure be matched against a table cell that writes it differently.
+    "20.7%", "20.7 percent" and "20.7" all become "20.7"; "1.3 million",
+    "1,3 million" and "1300000" all become "1300000". Currency is dropped and a
+    comma is read as a separator or a decimal point as :func:`parse_number` decides.
     """
     out: set[str] = set()
     for raw, unit in _NUM_RE.findall(text or ""):
-        try:
-            value = float(raw.replace(",", ""))
-        except ValueError:
+        value = parse_number(raw)
+        if value is None:
             continue
         unit = (unit or "").lower().strip()
         scaled = value * _SCALE.get(unit, 1.0)
