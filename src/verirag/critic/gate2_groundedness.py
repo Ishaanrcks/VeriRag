@@ -52,6 +52,7 @@ from verirag.critic.nli import (
 )
 from verirag.critic.table_claims import verify_numeric_claim
 from verirag.critic.visual_check import VisualChecker
+from verirag.critic.visual_count import VisualCounter, should_count
 from verirag.generation.generator import GeneratedAnswer
 from verirag.retrieval.types import SearchHit
 
@@ -63,6 +64,7 @@ ClaimVerdictLabel = Literal[
     "supported_presence",
     "caption_only_uncertified",
     "visually_verified",
+    "visual_counted",
     "supported_numeric",
     "not_supported",
     "external_unsupported",
@@ -538,6 +540,8 @@ class Gate2Verdict:
     visual_checks: list = field(default_factory=list)
     # Claims whose unresolvable citation was repaired (gate2_citation_repair).
     citation_repairs: list = field(default_factory=list)
+    # Every read made by the two-read counting protocol (visual_count).
+    count_reads: list = field(default_factory=list)
 
 
 def _contributing_chunk_ids(
@@ -923,6 +927,23 @@ def check_groundedness(answer: GeneratedAnswer, query: str = "") -> Gate2Verdict
     # the abstention message. absence_unverified (a hedge we could not probe)
     # and meta_excluded deliberately do NOT count against grounding.
     unsupported = [v for v in verdicts if v.verdict in _BLOCKING_VERDICTS]
+    # visual_count: when the question asks for something only visible in a figure,
+    # read it twice from two images with two wordings and accept only agreement.
+    # This ADDS a claim rather than verifying one, so it is the only place the critic
+    # produces evidence; it is bounded, logged, and silent unless the reads agree.
+    count_reads: list = []
+    if should_count(query, answer.hits_used):
+        counter = VisualCounter()
+        outcome = counter.count(query, answer.hits_used)
+        count_reads = [vars(r) for r in outcome.reads]
+        if outcome.agreed and outcome.value is not None:
+            text = f"Read from the figure on page {outcome.page}: {outcome.value}"
+            verdicts.append(ClaimVerdict(
+                claim_text=text, claim_type="factual", verdict="visual_counted",
+                evidence_chunk_ids=[], entailment_prob=None,
+            ))
+            logger.info("visual_count added a verified fact: %r", text)
+
     if checker.checks:
         logger.info("Gate 2 made %d visual check(s) (%d billed): %s",
                     len(checker.checks), checker.used,
@@ -933,4 +954,5 @@ def check_groundedness(answer: GeneratedAnswer, query: str = "") -> Gate2Verdict
         unsupported_claims=unsupported,
         visual_checks=[vars(c) for c in checker.checks],
         citation_repairs=repairs,
+        count_reads=count_reads,
     )

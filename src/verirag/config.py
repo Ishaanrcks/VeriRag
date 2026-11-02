@@ -137,6 +137,13 @@ class Settings(BaseSettings):
     # regenerated twice had a LOWER hit rate (18%) than one that never regenerated
     # (26%). Benchmark-only; production keeps 2.
     critic_iterations_one: bool = False
+    # visual_count: ask the figure itself to count, with two differently-worded
+    # blind reads of two different images that must agree. Targets the 15 tier-2
+    # questions whose answer is only visible in a picture (13 of which are in no
+    # stored chunk at all, because a caption describes a figure rather than
+    # enumerating its contents).
+    visual_count: bool = False
+    visual_count_calls_per_question: int = 6
     # Benchmark runs pin generation to temperature 0 so a rerun is comparable;
     # production keeps 0.2.
     generation_temperature: float = 0.2

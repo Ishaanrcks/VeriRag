@@ -35,6 +35,7 @@ FLAGS = (
     "retrieval_wide",
     "extractor_format_hint",
     "critic_iterations_one",
+    "visual_count",
 )
 
 
