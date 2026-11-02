@@ -135,3 +135,79 @@ def test_load_pdf_flags_truncated_caption_in_metadata(monkeypatch, tmp_path, tru
         assert figures[0].metadata["caption_truncated"] is True
     else:
         assert "caption_truncated" not in figures[0].metadata
+
+
+# --------------------------------------------------------------------------
+# images in formats the vision API rejects are re-encoded first
+# --------------------------------------------------------------------------
+def _pdf_with_png(tmp_path):
+    """A one-page PDF holding a real embedded PNG, and its xref."""
+    doc = pymupdf.open()
+    page = doc.new_page(width=400, height=400)
+    pix = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 200, 200), False)
+    pix.clear_with(128)
+    page.insert_image(pymupdf.Rect(50, 50, 250, 250), pixmap=pix)
+    path = tmp_path / "img.pdf"
+    doc.save(str(path))
+    opened = pymupdf.open(path)
+    return opened, opened[0].get_images(full=True)[0][0]
+
+
+@pytest.mark.parametrize("ext", ["png", "jpeg", "jpg", "webp", "gif"])
+def test_an_already_supported_format_is_passed_through_untouched(tmp_path, ext):
+    doc, xref = _pdf_with_png(tmp_path)
+    extracted = dict(doc.extract_image(xref))
+    extracted["ext"] = ext
+    data, out_ext = pdf_loader._vision_safe_image(doc, xref, extracted)
+    assert data is extracted["image"] and out_ext == ext  # identical object: no re-encode
+
+
+@pytest.mark.parametrize("ext", ["jpx", "jp2", "tiff", "bmp", "jb2", "ccitt"])
+def test_an_unsupported_format_is_re_encoded_to_png(tmp_path, ext):
+    # the real corpus case is jpx (JPEG 2000); the API rejects anything outside
+    # webp/png/jpeg/gif with a 400, which used to lose the figure silently
+    doc, xref = _pdf_with_png(tmp_path)
+    extracted = dict(doc.extract_image(xref))
+    extracted["ext"] = ext
+    data, out_ext = pdf_loader._vision_safe_image(doc, xref, extracted)
+    assert out_ext == "png" and data[:8] == b"\x89PNG\r\n\x1a\n"
+    assert data is not extracted["image"]
+
+
+def test_cmyk_in_a_supported_format_is_left_alone(tmp_path):
+    # a CMYK JPEG was measured to be ACCEPTED and captioned correctly by the vision
+    # API, so converting it only inflated the payload (~2.4x) for no gain
+    doc, xref = _pdf_with_png(tmp_path)
+    extracted = dict(doc.extract_image(xref))
+    extracted["ext"] = "jpeg"
+    extracted["colorspace"] = 4  # CMYK
+    data, out_ext = pdf_loader._vision_safe_image(doc, xref, extracted)
+    assert data is extracted["image"] and out_ext == "jpeg"
+
+
+def test_a_failed_re_encode_falls_back_to_the_original_bytes(tmp_path):
+    doc, xref = _pdf_with_png(tmp_path)
+    extracted = dict(doc.extract_image(xref))
+    extracted["ext"] = "jpx"
+    data, out_ext = pdf_loader._vision_safe_image(doc, 999999, extracted)  # no such xref
+    assert data is extracted["image"] and out_ext == "jpx"  # unchanged, never raises
+
+
+def test_the_converted_bytes_are_what_reach_the_captioner(tmp_path, monkeypatch):
+    """End to end: load_pdf must caption the CONVERTED image, not the raw bytes."""
+    seen: list[bytes] = []
+
+    def stub(image_bytes):
+        seen.append(image_bytes)
+        return C.Caption("[caption]")
+
+    monkeypatch.setattr(pdf_loader, "IMAGES_DIR", tmp_path / "images")
+    monkeypatch.setattr(pdf_loader, "caption_image_with_status", stub)
+    real = pdf_loader._vision_safe_image
+    # force the conversion branch for every image in the document
+    monkeypatch.setattr(pdf_loader, "_vision_safe_image",
+                        lambda d, x, e: real(d, x, dict(e, ext="jpx")))
+    doc, _ = _pdf_with_png(tmp_path)
+    docs = pdf_loader.load_pdf(tmp_path / "img.pdf")
+    assert [d.metadata["content_type"] for d in docs].count("figure_caption") == 1
+    assert len(seen) == 1 and seen[0][:8] == b"\x89PNG\r\n\x1a\n"

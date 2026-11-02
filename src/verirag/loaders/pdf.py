@@ -328,6 +328,50 @@ def _save_image(
         return None
 
 
+# The vision API accepts only these; anything else fails the request with a 400.
+_VISION_SAFE_EXTENSIONS = frozenset({"png", "jpeg", "jpg", "webp", "gif"})
+
+
+def _vision_safe_image(
+    pdf: "pymupdf.Document", xref: int, extracted: dict
+) -> tuple[bytes, str]:
+    """``(image_bytes, ext)`` in a format the vision model will accept.
+
+    ``extract_image`` hands back whatever the PDF stores, which may be JPEG 2000,
+    JBIG2 or CCITT fax. The vision API rejects those outright ("unsupported image
+    ... webp, png, jpeg, and gif"), so the figure was dropped and only a warning
+    was logged: one corpus document kept 1 of its 18 captionable figures this way.
+    Such an image is re-encoded to RGB PNG here, silently, before it ever reaches
+    captioning.
+
+    The re-encode goes through PyMuPDF's rasteriser, not Pillow: Pillow cannot
+    decode this corpus's JPEG 2000 images ("broken data stream when reading image
+    file"), while ``Pixmap`` decodes every format PyMuPDF can open and drops CMYK
+    or alpha to plain RGB. If the conversion fails the original bytes are returned
+    unchanged, leaving behaviour exactly as it was before.
+
+    The trigger is the EXTENSION alone. A CMYK image was converted here too at
+    first, but a CMYK JPEG was measured to be accepted and captioned correctly, so
+    converting it only inflated the payload (~2.4x) for no gain.
+    """
+    ext = str(extracted.get("ext") or "").lower()
+    if ext in _VISION_SAFE_EXTENSIONS:
+        return extracted["image"], ext
+
+    try:
+        pixmap = pymupdf.Pixmap(pdf, xref)
+        # csRGB also flattens CMYK; alpha is dropped because PNG+alpha is
+        # needless here and some encoders reject it.
+        if pixmap.colorspace is None or pixmap.n - pixmap.alpha not in (1, 3):
+            pixmap = pymupdf.Pixmap(pymupdf.csRGB, pixmap)
+        if pixmap.alpha:
+            pixmap = pymupdf.Pixmap(pixmap, 0)
+        return pixmap.tobytes("png"), "png"
+    except Exception as exc:  # noqa: BLE001 - fall back to the raw bytes
+        logger.debug("Could not re-encode image xref=%s (%s): %s", xref, ext, exc)
+        return extracted["image"], ext
+
+
 def _figure_document(
     image_bytes: bytes,
     ext: str,
@@ -451,9 +495,10 @@ def load_pdf(path: str | Path) -> list[Document]:
                     )
                     continue
 
+                image_bytes, image_ext = _vision_safe_image(pdf, xref, extracted)
                 figure = _figure_document(
-                    extracted["image"],
-                    extracted.get("ext", "png"),
+                    image_bytes,
+                    image_ext,
                     doc_id=doc_id,
                     source_path=source_path,
                     pdf_stem=pdf_stem,
