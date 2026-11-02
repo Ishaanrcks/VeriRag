@@ -478,6 +478,61 @@ def _fmt(value: float | None) -> str:
 # --------------------------------------------------------------------------
 # the run
 # --------------------------------------------------------------------------
+class _UngatedResult:
+    """What ``process_question`` reads, for a run with the gates bypassed.
+
+    Mirrors the fields of ``VeriRAGResult`` that the runner touches. BENCHMARK ONLY:
+    nothing in production builds one of these, and no default changes.
+    """
+
+    __slots__ = ("abstained", "answer", "abstention_reason", "outcome",
+                 "regeneration_count", "citations", "gate1_verdict", "gate2_verdict",
+                 "pipeline_log", "verified_facts")
+
+    def __init__(self, answer, citations, log):
+        self.abstained = False
+        self.answer = answer
+        self.abstention_reason = None
+        self.outcome = "verified"       # ungated: nothing can abstain
+        self.regeneration_count = 0
+        self.citations = citations
+        self.gate1_verdict = None
+        self.gate2_verdict = None
+        self.pipeline_log = log
+        self.verified_facts = []
+
+
+def make_ungated_query_fn(scope: str) -> Callable[[str], Any]:
+    """retrieve -> generate, with Gate 1 and Gate 2 bypassed (ablation only).
+
+    Uses the same retrieval and the same generator prompt as the real pipeline, and
+    the same document resolver for ``scope="doc"``, so the only difference from the
+    gated configuration is that nothing can decline or strip a claim.
+    """
+    from verirag.generation.generator import AnswerFormat, generate_answer
+    from verirag.pipeline_log import retrieval_event
+    from verirag.retrieval.doc_resolver import (
+        resolve_document_references,
+        strip_document_references,
+    )
+    from verirag.retrieval.hybrid import hybrid_retrieve
+    from verirag.retrieval.vector_store import list_ingested_documents
+
+    def run(text: str):
+        ingested = list_ingested_documents()
+        resolved = resolve_document_references(text, ingested) if scope == "doc" else []
+        search = strip_document_references(text, ingested) if resolved else text
+        hits = hybrid_retrieve(
+            search, corpus_only=True,
+            doc_id_filter=resolved[0] if len(resolved) == 1 else None,
+        )
+        answer = generate_answer(search, hits, AnswerFormat.CONCISE)
+        return _UngatedResult(answer.answer_text, answer.citations,
+                              [retrieval_event(hits)])
+
+    return run
+
+
 def _real_query_fn() -> Callable[[str], Any]:
     from verirag.generation.generator import AnswerFormat
     from verirag.graph.build import run_query
@@ -492,6 +547,7 @@ def run_benchmark(
     extractor_kind: str = "deepseek",
     out_dir: str | Path = "eval_results",
     scope: str = "pooled",
+    gates: bool = True,
     ids: list[int] | None = None,
     limit: int | None = None,
     only_ingested: bool = False,
@@ -538,6 +594,9 @@ def run_benchmark(
             "Nothing was run and no report was written; ingest documents first (an empty "
             "run must not look like a successful one)."
         )
+    if not gates:
+        log("GATES BYPASSED (ablation): retrieve -> generate -> extract, nothing can "
+            "decline or strip a claim")
     log(f"store {store_path}: {len(plan.docs_present)}/{len(plan.docs_needed)} needed "
         f"documents present; {len(plan.todo)} questions to run, "
         f"{len(plan.skipped)} skipped (no document)")
@@ -548,7 +607,7 @@ def run_benchmark(
         kind, model, client = build_extractor(extractor_kind)
         prompt = load_extraction_prompt()
         extract_fn = lambda q, t: extract_answer(q, t, prompt, client=client, model=model)  # noqa: E731
-    query_fn = query_fn or _real_query_fn()
+    query_fn = query_fn or (_real_query_fn() if gates else make_ungated_query_fn(scope))
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -565,7 +624,7 @@ def run_benchmark(
     def payload_for(records: list[dict], complete: bool) -> dict:
         return dict(
             name=name, date=date.today().isoformat(), complete=complete,
-            run=dict(scope=scope, store=str(store_path), subset=str(subset_path),
+            run=dict(scope=scope, gates=gates, store=str(store_path), subset=str(subset_path),
                      extractor=dict(kind=extractor_kind, model=model,
                                     calls=getattr(client, "calls", None),
                                     errors=getattr(client, "errors", [])),

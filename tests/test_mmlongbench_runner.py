@@ -32,6 +32,7 @@ INGESTED = [{"source_path": "/data/a.pdf", "doc_id": "a-1"}]
 
 
 def _write_subset(tmp_path, questions=QUESTIONS):
+    tmp_path.mkdir(parents=True, exist_ok=True)
     path = tmp_path / "subset.json"
     path.write_text(json.dumps({"name": "unit_subset", "questions": questions}))
     return path
@@ -214,3 +215,25 @@ def test_a_run_with_no_runnable_questions_refuses_and_writes_nothing(tmp_path):
 def test_a_filter_that_matches_nothing_also_refuses(tmp_path):
     with pytest.raises(R.RunnerError, match="No questions to run"):
         _run(tmp_path, ids=[999])
+
+
+# --------------------------------------------------------------------------
+# the ablation's gates-off path (benchmark only)
+# --------------------------------------------------------------------------
+def test_gates_off_is_recorded_in_the_run_metadata(tmp_path):
+    payload, _ = _run(tmp_path, gates=False)
+    assert payload["run"]["gates"] is False
+    assert _run(tmp_path / "on", gates=True)[0]["run"]["gates"] is True
+
+
+def test_the_ungated_result_shim_looks_verified_and_strips_nothing():
+    shim = R._UngatedResult("an answer [1]", ["cite"], ["log"])
+    assert shim.abstained is False and shim.outcome == "verified"
+    assert shim.verified_facts == [] and shim.gate1_verdict is None
+    assert shim.gate2_verdict is None and shim.regeneration_count == 0
+
+
+def test_production_default_keeps_the_gates_on():
+    import inspect
+
+    assert inspect.signature(R.run_benchmark).parameters["gates"].default is True

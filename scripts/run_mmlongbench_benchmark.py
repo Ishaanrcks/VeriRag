@@ -59,6 +59,9 @@ def main() -> int:
                         help="run only questions whose document is in the store")
     parser.add_argument("--allow-missing", action="store_true",
                         help="record questions with no document as skipped instead of refusing")
+    parser.add_argument("--no-gates", action="store_true",
+                        help="ABLATION ONLY: bypass Gate 1 and Gate 2 (retrieve -> generate -> "
+                             "extract). Production defaults are unchanged.")
     parser.add_argument("--tag", default="",
                         help="appended to the output names (e.g. tier1) so tiers do not overwrite each other")
     parser.add_argument("--no-resume", action="store_true")
@@ -93,7 +96,8 @@ def main() -> int:
             return 0
         run_benchmark(
             args.subset, args.store, extractor_kind=args.extractor, out_dir=args.out_dir,
-            scope=args.scope, ids=ids, limit=args.limit, only_ingested=args.only_ingested,
+            scope=args.scope, gates=not args.no_gates, ids=ids, limit=args.limit,
+            only_ingested=args.only_ingested,
             allow_missing=args.allow_missing, resume=not args.no_resume, tag=args.tag,
             min_available_gb=args.min_available_gb,
             min_available_gb_during=args.min_available_gb_during,
