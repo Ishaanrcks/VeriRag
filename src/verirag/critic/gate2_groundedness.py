@@ -63,6 +63,7 @@ ClaimVerdictLabel = Literal[
     "supported_presence",
     "caption_only_uncertified",
     "visually_verified",
+    "supported_numeric",
     "not_supported",
     "external_unsupported",
     "absence_unverified",
@@ -295,6 +296,96 @@ def _verified_by_table(
     return None
 
 
+_NUM_RE = re.compile(r"(?<![\w.])(\d[\d,]*(?:\.\d+)?)\s*(%|percent|million|billion|thousand|bn|m\b|k\b)?", re.I)
+_SCALE = {"million": 1e6, "m": 1e6, "billion": 1e9, "bn": 1e9, "thousand": 1e3, "k": 1e3}
+
+
+def normalised_numbers(text: str) -> set[str]:
+    """Numbers in ``text`` as comparable strings.
+
+    "20.7%", "20.7 percent" and "20.7" all become "20.7"; "1.3 million" and
+    "1300000" both become "1300000". Commas and currency are dropped. This is what
+    lets a claim's figure be matched against a table cell that writes it differently.
+    """
+    out: set[str] = set()
+    for raw, unit in _NUM_RE.findall(text or ""):
+        try:
+            value = float(raw.replace(",", ""))
+        except ValueError:
+            continue
+        unit = (unit or "").lower().strip()
+        scaled = value * _SCALE.get(unit, 1.0)
+        for v in {value, scaled}:
+            out.add(str(int(v)) if float(v).is_integer() else f"{v:g}")
+    return out
+
+
+def _entity_terms(claim_text: str) -> set[str]:
+    """The claim's distinctive non-numeric words, on prefix stems."""
+    return {
+        _stem(t.lower())
+        for t in _TOKEN_RE.findall(claim_text)
+        if t.lower() not in _PRESENCE_STOPWORDS and not t.isdigit()
+    }
+
+
+def numeric_support(claim_text: str, resolved: list[tuple[str, str]]) -> tuple[str, float] | None:
+    """``(chunk_id, overlap)`` for a chunk that states the claim's numbers and names
+    its subject, else None.
+
+    BENCHMARK FLAG gate2_numeric_match. NLI reads a table or a dense figure poorly
+    (measured 0.0057-0.49 on true cell values), but "does this passage contain this
+    number, about this thing" is a lookup. Requires BOTH: every number in the claim
+    present in the chunk, and enough of the claim's entity terms, so a page that
+    merely happens to contain 51 somewhere does not certify "iOS 9 is at 51%".
+    """
+    wanted = normalised_numbers(claim_text)
+    if not wanted:
+        return None
+    terms = _entity_terms(claim_text)
+    if not terms:
+        return None
+    best: tuple[str, float] | None = None
+    for chunk_id, text in resolved:
+        if not wanted <= normalised_numbers(text):
+            continue
+        present = {_stem(t) for t in _TOKEN_RE.findall(normalize_premise(text).lower())}
+        overlap = len(terms & present) / len(terms)
+        if overlap >= settings.gate2_presence_overlap_fraction and (best is None or overlap > best[1]):
+            best = (chunk_id, overlap)
+    return best
+
+
+def repair_citation(
+    claim, answer, text_by_chunk_id: dict[str, str]
+) -> list[tuple[str, str]]:
+    """Evidence for a claim whose citation could not be resolved.
+
+    BENCHMARK FLAG gate2_citation_repair. A claim that cites nothing, or cites a
+    number the answer never defined, is rejected outright today even when the
+    evidence is sitting in the retrieved set -- a citation-formatting slip is
+    scored as a hallucination. This searches ALL retrieved chunks for one that
+    states the claim's numbers (or, with no numbers, enough of its terms) and
+    returns it as the evidence to verify against; NLI still has to pass.
+    """
+    candidates = [(h.chunk_id, h.raw_text) for h in answer.hits_used
+                  if h.chunk_id in text_by_chunk_id]
+    hit = numeric_support(claim.text, candidates)
+    if hit:
+        return [(hit[0], text_by_chunk_id[hit[0]])]
+    terms = _entity_terms(claim.text)
+    if not terms:
+        return []
+    scored = []
+    for chunk_id, text in candidates:
+        present = {_stem(t) for t in _TOKEN_RE.findall(normalize_premise(text).lower())}
+        share = len(terms & present) / len(terms)
+        if share >= settings.gate2_presence_overlap_fraction:
+            scored.append((share, chunk_id, text))
+    scored.sort(reverse=True)
+    return [(c, t) for _, c, t in scored[:3]]
+
+
 def _caption_claim_verdict(
     claim,
     caption_ids: list[str],
@@ -314,7 +405,7 @@ def _caption_claim_verdict(
             hit = hit_by_chunk_id.get(chunk_id)
             if hit is None:
                 continue
-            if checker.check(claim.text, hit) == "YES":
+            if checker.check(claim.text, hit) == "MATCH":
                 logger.info("Claim certified by the figure itself: %r", claim.text[:100])
                 return ClaimVerdict(
                     claim_text=claim.text,
@@ -421,6 +512,8 @@ class Gate2Verdict:
     unsupported_claims: list[ClaimVerdict]
     # Every visual re-check made for this answer (claim, image, verdict).
     visual_checks: list = field(default_factory=list)
+    # Claims whose unresolvable citation was repaired (gate2_citation_repair).
+    citation_repairs: list = field(default_factory=list)
 
 
 def _contributing_chunk_ids(
@@ -444,11 +537,16 @@ def _contributing_chunk_ids(
 
 
 @traceable(name="check_groundedness")
-def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
-    """Verify every factual claim in ``answer`` against its cited chunks."""
+def check_groundedness(answer: GeneratedAnswer, query: str = "") -> Gate2Verdict:
+    """Verify every factual claim in ``answer`` against its cited chunks.
+
+    ``query`` is only used by the adversarial visual check, which must ask the vision
+    model what the FIGURE says without showing it the claim.
+    """
     claims = extract_claims(answer)
     # Per-answer budget for visual re-checks of caption-only claims.
-    checker = VisualChecker()
+    checker = VisualChecker(query=query)
+    repairs: list[dict] = []
     citation_by_number = {c.number: c for c in answer.citations}
     text_by_chunk_id = {h.chunk_id: h.raw_text for h in answer.hits_used}
     hit_by_chunk_id = {h.chunk_id: h for h in answer.hits_used}
@@ -534,6 +632,14 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
             if chunk_id in text_by_chunk_id
         ]
 
+        if not resolved and settings.gate2_citation_repair:
+            resolved = repair_citation(claim, answer, text_by_chunk_id)
+            if resolved:
+                repairs.append({"claim": claim.text[:120],
+                                "chunks": [c for c, _ in resolved]})
+                logger.info("Citation repaired for claim %r -> %s",
+                            claim.text[:80], [c for c, _ in resolved])
+
         if not resolved:
             # An uncited (or undefined-citation) factual claim has no evidence
             # to stand on, so it cannot be grounded.
@@ -589,6 +695,22 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
                 )
             )
             continue
+
+        # BENCHMARK FLAG gate2_numeric_match: a claim whose numbers appear verbatim
+        # in a cited chunk that also names its subject is verified by lookup, which
+        # is the right question for a table or a dense figure. Falls through to NLI
+        # when there is no numeric match.
+        if settings.gate2_numeric_match:
+            numeric = numeric_support(claim.text, resolved)
+            # The provenance rule still holds: a number that appears only in a
+            # model-written caption is not certified here, it goes to the caption path.
+            if numeric and not _is_model_generated(numeric[0], hit_by_chunk_id):
+                verdicts.append(ClaimVerdict(
+                    claim_text=claim.text, claim_type=claim.claim_type,
+                    verdict="supported_numeric", evidence_chunk_ids=[numeric[0]],
+                    entailment_prob=numeric[1], lexical_overlap=numeric[1],
+                ))
+                continue
 
         threshold = settings.gate2_entailment_threshold
 
@@ -786,4 +908,5 @@ def check_groundedness(answer: GeneratedAnswer) -> Gate2Verdict:
         claims=verdicts,
         unsupported_claims=unsupported,
         visual_checks=[vars(c) for c in checker.checks],
+        citation_repairs=repairs,
     )

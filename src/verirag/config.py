@@ -115,6 +115,18 @@ class Settings(BaseSettings):
     gate1_high_threshold: float = 0.15
     gate1_low_threshold: float = 0.05
 
+    # --- Benchmark-only experiment flags (ALL default False: production behaviour
+    # is exactly what it was before these existed). eval/flags.py turns them on for
+    # one benchmark run; nothing in production sets them.
+    gate1_advisory: bool = False
+    gate2_citation_repair: bool = False
+    gate2_numeric_match: bool = False
+    gate2_visual_verify: bool = False
+    refusal_requires_search: bool = False
+    # Benchmark runs pin generation to temperature 0 so a rerun is comparable;
+    # production keeps 0.2.
+    generation_temperature: float = 0.2
+
     # --- Critic: Gate 2 visual verification of caption-only claims ---
     # A claim supported only by a figure caption is not certified by that caption
     # (one model vouching for another's output). Instead the FIGURE is shown to the

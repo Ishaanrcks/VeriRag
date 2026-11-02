@@ -189,7 +189,7 @@ def regen_event(iteration: int, max_iterations: int, reason: str) -> LogEvent:
 
 
 _GROUNDED = {"supported_single", "supported_combination", "supported_presence",
-             "visually_verified"}
+             "visually_verified", "supported_numeric"}
 _UNGROUNDED = {
     "not_supported", "external_unsupported", "caption_only_uncertified",
     "false_hedge",
@@ -213,6 +213,7 @@ def claim_verdict_bucket(label: str) -> str:
 _SUPPORT_SET_LABELS = {
     "supported_single", "supported_combination", "supported_presence",
     "visually_verified",
+    "supported_numeric",
     "caption_only_uncertified", "external_unsupported",
 }
 

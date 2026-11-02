@@ -525,7 +525,7 @@ def generate_node(state: VeriRAGState) -> VeriRAGState:
 def gate2_node(state: VeriRAGState) -> VeriRAGState:
     """Gate 2: is every factual claim entailed by its cited evidence?"""
     answer = state["generated_answer"]
-    verdict = check_groundedness(answer)
+    verdict = check_groundedness(answer, query=state.get("query", ""))
     hit_types = {
         hit.chunk_id: hit.metadata.get("content_type") for hit in answer.hits_used
     }

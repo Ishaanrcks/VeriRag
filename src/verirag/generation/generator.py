@@ -22,6 +22,7 @@ from typing import Literal
 
 from langsmith import traceable
 
+from verirag.config import settings
 from verirag.llm.client import chat_completion
 from verirag.retrieval.types import SearchHit
 
@@ -304,6 +305,36 @@ def best_passage_snippet(topic: str, text: str, width: int = 500) -> str:
     return " ".join(lines[best[0]:best[1]])
 
 
+_REFUSAL_OPENING = "cannot be determined from the provided sources"
+_NUMERIC_QUESTION_RE = re.compile(
+    r"\b(how many|how much|what (?:is|was|are|were) the (?:number|total|percentage|share|count)"
+    r"|what percentage|what proportion|how often|number of)\b", re.IGNORECASE
+)
+_CANDIDATE_NUMBER_RE = re.compile(r"(?<![\w.])\d+(?:[.,]\d+)?%?")
+
+_ANSWER_THE_CANDIDATE_INSTRUCTION = """\
+
+You opened with "Cannot be determined from the provided sources.", but the passages
+DO contain candidate values for this question. Re-read them. Give the value the
+question asks for as your first sentence, cite it, and put any doubt about whether
+it is the right value AFTER that. Only keep the refusal if, having looked again,
+no passage contains a value that could answer the question."""
+
+
+def has_candidate_value(query: str, hits: list[SearchHit]) -> bool:
+    """True if some retrieved passage holds a plausible answer to a numeric question.
+
+    Deliberately narrow: only questions that ask for a number ("how many", "what
+    percentage") are checked, because for those a candidate is identifiable -- a
+    numeric token in a retrieved passage. For a name or a list there is no cheap
+    test that does not risk forcing a confident wrong answer, so those are left
+    alone and the refusal stands.
+    """
+    if not _NUMERIC_QUESTION_RE.search(query or ""):
+        return False
+    return any(_CANDIDATE_NUMBER_RE.search(getattr(h, "raw_text", "") or "") for h in hits)
+
+
 @traceable(name="generate_answer")
 def generate_answer(
     query: str,
@@ -369,7 +400,7 @@ def generate_answer(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
         ],
-        temperature=0.2,
+        temperature=settings.generation_temperature,
         max_tokens=_MAX_TOKENS[format],
     )
 
@@ -384,8 +415,30 @@ def generate_answer(
             hits_used=hits,
         )
 
+    answer_text = answer_text.strip()
+
+    # BENCHMARK FLAG refusal_requires_search: a refusal is only allowed when the
+    # passages hold nothing that could answer the question. If a candidate value is
+    # sitting in the retrieved text, the model is sent back once to answer with it.
+    if (
+        settings.refusal_requires_search
+        and answer_text.lower().startswith(_REFUSAL_OPENING)
+        and has_candidate_value(query, hits)
+    ):
+        logger.info("refusal_requires_search: candidate value present; regenerating %r", query[:80])
+        retry = chat_completion(
+            messages=[
+                {"role": "system", "content": system_prompt + _ANSWER_THE_CANDIDATE_INSTRUCTION},
+                {"role": "user", "content": user_message},
+            ],
+            temperature=settings.generation_temperature,
+            max_tokens=_MAX_TOKENS[format],
+        )
+        if retry and retry.strip():
+            answer_text = retry.strip()
+
     return GeneratedAnswer(
-        answer_text=answer_text.strip(),
+        answer_text=answer_text,
         citations=citations,
         format_used=format,
         hits_used=hits,

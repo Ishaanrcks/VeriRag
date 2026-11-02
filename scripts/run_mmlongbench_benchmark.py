@@ -59,6 +59,8 @@ def main() -> int:
                         help="run only questions whose document is in the store")
     parser.add_argument("--allow-missing", action="store_true",
                         help="record questions with no document as skipped instead of refusing")
+    parser.add_argument("--shard", help="run only part of the set, as i/n (e.g. 2/4)")
+    parser.add_argument("--flags", default="", help="benchmark-only experiment flags, comma separated")
     parser.add_argument("--no-gates", action="store_true",
                         help="ABLATION ONLY: bypass Gate 1 and Gate 2 (retrieve -> generate -> "
                              "extract). Production defaults are unchanged.")
@@ -94,8 +96,16 @@ def main() -> int:
                       f"{plan.docs_missing[:5]}")
             print(memory_summary(args.min_available_gb)[0])
             return 0
+        if args.flags:
+            from verirag.eval.flags import apply_flags
+
+            apply_flags(args.flags)
+        shard = None
+        if args.shard:
+            i, n = args.shard.split("/")
+            shard = (int(i), int(n))
         run_benchmark(
-            args.subset, args.store, extractor_kind=args.extractor, out_dir=args.out_dir,
+            args.subset, args.store, shard=shard, extractor_kind=args.extractor, out_dir=args.out_dir,
             scope=args.scope, gates=not args.no_gates, ids=ids, limit=args.limit,
             only_ingested=args.only_ingested,
             allow_missing=args.allow_missing, resume=not args.no_resume, tag=args.tag,

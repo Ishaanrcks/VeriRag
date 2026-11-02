@@ -29,7 +29,7 @@ UNVERIFIED_NOTE = (
 # structural claims, formula/figure references and the table-cell route).
 VERIFIED_VERDICTS = frozenset(
     {"supported_single", "supported_combination", "supported_presence",
-     "visually_verified"}
+     "visually_verified", "supported_numeric"}
 )
 
 

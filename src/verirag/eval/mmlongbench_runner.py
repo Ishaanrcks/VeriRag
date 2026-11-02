@@ -549,6 +549,7 @@ def run_benchmark(
     out_dir: str | Path = "eval_results",
     scope: str = "pooled",
     gates: bool = True,
+    shard: tuple[int, int] | None = None,
     ids: list[int] | None = None,
     limit: int | None = None,
     only_ingested: bool = False,
@@ -588,6 +589,17 @@ def run_benchmark(
 
     plan = make_plan(subset["questions"], ingested_docs, only_ingested=only_ingested,
                      allow_missing=allow_missing, ids=ids, limit=limit)
+    if shard:
+        index, count = shard
+        if not 1 <= index <= count:
+            raise RunnerError(f"shard must be 1..n, got {index}/{count}")
+        # Strided, not contiguous: the question list is ordered, and slow documents
+        # cluster, so striding keeps the shards roughly equal in wall time.
+        plan.todo = plan.todo[index - 1::count]
+        name_suffix = f"_shard{index}of{count}"
+        log(f"shard {index}/{count}: {len(plan.todo)} questions")
+    else:
+        name_suffix = ""
     if not plan.todo:
         raise RunnerError(
             f"No questions to run: {len(plan.docs_present)} of {len(plan.docs_needed)} needed "
@@ -612,7 +624,7 @@ def run_benchmark(
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    name = subset.get("name", "mmlongbench") + (f"_{tag}" if tag else "")
+    name = subset.get("name", "mmlongbench") + (f"_{tag}" if tag else "") + name_suffix
     checkpoint = out / f"{name}_PARTIAL.json"
     done: list[dict] = []
     if resume and checkpoint.exists():
@@ -625,7 +637,8 @@ def run_benchmark(
     def payload_for(records: list[dict], complete: bool) -> dict:
         return dict(
             name=name, date=date.today().isoformat(), complete=complete,
-            run=dict(scope=scope, gates=gates, store=str(store_path), subset=str(subset_path),
+            run=dict(scope=scope, gates=gates, shard=list(shard) if shard else None,
+                     flags=__import__("verirag.eval.flags", fromlist=["x"]).active_flags(), store=str(store_path), subset=str(subset_path),
                      extractor=dict(kind=extractor_kind, model=model,
                                     calls=getattr(client, "calls", None),
                                     errors=getattr(client, "errors", [])),
@@ -674,3 +687,35 @@ def run_benchmark(
     log(f"{LENIENT_LABEL}\n  accuracy={l['accuracy']:.3f} f1={l['f1']:.3f}")
     log(f"report: {out / (stem + '.md')}")
     return payload
+
+
+def merge_shards(payloads: list[dict], *, name: str, out_dir: str | Path) -> dict:
+    """One report from several shard payloads of the same run.
+
+    Each shard scored a disjoint slice of the same question set, so the questions
+    concatenate and every metric is recomputed over the union -- never averaged
+    across shards, which would weight a short shard like a long one.
+    """
+    if not payloads:
+        raise RunnerError("no shard payloads to merge")
+    questions: list[dict] = []
+    seen: set[int] = set()
+    for p in payloads:
+        for record in p["questions"]:
+            if record["id"] not in seen:
+                seen.add(record["id"])
+                questions.append(record)
+    questions.sort(key=lambda r: r["id"])
+    first = payloads[0]
+    merged = dict(
+        name=name, date=date.today().isoformat(), complete=all(p.get("complete") for p in payloads),
+        run=dict(first["run"], shard=None, shards=len(payloads)),
+        docs=first.get("docs", {}),
+        skipped=first.get("skipped", []),
+        questions=questions, **summarise(questions),
+    )
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / f"{name}_{merged['date']}.json").write_text(json.dumps(merged, indent=2, default=str))
+    (out / f"{name}_{merged['date']}.md").write_text(render_report(merged))
+    return merged

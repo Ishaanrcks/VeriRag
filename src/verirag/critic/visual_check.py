@@ -9,10 +9,19 @@ chart labels iOS 9 at 51%" against a gold answer of 51%), because a chart's
 numbers often exist nowhere but the caption.
 
 This module keeps the principle and changes the evidence: the caption still never
-certifies anything, but the PIXELS may. When a claim would be
-``caption_only_uncertified``, the figure's own image is sent to the vision model
-with the claim and a strict three-way question. Only an unambiguous YES certifies,
-as ``visually_verified``; NO and CANNOT_TELL keep today's rejection.
+certifies anything, but the PIXELS may. The check is ADVERSARIAL in two steps, and
+only numeric claims are eligible:
+
+  1. BLIND READ -- the figure and the QUESTION are sent to the vision model, never
+     the claim. It reports the value it can read, or UNREADABLE.
+  2. COMPARE IN CODE -- that value is matched against the claim's numbers, after
+     normalisation. Only a MATCH certifies, as ``visually_verified``; MISMATCH and
+     UNREADABLE keep today's rejection.
+
+The first version asked "does this image show <claim>?" and was measured to answer
+YES on 20 of 22 checks: a leading question buys assent, not verification. Reading
+the value independently and comparing it outside the model is what lets the check
+disagree.
 
 This is a second look at the same evidence by the same model family, so it is
 weaker than entailment against document-extracted text. It is deliberately bounded:
@@ -33,27 +42,33 @@ from verirag.config import settings
 
 logger = logging.getLogger(__name__)
 
-VisualVerdict = Literal["YES", "NO", "CANNOT_TELL"]
+VisualVerdict = Literal["MATCH", "MISMATCH", "UNREADABLE"]
 
 # Rendering DPI for the page fallback, when the figure's own image file is gone.
 PAGE_RENDER_DPI = 160
 PAGE_RENDER_MAX_SIDE_PX = 2200
 
-_PROMPT = """\
-You are verifying one factual claim against the image shown.
+# Call 1 is BLIND: the model is shown the figure and the QUESTION only, never the
+# claim. Asking "does this image show X?" was measured to answer YES 20 times out of
+# 22 -- a leading question gets assent, not verification. Reading the value off the
+# figure independently and comparing it to the claim IN CODE is what makes the check
+# able to disagree.
+_READ_PROMPT = """\
+Read the value this question asks for directly off the image.
 
-Claim: {claim}
+Question: {question}
 
-Answer with exactly one word, and nothing else:
-YES          -- the image itself clearly shows the claim to be true. Every number,
-                label and relationship the claim asserts is legible in the image.
-NO           -- the image shows something that contradicts the claim.
-CANNOT_TELL  -- the image does not settle it: the detail is illegible, absent, or
-                you would have to assume something the image does not show.
+Reply with exactly one line, and nothing else:
+VALUE: <the value, as it appears in the image>
+or
+UNREADABLE
 
-Judge ONLY what is visible in this image. Do not use outside knowledge. If the
-claim states a number, that number must actually be readable in the image. When in
-doubt, answer CANNOT_TELL."""
+Rules:
+- Report only what is printed or plainly legible in the image. Do not estimate from
+  bar heights or positions, and do not use outside knowledge.
+- If the image does not contain the value the question asks for, or it is not
+  legible, reply UNREADABLE.
+- Give the value alone -- a number, a percentage, a label -- with no explanation."""
 
 
 @dataclass
@@ -62,13 +77,15 @@ class VisualCheck:
 
     claim: str
     image: str           # where the pixels came from
-    verdict: str         # YES | NO | CANNOT_TELL | error:<reason> | cached:<verdict>
+    verdict: str         # MATCH | MISMATCH | UNREADABLE | error:<reason> | cached:<v>
     chunk_id: str = ""
+    reported: str = ""   # what call 1 read off the figure, before comparison
 
 
 # (sha256 of image bytes, claim) -> verdict. Module-level so a figure re-checked
 # across regeneration attempts, or across questions in a benchmark run, is free.
-_CACHE: dict[tuple[str, str], VisualVerdict] = {}
+# (sha256 of image bytes, question) -> the value call 1 read off the figure.
+_CACHE: dict[tuple[str, str], str] = {}
 
 
 def _render_page(source_path: str, page: int) -> bytes | None:
@@ -123,8 +140,12 @@ def _mime(data: bytes) -> str:
     return "image/png"
 
 
-def _ask(data: bytes, claim: str) -> VisualVerdict | str:
-    """One vision call; returns a verdict or ``error:<reason>``."""
+def _read_value(data: bytes, question: str) -> str:
+    """Call 1, blind: what value does the FIGURE give for ``question``?
+
+    Returns the reported value, ``UNREADABLE``, or ``error:<reason>``. The claim is
+    never sent, so the model cannot simply agree with it.
+    """
     from verirag.loaders.captioning import _client
 
     url = f"data:{_mime(data)};base64,{base64.b64encode(data).decode('ascii')}"
@@ -132,33 +153,44 @@ def _ask(data: bytes, claim: str) -> VisualVerdict | str:
         response = _client().chat.completions.create(
             model=settings.deepseek_vision_model,
             messages=[{"role": "user", "content": [
-                {"type": "text", "text": _PROMPT.format(claim=claim)},
+                {"type": "text", "text": _READ_PROMPT.format(question=question)},
                 {"type": "image_url", "image_url": {"url": url}},
             ]}],
             temperature=0.0,
             max_tokens=settings.gate2_visual_check_max_tokens,
         )
-        text = (response.choices[0].message.content or "").strip().upper()
+        text = (response.choices[0].message.content or "").strip()
     except Exception as exc:  # noqa: BLE001 - never let a vision error break Gate 2
         return f"error:{type(exc).__name__}"
+    for line in text.splitlines():
+        line = line.strip()
+        if line.upper().startswith("VALUE:"):
+            return line.split(":", 1)[1].strip() or "UNREADABLE"
+        if line.upper().startswith("UNREADABLE"):
+            return "UNREADABLE"
+    return "UNREADABLE"
 
-    # Strict parse, failing closed: anything that is not an unambiguous YES is a
-    # refusal to certify. "NO" is checked first because "CANNOT_TELL" contains no
-    # "YES" but a chatty reply might contain both words.
-    if text.startswith("CANNOT_TELL") or "CANNOT_TELL" in text:
-        return "CANNOT_TELL"
-    if text.startswith("NO"):
-        return "NO"
-    if text.startswith("YES"):
-        return "YES"
-    logger.warning("Unparseable visual verdict %r; treating as CANNOT_TELL.", text[:60])
-    return "CANNOT_TELL"
+
+def values_agree(reported: str, claim: str) -> bool:
+    """True if the figure's reported value appears among the claim's numbers.
+
+    Compared on normalised numbers so "51%", "51 percent" and "51" agree, and
+    "1.3 million" agrees with "1300000". A reported value with no number in it
+    never agrees -- a label match is too weak to certify a numeric claim.
+    """
+    from verirag.critic.gate2_groundedness import normalised_numbers
+
+    reported_numbers = normalised_numbers(reported)
+    if not reported_numbers:
+        return False
+    return bool(reported_numbers & normalised_numbers(claim))
 
 
 @dataclass
 class VisualChecker:
     """Per-answer budget holder. One instance per ``check_groundedness`` call."""
 
+    query: str = ""
     budget: int = 0
     checks: list[VisualCheck] = field(default_factory=list)
     # Vision calls actually made. Counted explicitly rather than derived from
@@ -171,24 +203,37 @@ class VisualChecker:
             self.budget = settings.gate2_visual_checks_per_answer
 
     def check(self, claim: str, hit) -> VisualVerdict | None:
-        """YES/NO/CANNOT_TELL for ``claim`` against ``hit``'s figure, or None.
+        """MATCH / MISMATCH / UNREADABLE for ``claim`` against ``hit``'s figure.
 
-        ``None`` means no judgement was possible (no image, no budget left, or the
-        vision call failed) and the caller must keep its existing rejection.
+        ``None`` means no judgement was possible (flag off, no numbers in the claim,
+        no question, no image, no budget, or a vision error) and the caller keeps its
+        existing rejection. Only MATCH certifies.
         """
-        if not settings.gate2_visual_check_enabled:
+        if not settings.gate2_visual_verify:
             return None
+        if not self.query:
+            return None
+        # Numeric claims only: the comparison is on numbers, so a claim with none
+        # cannot be checked this way.
+        from verirag.critic.gate2_groundedness import normalised_numbers
+
+        if not normalised_numbers(claim):
+            return None
+
         resolved = resolve_image(hit)
         if resolved is None:
             self.checks.append(VisualCheck(claim[:120], "none", "error:no_image",
                                            getattr(hit, "chunk_id", "")))
             return None
         data, provenance = resolved
-        key = (hashlib.sha256(data).hexdigest(), claim)
+        # Keyed on the QUESTION, not the claim: call 1 never sees the claim, so the
+        # same figure and question always produce the same reading.
+        key = (hashlib.sha256(data).hexdigest(), self.query)
         if key in _CACHE:
-            verdict = _CACHE[key]
+            reported = _CACHE[key]
+            verdict = _compare(reported, claim)
             self.checks.append(VisualCheck(claim[:120], provenance, f"cached:{verdict}",
-                                           getattr(hit, "chunk_id", "")))
+                                           getattr(hit, "chunk_id", ""), reported))
             return verdict
         if self.used >= self.budget:
             self.checks.append(VisualCheck(claim[:120], provenance, "error:budget_exhausted",
@@ -196,12 +241,21 @@ class VisualChecker:
             return None
 
         self.used += 1
-        verdict = _ask(data, claim)
+        reported = _read_value(data, self.query)
+        if reported.startswith("error:"):
+            self.checks.append(VisualCheck(claim[:120], provenance, reported,
+                                           getattr(hit, "chunk_id", "")))
+            logger.warning("Visual read failed (%s) for %r", reported, self.query[:80])
+            return None
+        _CACHE[key] = reported
+        verdict = _compare(reported, claim)
         self.checks.append(VisualCheck(claim[:120], provenance, verdict,
-                                       getattr(hit, "chunk_id", "")))
-        if verdict in ("YES", "NO", "CANNOT_TELL"):
-            _CACHE[key] = verdict  # type: ignore[assignment]
-            logger.info("Visual check %s for claim %r against %s", verdict, claim[:80], provenance)
-            return verdict  # type: ignore[return-value]
-        logger.warning("Visual check failed (%s) for claim %r", verdict, claim[:80])
-        return None
+                                       getattr(hit, "chunk_id", ""), reported))
+        logger.info("Visual read %r -> %s against claim %r", reported[:40], verdict, claim[:70])
+        return verdict
+
+
+def _compare(reported: str, claim: str) -> VisualVerdict:
+    if reported.upper().startswith("UNREADABLE"):
+        return "UNREADABLE"
+    return "MATCH" if values_agree(reported, claim) else "MISMATCH"
