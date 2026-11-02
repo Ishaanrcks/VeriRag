@@ -34,6 +34,7 @@ FLAGS = (
     "refusal_requires_search",
     "retrieval_wide",
     "extractor_format_hint",
+    "critic_iterations_one",
 )
 
 
@@ -53,6 +54,8 @@ def apply_flags(names: str | list[str], *, temperature: float | None = 0.0) -> l
     # is applied here and explicitly reverted when absent.
     for key, value in (WIDE_RETRIEVAL if "retrieval_wide" in wanted else NARROW_RETRIEVAL).items():
         setattr(settings, key, value)
+    # Also a number rather than a branch, so applied and reverted here.
+    settings.max_critic_iterations = 1 if "critic_iterations_one" in wanted else 2
     if temperature is not None:
         settings.generation_temperature = temperature
     logger.info("benchmark flags on: %s (generation temperature %s)",

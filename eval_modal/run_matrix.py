@@ -52,6 +52,11 @@ CONFIGS: dict[str, tuple[str, str, bool]] = {
     "W1-no-k": ("extractor_format_hint,gate2_visual_verify", "pooled", True),
     "W1-no-fmt": ("retrieval_wide,gate2_visual_verify", "pooled", True),
     "W1-no-vis": ("retrieval_wide,extractor_format_hint", "pooled", True),
+    # The kept changes only: c1 is an always-on bug fix, so the flag is just f_vis.
+    # retrieval_wide is excluded -- it caused the Q18 and Q123 losses.
+    "C1": ("gate2_visual_verify", "pooled", True),
+    # C1 with the regeneration loop capped at 1 instead of 2.
+    "C2": ("gate2_visual_verify,critic_iterations_one", "pooled", True),
 }
 
 app = modal.App(f"{APP_PREFIX}-matrix", image=image)

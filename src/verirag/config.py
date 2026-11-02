@@ -131,6 +131,12 @@ class Settings(BaseSettings):
     # a real user does not supply it, so this measures an upper bound, not a
     # shippable change.
     extractor_format_hint: bool = False
+    # Cap the critic's regeneration loop at 1 instead of 2. Measured on W0: 51% of
+    # questions exhausted 2 regenerations and consumed 79% of the runtime (86.6 of
+    # 110 minutes) to make 3 answerable questions correct, and a question that
+    # regenerated twice had a LOWER hit rate (18%) than one that never regenerated
+    # (26%). Benchmark-only; production keeps 2.
+    critic_iterations_one: bool = False
     # Benchmark runs pin generation to temperature 0 so a rerun is comparable;
     # production keeps 0.2.
     generation_temperature: float = 0.2

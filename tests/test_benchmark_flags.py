@@ -370,3 +370,20 @@ def test_the_format_hint_reaches_the_extractor_prompt(tmp_path, monkeypatch):
 def test_without_the_flag_the_prompt_is_untouched(tmp_path, monkeypatch):
     prompt = _run_with_hint(tmp_path / "off", monkeypatch, hint=False)
     assert prompt == "BASE PROMPT"
+
+
+# --------------------------------------------------------------------------
+# critic_iterations_one
+# --------------------------------------------------------------------------
+def test_critic_iterations_one_caps_the_regeneration_loop(monkeypatch):
+    apply_flags("critic_iterations_one")
+    assert settings.max_critic_iterations == 1
+    apply_flags("")
+    assert settings.max_critic_iterations == 2   # production value restored
+
+
+def test_production_default_keeps_two_iterations():
+    from verirag.config import Settings
+
+    assert Settings().max_critic_iterations == 2
+    assert Settings().critic_iterations_one is False
