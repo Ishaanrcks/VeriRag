@@ -18,12 +18,22 @@ from verirag.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Widened retrieval values for the retrieval_wide flag. dense/sparse are raised
+# too: the reranker can only see what fusion hands it, so a cap of 40 over a
+# 20+20 candidate pool would rarely bind.
+WIDE_RETRIEVAL = dict(retrieval_final_top_k=20, retrieval_rerank_candidate_cap=40,
+                      retrieval_dense_top_k=40, retrieval_sparse_top_k=40)
+NARROW_RETRIEVAL = dict(retrieval_final_top_k=8, retrieval_rerank_candidate_cap=20,
+                        retrieval_dense_top_k=20, retrieval_sparse_top_k=20)
+
 FLAGS = (
     "gate1_advisory",
     "gate2_citation_repair",
     "gate2_numeric_match",
     "gate2_visual_verify",
     "refusal_requires_search",
+    "retrieval_wide",
+    "extractor_format_hint",
 )
 
 
@@ -39,6 +49,10 @@ def apply_flags(names: str | list[str], *, temperature: float | None = 0.0) -> l
         raise ValueError(f"unknown benchmark flag(s) {unknown}; known flags are {list(FLAGS)}")
     for name in FLAGS:
         setattr(settings, name, name in wanted)
+    # retrieval_wide is a set of numbers, not a branch in the retrieval code, so it
+    # is applied here and explicitly reverted when absent.
+    for key, value in (WIDE_RETRIEVAL if "retrieval_wide" in wanted else NARROW_RETRIEVAL).items():
+        setattr(settings, key, value)
     if temperature is not None:
         settings.generation_temperature = temperature
     logger.info("benchmark flags on: %s (generation temperature %s)",

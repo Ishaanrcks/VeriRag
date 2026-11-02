@@ -291,3 +291,82 @@ def test_thousands_separated_values_are_unaffected():
     assert "1300" in g2.normalised_numbers("1,300 units")
     assert "1.3" not in g2.normalised_numbers("1,300 units")
     assert "1300000" in g2.normalised_numbers("revenue of 1,300,000")
+
+
+# --------------------------------------------------------------------------
+# f_k: retrieval_wide
+# --------------------------------------------------------------------------
+def test_retrieval_wide_widens_k_and_the_candidate_pool(monkeypatch):
+    for f in FLAGS:
+        monkeypatch.setattr(settings, f, False)
+    apply_flags("retrieval_wide")
+    assert settings.retrieval_final_top_k == 20
+    assert settings.retrieval_rerank_candidate_cap == 40
+    # the reranker can only see what fusion hands it, so the pool must grow too
+    assert settings.retrieval_dense_top_k >= settings.retrieval_rerank_candidate_cap
+    assert settings.retrieval_sparse_top_k >= settings.retrieval_rerank_candidate_cap
+
+
+def test_clearing_the_flag_restores_the_production_values(monkeypatch):
+    apply_flags("retrieval_wide")
+    apply_flags("")
+    assert settings.retrieval_final_top_k == 8
+    assert settings.retrieval_rerank_candidate_cap == 20
+    assert settings.retrieval_dense_top_k == 20 and settings.retrieval_sparse_top_k == 20
+
+
+def test_retrieval_values_are_production_defaults_with_no_flags():
+    from verirag.config import Settings
+
+    fresh = Settings()
+    assert fresh.retrieval_final_top_k == 8 and fresh.retrieval_rerank_candidate_cap == 20
+    assert fresh.retrieval_wide is False and fresh.extractor_format_hint is False
+
+
+# --------------------------------------------------------------------------
+# f_fmt: extractor_format_hint (benchmark only)
+# --------------------------------------------------------------------------
+def _run_with_hint(tmp_path, monkeypatch, hint: bool):
+    """Run one question and return the prompt the extractor was handed."""
+    import json as _json
+
+    import verirag.eval.mmlongbench_runner as R
+
+    seen = {}
+
+    def fake_extract(q, t, prompt, *, client, model):
+        seen["prompt"] = prompt
+        return "Extracted answer: 16\nAnswer format: Integer"
+
+    monkeypatch.setattr(R, "extract_answer", fake_extract)
+    monkeypatch.setattr(R, "build_extractor", lambda kind: ("deepseek", "m", object()))
+    monkeypatch.setattr(R, "load_extraction_prompt", lambda: "BASE PROMPT")
+    monkeypatch.setattr(settings, "extractor_format_hint", hint)
+
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    subset = tmp_path / "s.json"
+    subset.write_text(_json.dumps({"name": "t", "questions": [dict(
+        id=1, doc_id="d.pdf", group="text", question="How many weeks?",
+        ground_truth="16", answer_format="Int", expected_verdict="answer",
+        evidence_pages=[1], evidence_sources=["text"])]}))
+    healthy = R.MemoryStatus(int(99 * R.GB), int(128 * R.GB), 0, int(4 * R.GB))
+    R.run_benchmark(subset, tmp_path / "store", out_dir=tmp_path / "out",
+                    query_fn=lambda q: SimpleNamespace(
+                        answer="16 weeks [1].", citations=[], abstained=False,
+                        abstention_reason=None, outcome="verified", regeneration_count=0,
+                        gate1_verdict=None, gate2_verdict=None, verified_facts=[],
+                        pipeline_log=[]),
+                    ingested_docs=[{"source_path": "/x/d.pdf"}], allow_missing=True,
+                    log=lambda m: None, memory_reader=lambda: healthy)
+    return seen["prompt"]
+
+
+def test_the_format_hint_reaches_the_extractor_prompt(tmp_path, monkeypatch):
+    prompt = _run_with_hint(tmp_path / "on", monkeypatch, hint=True)
+    assert "BASE PROMPT" in prompt
+    assert "expected answer format for this question is: Int" in prompt
+
+
+def test_without_the_flag_the_prompt_is_untouched(tmp_path, monkeypatch):
+    prompt = _run_with_hint(tmp_path / "off", monkeypatch, hint=False)
+    assert prompt == "BASE PROMPT"

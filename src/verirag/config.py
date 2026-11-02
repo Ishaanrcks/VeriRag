@@ -123,6 +123,14 @@ class Settings(BaseSettings):
     gate2_numeric_match: bool = False
     gate2_visual_verify: bool = False
     refusal_requires_search: bool = False
+    # f_k: widen retrieval. Measured cause: 8 of the 12 questions gates-off wins
+    # and the gated baseline loses had the value outside the top-8 or below the
+    # Gate 1 floor. Sets final k 8->20 and the rerank candidate cap 20->40.
+    retrieval_wide: bool = False
+    # f_fmt: tell the extractor the dataset's answer_format. BENCHMARK ONLY --
+    # a real user does not supply it, so this measures an upper bound, not a
+    # shippable change.
+    extractor_format_hint: bool = False
     # Benchmark runs pin generation to temperature 0 so a rerun is comparable;
     # production keeps 0.2.
     generation_temperature: float = 0.2

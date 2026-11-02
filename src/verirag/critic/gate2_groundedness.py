@@ -314,8 +314,9 @@ def parse_number(raw: str) -> float | None:
     raw = raw.strip()
     if not raw:
         return None
-    if re.fullmatch(r"\d{1,3}(?:,\d{3})+", raw):          # 1,300 / 1,300,000
-        return float(raw.replace(",", ""))
+    # Only the decimal reading needs its own branch: stripping commas already
+    # handles every separator case ("1,300" -> 1300, "1,300,000" -> 1300000), so a
+    # separate thousands branch would be dead code.
     if re.fullmatch(r"\d+,\d{1,2}", raw):                 # 1,3 / 20,75
         return float(raw.replace(",", "."))
     try:

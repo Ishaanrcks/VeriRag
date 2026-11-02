@@ -619,7 +619,25 @@ def run_benchmark(
     if extract_fn is None:
         kind, model, client = build_extractor(extractor_kind)
         prompt = load_extraction_prompt()
-        extract_fn = lambda q, t: extract_answer(q, t, prompt, client=client, model=model)  # noqa: E731
+        from verirag.config import settings
+
+        if settings.extractor_format_hint:
+            # BENCHMARK ONLY: the dataset's answer_format is told to the extractor,
+            # which otherwise has to infer Int/Float/Str/List from the answer text
+            # while eval_score compares strictly by that type. A real user cannot
+            # supply this, so it measures a ceiling rather than a shippable change.
+            format_by_question = {q["question"]: q["answer_format"]
+                                  for q in subset["questions"]}
+
+            def extract_fn(q, t):  # noqa: ANN001
+                fmt = format_by_question.get(q)
+                hinted = prompt if not fmt else (
+                    f"{prompt}\n\nThe expected answer format for this question is: "
+                    f"{fmt}. Give the extracted answer in that format."
+                )
+                return extract_answer(q, t, hinted, client=client, model=model)
+        else:
+            extract_fn = lambda q, t: extract_answer(q, t, prompt, client=client, model=model)  # noqa: E731
     query_fn = query_fn or (_real_query_fn() if gates else make_ungated_query_fn(scope))
 
     out = Path(out_dir)
