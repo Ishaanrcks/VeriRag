@@ -17,6 +17,27 @@ import threading
 
 import gradio as gr
 
+# --- workaround for a gradio_client bug (present through 5.15.x) --------------
+# Building the API schema at startup crashes with "argument of type 'bool' is not
+# iterable" when any component's JSON schema contains a boolean node (e.g.
+# additionalProperties: true/false) -- which gr.BrowserState triggers. This makes
+# the whole app return HTTP 500 on first load. Guarding the recursive converter to
+# treat a bool schema as "Any" fixes it without changing any behaviour. Demo-only;
+# patches the gradio_client helper, never the verirag package.
+import gradio_client.utils as _gcu  # noqa: E402
+
+_orig_json_schema = _gcu._json_schema_to_python_type
+
+
+def _json_schema_safe(schema, defs=None):
+    if isinstance(schema, bool):
+        return "Any"
+    return _orig_json_schema(schema, defs)
+
+
+_gcu._json_schema_to_python_type = _json_schema_safe
+# -----------------------------------------------------------------------------
+
 import demo_helpers as H
 from demo_helpers import DemoError
 
@@ -53,7 +74,7 @@ NOTICE = (
     "# VeriRAG\n"
     "A self-verifying document QA system with a two-gate verification critic. "
     "It answers from your documents with citations, or abstains.\n\n"
-    "⚠️ **Demo only — do not upload confidential documents.** Uploads are private "
+    "[!] **Demo only — do not upload confidential documents.** Uploads are private "
     "to your session and cleared automatically."
 )
 
@@ -109,15 +130,15 @@ def _ingest(files, session_id):
             H.validate_upload(path, MAX_PDF_MB, MAX_PDF_PAGES)
             res = H.ingest_upload(path, session_id)
         except DemoError as e:
-            msgs.append(f"⚠️ {e}")
+            msgs.append(f"[!] {e}")
             continue
         except Exception as e:  # noqa: BLE001
-            msgs.append(f"⚠️ {name}: {H._friendly(e)}")
+            msgs.append(f"[!] {name}: {H._friendly(e)}")
             continue
         if getattr(res, "skipped", False):
-            msgs.append(f"ℹ️ {name}: already in corpus (skipped)")
+            msgs.append(f"[i] {name}: already in corpus (skipped)")
         else:
-            msgs.append(f"✅ {name}: {res.num_text_chunks} text + "
+            msgs.append(f"[OK] {name}: {res.num_text_chunks} text + "
                         f"{res.num_figure_chunks} figure chunk(s)")
     return "\n\n".join(msgs), _corpus_md(session_id)
 
@@ -142,9 +163,9 @@ def _stats_md() -> str:
 # ---------------------------------------------------------------------------
 def _gate_badge(label: str, passed: bool) -> str:
     color = "#1b5e20" if passed else "#b71c1c"   # real pass/fail, not hardcoded green
-    mark = "✓" if passed else "✗"
+    word = "PASS" if passed else "FAIL"
     return (f"<span style='background:{color};color:#fff;padding:3px 9px;"
-            f"border-radius:11px;font-size:0.82em'>{label} {mark}</span>")
+            f"border-radius:11px;font-size:0.82em'>{label} {word}</span>")
 
 
 def _render_result(query, r) -> tuple[str, str]:
@@ -154,14 +175,14 @@ def _render_result(query, r) -> tuple[str, str]:
 
     if abstained:
         if outcome == "abstained_ungrounded":
-            head = ("🛑 **Could not verify the answer.** VeriRAG found relevant material "
+            head = ("[blocked] **Could not verify the answer.** VeriRAG found relevant material "
                     "and drafted an answer, but at least one claim could not be verified — "
                     "withheld rather than shown unverified.")
         elif outcome == "abstained_insufficient":
-            head = ("⚪ **Not enough relevant information.** VeriRAG declined rather than "
+            head = ("[--] **Not enough relevant information.** VeriRAG declined rather than "
                     "answering from general knowledge.")
         else:
-            head = "⚪ **VeriRAG declined to answer.**"
+            head = "[--] **VeriRAG declined to answer.**"
         why = getattr(r, "abstention_reason", None) or "No reason recorded."
         ans = f"{head}\n\n<details open><summary><b>Why</b></summary>\n\n{why}\n\n</details>"
         srcs = ""
@@ -171,7 +192,7 @@ def _render_result(query, r) -> tuple[str, str]:
 
     parts = []
     if outcome == "partial":
-        parts.append("🟡 **Partially verified.** Some statements could not be verified "
+        parts.append("[partial] **Partially verified.** Some statements could not be verified "
                      "against the sources; only those under *Verified facts* are confirmed — "
                      "treat the rest with caution.")
     parts.append("### Answer\n\n" + (getattr(r, "answer", None) or ""))
@@ -181,7 +202,7 @@ def _render_result(query, r) -> tuple[str, str]:
     g1_ok = bool(g1 and getattr(g1, "verdict", "") == "sufficient")
     g2_ok = bool(g2 and getattr(g2, "overall_grounded", False))
     badges = (_gate_badge("Gate 1 coverage", g1_ok) +
-              " <span style='color:#888'>→</span> " +
+              " <span style='color:#888'>-&gt;</span> " +
               _gate_badge("Gate 2 groundedness", g2_ok))
     corrections = getattr(r, "regeneration_count", 0)
     verdict_word = "Partially verified" if outcome == "partial" else "Verified"
@@ -191,10 +212,46 @@ def _render_result(query, r) -> tuple[str, str]:
 
     if SHOW_CANDIDATE and getattr(r, "candidate_answer", None):
         reason = getattr(r, "candidate_reason", None)
-        parts.append("### ⚠️ Unverified candidate (not quality-checked)\n\n"
+        parts.append("### [!] Unverified candidate (not quality-checked)\n\n"
                      + (f"_{reason}_\n\n" if reason else "") + r.candidate_answer)
 
     return "\n\n".join(parts), _sources_md(getattr(r, "citations", []) or [])
+
+
+import re as _re
+
+
+def _clean_table_cell(text: str) -> str:
+    """Strip PDF text-extraction artefacts from table content: leader dots
+    (". . . ."), merged CamelCase words, and runs of whitespace. Applied only to
+    table chunks (the core already serialized them to GFM markdown; we clean that
+    serialized string, since per-cell data is not exposed here)."""
+    if not isinstance(text, str):
+        return str(text)
+    text = _re.sub(r"(\.\s*){3,}", " ", text)
+    text = _re.sub(r"([a-z])([A-Z])", r"\1 \2", text)
+    text = _re.sub(r"\s{2,}", " ", text)
+    return text.strip()
+
+
+def _pdf_link(abs_path: str, page=None) -> str:
+    """A clickable link that opens the file (at an exact page for PDFs) in a new
+    tab. Gradio serves it at /file=<abs_path> when the dir is in allowed_paths."""
+    if not abs_path:
+        return ""
+    if str(abs_path).lower().endswith(".pdf") and page not in (None, "", "-"):
+        return f'<a href="/file={abs_path}#page={page}" target="_blank">p.{page} (open)</a>'
+    return f'<a href="/file={abs_path}" target="_blank">open</a>'
+
+
+def _resolve_doc_path(doc_name: str) -> str | None:
+    """Absolute path for a retrieved chunk's document, when resolvable. Demo-corpus
+    files resolve by name; session uploads (Gradio temp paths) do not, so they get
+    no link rather than a broken one."""
+    if not doc_name:
+        return None
+    cand = H.DEMO_CORPUS_DIR / doc_name
+    return str(cand) if cand.exists() else None
 
 
 def _provenance(content_types) -> str:
@@ -215,15 +272,18 @@ def _sources_md(citations) -> str:
         if getattr(c, "source_type", "") == "external":
             out.append(f"**[{c.number}]** *external* — [{c.url}]({c.url}) · {prov}")
         else:
-            pages = ", ".join(str(p) for p in (getattr(c, "pages", []) or []))
+            src = getattr(c, "source_path", "") or ""
+            page_list = [p for p in (getattr(c, "pages", []) or [])]
+            pages = ", ".join(str(p) for p in page_list)
             ptxt = f" · page(s) {pages}" if pages else ""
-            out.append(f"**[{c.number}]** *local* — `{getattr(c,'source_path','')}`{ptxt} · {prov}")
+            link = f" · {_pdf_link(src, page_list[0] if page_list else None)}" if src else ""
+            out.append(f"**[{c.number}]** *local* — `{src}`{ptxt} · {prov}{link}")
         for cid in getattr(c, "contributing_chunk_ids", []) or []:
             m = media.get(cid)
             if not m:
                 continue
             if m["content_type"] == "table" and m.get("text"):
-                out.append(f"_Table — page {m.get('page')}_\n\n{m['text']}")
+                out.append(f"_Table — page {m.get('page')}_\n\n{_clean_table_cell(m['text'])}")
             elif m["content_type"] == "figure_caption":
                 ip = m.get("image_path")
                 if ip and os.path.exists(ip) and H.image_path_is_safe(ip):
@@ -256,58 +316,77 @@ def _trace_md(r) -> str:
 
 
 def ask(question, pdf_format, corpus_only, free_used, byo_key, session_id):
-    """Streaming handler: yields (status, answer, sources, trace, pipelog_state,
-    free_used, candidate_note)."""
+    """Streaming handler. Yields (status, answer, sources, trace, pipelog_md, free_used).
+
+    Each pipeline step updates the status AND the live Pipeline Log in real time;
+    the final yield replaces the live log with the full formatted tables. Gradio
+    shows a spinner on the button throughout. Breadcrumbs go to stderr. (The query
+    can take ~30-120s on CPU for the first run — that slowness, not a streaming bug,
+    is what looked like a hang earlier.)"""
+    import sys
+    def log(m):  # noqa: ANN001
+        print(f"[ask] {m}", file=sys.stderr, flush=True)
+
     free_used = int(free_used or 0)
     byo_key = (byo_key or "").strip()
-    EMPTY = ("", "", "", "", None, free_used)
     try:
         question = H.validate_question(question, MAX_QUESTION_CHARS)
     except DemoError as e:
-        yield (f"⚠️ {e}", *EMPTY[1:]); return
+        yield (f"[!] {e}", "", "", "", "Run a query to see the pipeline trace.", free_used)
+        return
 
     visitor_free = free_used < FREE_QUERIES
-    budget_ok = _budget_allows()
-    use_backend = visitor_free and budget_ok
+    use_backend = visitor_free and _budget_allows()
     if not use_backend and not byo_key:
         why = ("The demo's shared daily budget is used up for today."
-               if not budget_ok else f"You've used your {FREE_QUERIES} free demo queries.")
-        yield (f"🔑 {why} Paste your own DeepSeek API key below to continue — it is used "
-               "only for your session and never stored.", "", "", "", None, free_used)
+               if not _budget_allows() else f"You've used your {FREE_QUERIES} free demo queries.")
+        yield (f"[key] {why} Paste your own DeepSeek API key below to continue — used "
+               "only for your session, never stored.", "", "", "",
+               "Run a query to see the pipeline trace.", free_used)
         return
     user_key = None if use_backend else byo_key
 
-    fmt = __import__("verirag.generation.generator", fromlist=["AnswerFormat"]).AnswerFormat
-    fmt = getattr(fmt, FORMATS.get(pdf_format, "CONCISE"))
+    AnswerFormat = __import__("verirag.generation.generator",
+                              fromlist=["AnswerFormat"]).AnswerFormat
+    fmt = getattr(AnswerFormat, FORMATS.get(pdf_format, "CONCISE"))
 
-    steps: list[str] = []
+    log(f"start: backend={use_backend} fmt={fmt} corpus_only={bool(corpus_only)}")
+    live_log: list[str] = []          # CHANGE 3: live pipeline log
     result = None
     for kind, payload in H.stream_query(question, fmt, bool(corpus_only), session_id, user_key):
         if kind == "step":
-            steps.append(payload)
-            yield ("🔎 Thinking…\n\n" + "\n".join(f"- {s}" for s in steps),
-                   "", "", "", None, free_used)
+            log(f"step: {payload}")
+            live_log.append(f"**{payload}**")
+            yield ("[running] Thinking...", "", "", "", "\n\n".join(live_log), free_used)
         elif kind == "__quota__":
-            msg = ("🛑 **API limit reached on your key.** Wait a moment and try again, or "
+            msg = ("[blocked] **API limit reached on your key.** Wait a moment and try again, or "
                    "use a different key." if payload else
-                   "🛑 **The demo is experiencing high traffic** and has hit its API quota. "
+                   "[blocked] **The demo is experiencing high traffic** and has hit its API quota. "
                    "Try again in a few minutes, or enter your own DeepSeek API key.")
-            yield (msg, "", "", "", None, free_used); return
+            log("quota")
+            yield (msg, "", "", "", "\n\n".join(live_log), free_used)
+            return
         elif kind == "__error__":
-            yield (f"⚠️ Query failed: {payload}", "", "", "", None, free_used); return
+            log(f"error: {payload}")
+            yield (f"[!] Query failed: {payload}", "", "", "", "\n\n".join(live_log), free_used)
+            return
         elif kind == "__result__":
             result = payload
 
     if result is None:
-        yield ("⚠️ Query failed: no result produced.", "", "", "", None, free_used); return
+        log("no result")
+        yield ("[!] Query failed: no result produced.", "", "", "",
+               "\n\n".join(live_log), free_used)
+        return
 
     if use_backend:
         _budget_consume()
         free_used += 1
     answer_md, sources_md = _render_result(question, result)
-    status = "✅ Done" + (f" · {FREE_QUERIES - free_used} free queries left" if use_backend else "")
-    pipelog = list(getattr(result, "pipeline_log", None) or [])
-    yield (status, answer_md, sources_md, _trace_md(result), pipelog, free_used)
+    status = "[OK] Done" + (f" · {FREE_QUERIES - free_used} free queries left" if use_backend else "")
+    full_log = _pipelog_md(list(getattr(result, "pipeline_log", None) or []))
+    log(f"done: outcome={getattr(result,'outcome',None)}")
+    yield (status, answer_md, sources_md, _trace_md(result), full_log, free_used)
 
 
 # ---------------------------------------------------------------------------
@@ -331,7 +410,14 @@ def _pipelog_md(events) -> str:
         ev = rets[-1]
         n, m = ev.detail["chunk_count"], ev.detail["doc_count"]
         out.append(f"### Retrieval — {n} chunk(s) from {m} document(s)")
-        out.append(_rows_table(retrieval_rows(ev.detail["chunks"]),
+        rows = retrieval_rows(ev.detail["chunks"])
+        for row, chunk in zip(rows, ev.detail["chunks"]):
+            abs_path = _resolve_doc_path(chunk.get("doc_name"))
+            if abs_path:                       # CHANGE 4: clickable page link
+                row["Page"] = _pdf_link(abs_path, chunk.get("page"))
+            if "table" in str(row.get("Type", "")).lower():   # CHANGE 5: clean table text
+                row["Snippet"] = _clean_table_cell(row.get("Snippet", ""))
+        out.append(_rows_table(rows,
                                ["Rank", "Page", "Type", "Score", "Document", "Snippet"]))
         out.append("_Score is the cross-encoder rerank score (the value Gate 1 reads)._")
 
@@ -343,7 +429,7 @@ def _pipelog_md(events) -> str:
         out.append(f"_{len(ev.detail['chunks_included'])} chunk(s) included:_")
         out += [f"- {ln}" for ln in lines[:15]]
         if len(lines) > 15:
-            out.append(f"_… and {len(lines) - 15} more_")
+            out.append(f"_... and {len(lines) - 15} more_")
         out.append(f"<details><summary>View exact context — "
                    f"{ev.detail['char_count']:,} characters</summary>\n\n```\n"
                    f"{ev.detail['full_context'][:20000]}\n```\n\n</details>")
@@ -353,7 +439,7 @@ def _pipelog_md(events) -> str:
     if g1:
         for ev in g1:
             ok = ev.detail["verdict"] == "pass"
-            out.append(("✅ " if ok else "⚠️ ") + gate1_line(ev.detail))
+            out.append(("[OK] " if ok else "[!] ") + gate1_line(ev.detail))
     else:
         out.append("_Gate 1 did not run on this path (whole-document summarization skips it)._")
 
@@ -362,7 +448,7 @@ def _pipelog_md(events) -> str:
         out.append("### Regeneration")
         for ev in regens:
             d = ev.detail
-            out.append(f"ℹ️ Attempt {d['iteration']} of {d['max_iterations']} — "
+            out.append(f"[i] Attempt {d['iteration']} of {d['max_iterations']} — "
                        f"triggered by: {d['reason']}")
 
     g2 = of("gate2")
@@ -382,10 +468,10 @@ def _pipelog_md(events) -> str:
     ab, an = of("abstain"), of("answer")
     if ab:
         head, bullets = abstain_parts(ab[-1].detail["reason"])
-        out.append(f"⚠️ **Abstained — {head}**")
+        out.append(f"[!] **Abstained — {head}**")
         out += [f"- {b}" for b in bullets]
     elif an:
-        out.append("✅ **Answered**")
+        out.append("[OK] **Answered**")
         out.append(an[-1].detail["text"])
     return "\n\n".join(out)
 
@@ -412,8 +498,21 @@ def _rows_table(rows, cols) -> str:
 # ---------------------------------------------------------------------------
 # UI
 # ---------------------------------------------------------------------------
+_CSS = """
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+*, body, .gradio-container {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+p, li, label { line-height: 1.6; letter-spacing: -0.01em; }
+h1 { font-size: 1.5rem; font-weight: 700; }
+h2 { font-size: 1.15rem; font-weight: 600; }
+h3 { font-size: 1rem; font-weight: 600; }
+code, pre { font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace !important; font-size: 0.85em; }
+"""
+
+
 def build_demo() -> gr.Blocks:
-    with gr.Blocks(title="VeriRAG", theme=gr.themes.Soft(), fill_width=True) as demo:
+    with gr.Blocks(title="VeriRAG", theme=gr.themes.Soft(), fill_width=True, css=_CSS) as demo:
         session_id = gr.State(value=H.new_session_id())
         free_used = gr.BrowserState(0, storage_key="verirag_free_used")
 
@@ -463,7 +562,7 @@ def build_demo() -> gr.Blocks:
                         free_md = gr.Markdown()
                         byo_key = gr.Textbox(label="Your DeepSeek API key (only after free queries)",
                                              type="password",
-                                             placeholder="sk-…  — used only for your session, never stored")
+                                             placeholder="sk-...  — used only for your session, never stored")
                         ask_btn = gr.Button("Ask", variant="primary", interactive=False)
                         status = gr.Markdown()
                         answer = gr.Markdown()
@@ -472,7 +571,6 @@ def build_demo() -> gr.Blocks:
                             trace = gr.Markdown()
                     with gr.Tab("Pipeline Log"):
                         pipelog_md = gr.Markdown("Run a query to see the pipeline trace.")
-                        pipelog_state = gr.State(None)
 
         # ---- wiring ----
         def _free_banner(used):
@@ -500,12 +598,18 @@ def build_demo() -> gr.Blocks:
         for b, e in zip(ex_btns, STATIC_EXAMPLES):
             b.click(lambda e=e: e, outputs=question)
 
-        ask_btn.click(
+        ask_event = ask_btn.click(
             ask,
             inputs=[question, fmt, corpus_only, free_used, byo_key, session_id],
-            outputs=[status, answer, sources, trace, pipelog_state, free_used],
+            outputs=[status, answer, sources, trace, pipelog_md, free_used],
             concurrency_limit=1,
-        ).then(_pipelog_md, inputs=pipelog_state, outputs=pipelog_md
+        )
+        ask_event.then(_free_banner, inputs=free_used, outputs=free_md)
+        question.submit(
+            ask,
+            inputs=[question, fmt, corpus_only, free_used, byo_key, session_id],
+            outputs=[status, answer, sources, trace, pipelog_md, free_used],
+            concurrency_limit=1,
         ).then(_free_banner, inputs=free_used, outputs=free_md)
 
     return demo
@@ -516,4 +620,8 @@ if __name__ == "__main__":
         print("WARNING: DEEPSEEK_API_KEY is not set — the free path will fail until it is.")
     _DEMO_NAMES = H.startup()
     print(f"Demo corpus preloaded: {_DEMO_NAMES}")
-    build_demo().queue(max_size=16).launch(server_name="0.0.0.0")
+    build_demo().queue(max_size=16).launch(
+        server_name="0.0.0.0",
+        # serve demo-corpus files (and uploads) over /file= so PDF page links open
+        allowed_paths=[str(H.DEMO_CORPUS_DIR), str(H.UPLOAD_TEMP_DIR)],
+    )

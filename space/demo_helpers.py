@@ -58,6 +58,10 @@ _BASE_STORE = Path(tempfile.mkdtemp(prefix="verirag_demo_store_"))
 configure_store(_BASE_STORE)
 
 _DEMO_CORPUS = _REPO_ROOT / "demo_corpus"
+# Exposed for the app's allowed_paths / PDF page links. Demo files live under
+# DEMO_CORPUS_DIR; Gradio stores uploads under the system temp dir.
+DEMO_CORPUS_DIR = _DEMO_CORPUS
+UPLOAD_TEMP_DIR = Path(tempfile.gettempdir())
 # Every query serializes behind this lock: it is the window in which the backend
 # key may be swapped for a visitor's key, so two must not overlap.
 _REQUEST_LOCK = threading.Lock()
