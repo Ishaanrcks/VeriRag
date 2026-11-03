@@ -4,7 +4,7 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 
 # --- UI: Gradio pinned to a version with gr.BrowserState (added 4.42; 5.x stable) ---
-gradio==5.9.1
+gradio==5.15.0
 
 # --- pipeline core (match the frozen stack) ---
 langchain==1.4.6
