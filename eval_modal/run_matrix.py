@@ -31,6 +31,12 @@ SUBSET = "eval_data/mmlongbench_subset200_v1canonical.json"
 SHARDS = 4
 
 # name -> (flags, scope, gates)
+#
+# NOTE after the final-c2 freeze: apply_flags declares a run's EXACT flag set, so a
+# production default is NOT implicit. gate2_visual_verify is now on in production, so
+# only the configs that name it (M1b, W1, W1-no-k, W1-no-fmt, C1, C2, P3, PC) reflect
+# today's pipeline. M0, W0, R2 and the LOO runs are PRE-FREEZE baselines kept for
+# reproducing the measurements; they no longer represent production.
 CONFIGS: dict[str, tuple[str, str, bool]] = {
     # baseline: every flag off, the pipeline as it ships
     "M0": ("", "pooled", True),

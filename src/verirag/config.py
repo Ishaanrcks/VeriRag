@@ -118,14 +118,31 @@ class Settings(BaseSettings):
     # --- Benchmark-only experiment flags (ALL default False: production behaviour
     # is exactly what it was before these existed). eval/flags.py turns them on for
     # one benchmark run; nothing in production sets them.
+    # TESTED AND DROPPED: passing the escalation band without the LLM judge
+    # changed the Gate 1 path on Q18 and left the gain inside the noise floor.
     gate1_advisory: bool = False
+    # TESTED AND DROPPED: fired ZERO times across all 88 questions in four runs,
+    # so the case it was built for does not occur at a measurable rate.
     gate2_citation_repair: bool = False
+    # TESTED AND DROPPED: regression on an unanswerable question -- it certified
+    # four claims NLI had rejected on Q8, turning a correct refusal into "36%".
     gate2_numeric_match: bool = False
-    gate2_visual_verify: bool = False
+    # PRODUCTION DEFAULT since the final-c2 freeze. Measured on the full tier-2 set:
+    # C1/C2 reached 12/74 answerable against the 8/74 baseline while keeping 14/14
+    # unanswerable, and the gain (+4) clears the +/-2 run-to-run noise floor. The
+    # check is adversarial -- a blind read of the figure, compared to the claim in
+    # code -- after an earlier leading-question version answered YES on 20 of 22.
+    gate2_visual_verify: bool = True
+    # TESTED AND DROPPED: regenerated a refusal into a wrong answer on numeric
+    # questions and never cleared the noise floor; left in place only to reproduce
+    # the measurement.
     refusal_requires_search: bool = False
     # f_k: widen retrieval. Measured cause: 8 of the 12 questions gates-off wins
     # and the gated baseline loses had the value outside the top-8 or below the
     # Gate 1 floor. Sets final k 8->20 and the rerank candidate cap 20->40.
+    # TESTED AND DROPPED: regression on two unanswerable questions. Q18's Gate 1
+    # score moved 0.088 -> 0.155 because the wider pool surfaced an unrelated
+    # rank-1 chunk above the threshold; Q123 answered off a multiple-choice option.
     retrieval_wide: bool = False
     # f_fmt: tell the extractor the dataset's answer_format. BENCHMARK ONLY --
     # a real user does not supply it, so this measures an upper bound, not a
@@ -155,8 +172,14 @@ class Settings(BaseSettings):
     # precision on the stored C2/R2 runs is 50% (20 of 40), so it is offered as a
     # lead, never as a verified answer, and never folded into the headline score.
     unverified_candidate: bool = False
+    # TESTED AND DROPPED: gain indistinguishable from noise (+1 answerable, 3
+    # gained and 4 lost). caption_slots demonstrably fired -- Q4's top-k gained the
+    # caption it had been missing -- and Q4 still scored 0, so retrieval was not
+    # the binding constraint.
     p3_bundle: bool = False
     caption_slots_reserved: int = 2
+    # TESTED AND DROPPED: two agreeing blind reads were correct on only 2 of 4
+    # agreements, and it produced an agreed count on unanswerable Q11.
     visual_count: bool = False
     visual_count_calls_per_question: int = 6
     # Benchmark runs pin generation to temperature 0 so a rerun is comparable;

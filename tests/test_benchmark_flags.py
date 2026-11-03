@@ -29,9 +29,34 @@ def hit(chunk_id, text, score=0.9, content_type="text", page=1):
 # --------------------------------------------------------------------------
 # the registry
 # --------------------------------------------------------------------------
-def test_all_flags_default_off_so_production_is_unchanged():
-    assert [f for f in FLAGS if getattr(settings, f)] == []
-    assert settings.generation_temperature == 0.2  # production value
+# Promoted to a production default at the final-c2 freeze; every other flag is an
+# experiment that stays off.
+PRODUCTION_ON = {"gate2_visual_verify"}
+
+
+def test_only_the_promoted_flag_is_on_by_default():
+    assert {f for f in FLAGS if getattr(settings, f)} == PRODUCTION_ON
+    assert settings.generation_temperature == 0.2       # production value
+    assert settings.max_critic_iterations == 2          # production value
+
+
+def test_every_dropped_flag_is_still_off():
+    """The five flags measured and dropped must not creep back on."""
+    for flag in ("gate1_advisory", "gate2_citation_repair", "gate2_numeric_match",
+                 "retrieval_wide", "p3_bundle", "visual_count",
+                 "refusal_requires_search", "extractor_format_hint",
+                 "critic_iterations_one", "unverified_candidate"):
+        assert getattr(settings, flag) is False, flag
+
+
+def test_apply_flags_turns_the_promoted_flag_off_unless_named(monkeypatch):
+    """apply_flags declares a run's EXACT flag set, so a production default is not
+    implicit. A benchmark config that means to match production must name
+    gate2_visual_verify -- C1, C2, P3 and PC all do."""
+    apply_flags("")
+    assert settings.gate2_visual_verify is False
+    apply_flags("gate2_visual_verify")
+    assert settings.gate2_visual_verify is True
 
 
 def test_apply_flags_sets_only_what_is_named_and_pins_temperature(monkeypatch):
