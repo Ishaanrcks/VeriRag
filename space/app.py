@@ -68,7 +68,6 @@ DEMO_DOCS = [
         "What do the three parts of a MAJOR.MINOR.PATCH version number mean?",
         "Which programming languages does the spec recommend?"]),
 ]
-STATIC_EXAMPLES = ["What datasets are used for evaluation?", "What are the main contributions?"]
 
 NOTICE = (
     "# VeriRAG\n"
@@ -351,7 +350,7 @@ def ask(question, pdf_format, corpus_only, free_used, byo_key, session_id):
     fmt = getattr(AnswerFormat, FORMATS.get(pdf_format, "CONCISE"))
 
     log(f"start: backend={use_backend} fmt={fmt} corpus_only={bool(corpus_only)}")
-    live_log: list[str] = []          # CHANGE 3: live pipeline log
+    live_log: list[str] = []          # live pipeline log
     result = None
     for kind, payload in H.stream_query(question, fmt, bool(corpus_only), session_id, user_key):
         if kind == "step":
@@ -548,9 +547,6 @@ def build_demo() -> gr.Blocks:
                                 for q in qs:
                                     b = gr.Button(q, size="sm")
                                     demo_btns.append((b, q))
-                        examples_label = gr.Markdown("Try an example:")
-                        with gr.Row():
-                            ex_btns = [gr.Button(e, size="sm") for e in STATIC_EXAMPLES]
                         question = gr.Textbox(label="Question", lines=2,
                                               max_length=MAX_QUESTION_CHARS,
                                               placeholder="What does the Q4 revenue chart show?")
@@ -563,7 +559,9 @@ def build_demo() -> gr.Blocks:
                         byo_key = gr.Textbox(label="Your DeepSeek API key (only after free queries)",
                                              type="password",
                                              placeholder="sk-...  — used only for your session, never stored")
-                        ask_btn = gr.Button("Ask", variant="primary", interactive=False)
+                        with gr.Row():
+                            ask_btn = gr.Button("Ask", variant="primary", interactive=False)
+                            stop_btn = gr.Button("Stop query", variant="stop", visible=False)
                         status = gr.Markdown()
                         answer = gr.Markdown()
                         sources = gr.Markdown()
@@ -595,22 +593,32 @@ def build_demo() -> gr.Blocks:
 
         for b, q in demo_btns:
             b.click(lambda q=q: q, outputs=question)
-        for b, e in zip(ex_btns, STATIC_EXAMPLES):
-            b.click(lambda e=e: e, outputs=question)
 
-        ask_event = ask_btn.click(
-            ask,
+        # Stop button: show while a query runs, hide when it finishes or is cancelled.
+        def _running():
+            return gr.update(visible=True), gr.update(interactive=False)
+
+        def _idle():
+            return gr.update(visible=False), gr.update(interactive=True)
+
+        _ask_io = dict(
             inputs=[question, fmt, corpus_only, free_used, byo_key, session_id],
             outputs=[status, answer, sources, trace, pipelog_md, free_used],
             concurrency_limit=1,
         )
-        ask_event.then(_free_banner, inputs=free_used, outputs=free_md)
-        question.submit(
-            ask,
-            inputs=[question, fmt, corpus_only, free_used, byo_key, session_id],
-            outputs=[status, answer, sources, trace, pipelog_md, free_used],
-            concurrency_limit=1,
-        ).then(_free_banner, inputs=free_used, outputs=free_md)
+        run = (ask_btn.click(_running, outputs=[stop_btn, ask_btn])
+               .then(ask, **_ask_io))
+        run.then(_idle, outputs=[stop_btn, ask_btn]).then(
+            _free_banner, inputs=free_used, outputs=free_md)
+
+        srun = (question.submit(_running, outputs=[stop_btn, ask_btn])
+                .then(ask, **_ask_io))
+        srun.then(_idle, outputs=[stop_btn, ask_btn]).then(
+            _free_banner, inputs=free_used, outputs=free_md)
+
+        # Stop cancels whichever generator is running, resets the status, re-idles.
+        stop_btn.click(lambda: "[stopped] Query cancelled.", outputs=status,
+                       cancels=[run, srun]).then(_idle, outputs=[stop_btn, ask_btn])
 
     return demo
 
