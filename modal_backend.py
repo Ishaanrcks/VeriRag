@@ -33,15 +33,23 @@ from pathlib import Path
 import modal
 
 # Reuse the existing heavy image, Volume and secret rather than redefining them.
-from eval_modal.image import VOLUME_PATH, image, secret, volume, volumes
+from eval_modal.image import (
+    REMOTE_REPO, REPO, VOLUME_PATH, base_image, secret, volume, volumes,
+)
+from eval_modal.mount_rules import IGNORE_PATTERNS
 
 APP_NAME = "veri-rag-backend"
 STORE = f"{VOLUME_PATH}/demo_store"          # dedicated demo store on the Volume
 DEMO_CORPUS = "/root/veri-rag/demo_corpus"   # baked into the image (add_local_dir)
 _PRELOAD_MARKER = f"{STORE}/.demo_preloaded"
 
-# The backend needs FastAPI; add it on top of the shared image.
-backend_image = image.pip_install("fastapi[standard]==0.115.6")
+# The backend needs FastAPI. It MUST be installed before the local source is
+# mounted (Modal forbids build steps after add_local_*), so build from
+# base_image (pre-local) and append our own add_local_dir last.
+backend_image = (
+    base_image.pip_install("fastapi[standard]==0.115.6")
+    .add_local_dir(REPO, REMOTE_REPO, ignore=IGNORE_PATTERNS)
+)
 
 app = modal.App(APP_NAME)
 

@@ -52,7 +52,10 @@ _download_models = (
     + "; ".join(f"snapshot_download('{m}')" for m in MODELS)
 )
 
-image = (
+# Everything EXCEPT the local source: pinned deps, env, the baked models, workdir.
+# Other apps (modal_backend.py) layer build steps on top of this and then append
+# their OWN add_local_dir -- Modal forbids any build step after add_local_*.
+base_image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
         *requirements_for_container(REPO / "requirements.txt"),
@@ -68,9 +71,11 @@ image = (
     )
     .run_commands(f'python -c "{_download_models}"')
     .workdir(REMOTE_REPO)
-    # last: local files are mounted when the container starts, so code edits need no rebuild
-    .add_local_dir(REPO, REMOTE_REPO, ignore=IGNORE_PATTERNS)
 )
+
+# The benchmark image is unchanged: base_image + the local repo, mounted at start
+# (so code edits need no rebuild). add_local_dir stays LAST.
+image = base_image.add_local_dir(REPO, REMOTE_REPO, ignore=IGNORE_PATTERNS)
 
 volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 volumes = {VOLUME_PATH: volume}
