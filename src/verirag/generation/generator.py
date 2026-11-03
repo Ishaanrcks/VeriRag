@@ -335,6 +335,17 @@ def has_candidate_value(query: str, hits: list[SearchHit]) -> bool:
     return any(_CANDIDATE_NUMBER_RE.search(getattr(h, "raw_text", "") or "") for h in hits)
 
 
+# BENCHMARK FLAG p3_bundle (list_row_scope). Appended to the system prompt only when
+# the flag is on, so production generation is byte-for-byte unchanged. Measured on
+# Q155, which built its 7-item list from the Technical Reference Model table instead
+# of the SRM row the question named -- nine true claims about the wrong table.
+LIST_ROW_SCOPE_RULE = """- When the question asks for a LIST and the evidence is a table, take the list
+  from the one row or table the question names, and from nowhere else. If the
+  question names a component, a row label or a category, find that row first and
+  read the list out of it; do not add items from neighbouring rows or from a
+  different table that happens to concern the same subject. If that row is blank
+  or absent, say so rather than substituting another row's contents."""
+
 @traceable(name="generate_answer")
 def generate_answer(
     query: str,
@@ -364,6 +375,8 @@ def generate_answer(
     context_block, citations = build_context_block(hits)
 
     system_prompt = _SYSTEM_PROMPT
+    if settings.p3_bundle:
+        system_prompt = system_prompt + "\n" + LIST_ROW_SCOPE_RULE
     if avoid_claims:
         bulleted = "\n".join(f"- {claim}" for claim in avoid_claims)
         system_prompt += _AVOID_CLAIMS_INSTRUCTION.format(claims=bulleted)

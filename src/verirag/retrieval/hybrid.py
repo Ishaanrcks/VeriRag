@@ -8,11 +8,16 @@ expensive cross-encoder pass, and only the final top-k is returned.
 
 from __future__ import annotations
 
+import logging
+import re
+
 from verirag.config import SHARED_SESSION_ID, settings
 from verirag.retrieval.fusion import reciprocal_rank_fusion
 from verirag.retrieval.reranker import rerank
 from verirag.retrieval.sparse_index import sparse_search
 from verirag.retrieval.types import SearchHit
+logger = logging.getLogger(__name__)
+
 from verirag.retrieval.vector_store import (
     dense_search,
     hydrate_metadata,
@@ -117,6 +122,69 @@ def _select_diverse(
     return selected
 
 
+_FIGURE_WORDS = re.compile(
+    r"\b(figure|fig\.?|chart|graph|image|picture|photo(graph)?|slide|logo|diagram|"
+    r"infographic|plot|screenshot)\b", re.IGNORECASE
+)
+CAPTION_TYPES = ("figure_caption", "image_caption")
+
+
+def mentions_a_figure(query: str) -> bool:
+    return bool(_FIGURE_WORDS.search(query or ""))
+
+
+def reserve_caption_slots(
+    query: str, reranked: list[SearchHit], selected: list[SearchHit]
+) -> list[SearchHit]:
+    """``selected`` with up to N slots given to same-document captions.
+
+    BENCHMARK FLAG p3_bundle. Measured on C2: Q4's gold value sits in a caption
+    that reranks FIRST, yet the final top-8 held only text chunks, so the generator
+    never saw it. Diversity and text's sheer numbers crowd captions out.
+
+    The captions must come from the SAME document as the top-ranked hit. Pulling a
+    high-scoring caption from an unrelated document is exactly what cost Q18 and
+    Q123 when retrieval was widened: an irrelevant chunk entered the context and
+    Gate 1 passed a question it had correctly been declining.
+
+    Returns ``selected`` unchanged when the question does not mention a figure, when
+    no same-document caption was retrieved, or when captions already fill the quota.
+    """
+    if not settings.p3_bundle or not mentions_a_figure(query) or not reranked:
+        return selected
+    want = min(settings.caption_slots_reserved, len(selected))
+    if want <= 0:
+        return selected
+    home = str(reranked[0].metadata.get("doc_id", ""))
+    already = [h for h in selected if str(h.metadata.get("content_type")) in CAPTION_TYPES]
+    if len(already) >= want:
+        return selected
+    chosen = {id(h) for h in selected}
+    candidates = [
+        h for h in reranked
+        if str(h.metadata.get("content_type")) in CAPTION_TYPES
+        and str(h.metadata.get("doc_id", "")) == home
+        and id(h) not in chosen
+    ]
+    if not candidates:
+        return selected
+    out = list(selected)
+    for caption in candidates[: want - len(already)]:
+        # Drop the lowest-ranked NON-caption to make room, so the swap never
+        # evicts a caption and never grows the context.
+        victim = next((h for h in reversed(out)
+                       if str(h.metadata.get("content_type")) not in CAPTION_TYPES), None)
+        if victim is None:
+            break
+        out.remove(victim)
+        out.append(caption)
+        logger.info("caption_slots: promoted a %s from p%s, dropped a %s from p%s",
+                    caption.metadata.get("content_type"), caption.metadata.get("page"),
+                    victim.metadata.get("content_type"), victim.metadata.get("page"))
+    out.sort(key=lambda h: h.rerank_score or 0.0, reverse=True)
+    return out
+
+
 def score_external_hits(
     query: str, hits: list[SearchHit], top_k: int | None = None
 ) -> list[SearchHit]:
@@ -207,8 +275,9 @@ def hybrid_retrieve(
     # Score every capped candidate, then choose the final set with a
     # per-document cap rather than simply taking the top-k.
     reranked = _apply_external_penalty(rerank(query, capped, len(capped)))
-    return _select_diverse(
+    selected = _select_diverse(
         reranked,
         settings.retrieval_final_top_k,
         settings.retrieval_max_chunks_per_doc,
     )
+    return reserve_caption_slots(query, reranked, selected)

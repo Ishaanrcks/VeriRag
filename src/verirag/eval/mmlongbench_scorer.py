@@ -44,6 +44,8 @@ from __future__ import annotations
 
 import ast
 import re
+
+from verirag.config import settings
 import time
 from collections.abc import Callable
 from math import isclose

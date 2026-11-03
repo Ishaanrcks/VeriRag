@@ -57,6 +57,8 @@ CONFIGS: dict[str, tuple[str, str, bool]] = {
     "C1": ("gate2_visual_verify", "pooled", True),
     # C1 with the regeneration loop capped at 1 instead of 2.
     "C2": ("gate2_visual_verify,critic_iterations_one", "pooled", True),
+    # P3 = C2 + p3_bundle (caption_slots + list_row_scope; fullest_form was dropped).
+    "P3": ("gate2_visual_verify,critic_iterations_one,p3_bundle", "pooled", True),
 }
 
 app = modal.App(f"{APP_PREFIX}-matrix", image=image)

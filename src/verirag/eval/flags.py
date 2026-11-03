@@ -36,6 +36,7 @@ FLAGS = (
     "extractor_format_hint",
     "critic_iterations_one",
     "visual_count",
+    "p3_bundle",
 )
 
 

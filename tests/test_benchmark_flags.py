@@ -387,3 +387,103 @@ def test_production_default_keeps_two_iterations():
 
     assert Settings().max_critic_iterations == 2
     assert Settings().critic_iterations_one is False
+
+
+# --------------------------------------------------------------------------
+# p3_bundle 1: caption_slots
+# --------------------------------------------------------------------------
+def _h(cid, ctype, doc, page, score):
+    return SearchHit(chunk_id=cid, raw_text=f"{ctype} {cid}", rerank_score=score,
+                     metadata={"content_type": ctype, "doc_id": doc, "page": page,
+                               "source_path": f"/d/{doc}"})
+
+
+def test_caption_slots_promotes_a_same_document_caption(monkeypatch):
+    import verirag.retrieval.hybrid as H
+
+    monkeypatch.setattr(settings, "p3_bundle", True)
+    reranked = [_h("cap", "figure_caption", "A", 1, 0.99)] + [
+        _h(f"t{i}", "text", "A", i, 0.9 - i / 100) for i in range(8)]
+    selected = [h for h in reranked if h.metadata["content_type"] == "text"][:8]
+    out = H.reserve_caption_slots("What does the figure show?", reranked, selected)
+    assert any(h.metadata["content_type"] == "figure_caption" for h in out)
+    assert len(out) == len(selected)              # the context never grows
+
+
+def test_caption_slots_never_pulls_from_another_document(monkeypatch):
+    """The Q18/Q123 failure: a high-scoring chunk from an unrelated document
+    entering the context is what broke two unanswerable questions."""
+    import verirag.retrieval.hybrid as H
+
+    monkeypatch.setattr(settings, "p3_bundle", True)
+    reranked = [_h("t0", "text", "A", 1, 0.9),
+                _h("other", "figure_caption", "B", 1, 0.99)]
+    selected = [reranked[0]]
+    out = H.reserve_caption_slots("What does the figure show?", reranked, selected)
+    assert [h.chunk_id for h in out] == ["t0"]    # unchanged
+    assert all(str(h.metadata["doc_id"]) == "A" for h in out)
+
+
+def test_caption_slots_does_nothing_without_a_figure_word(monkeypatch):
+    import verirag.retrieval.hybrid as H
+
+    monkeypatch.setattr(settings, "p3_bundle", True)
+    reranked = [_h("t0", "text", "A", 1, 0.9), _h("cap", "figure_caption", "A", 2, 0.8)]
+    out = H.reserve_caption_slots("What is the effective tax rate?", reranked, [reranked[0]])
+    assert [h.chunk_id for h in out] == ["t0"]
+
+
+def test_caption_slots_does_nothing_when_no_caption_was_retrieved(monkeypatch):
+    import verirag.retrieval.hybrid as H
+
+    monkeypatch.setattr(settings, "p3_bundle", True)
+    reranked = [_h("t0", "text", "A", 1, 0.9), _h("t1", "text", "A", 2, 0.8)]
+    out = H.reserve_caption_slots("What does the chart show?", reranked, list(reranked))
+    assert [h.chunk_id for h in out] == ["t0", "t1"]
+
+
+def test_caption_slots_is_off_without_the_flag():
+    import verirag.retrieval.hybrid as H
+
+    reranked = [_h("cap", "figure_caption", "A", 1, 0.99), _h("t0", "text", "A", 2, 0.9)]
+    out = H.reserve_caption_slots("What does the figure show?", reranked, [reranked[1]])
+    assert [h.chunk_id for h in out] == ["t0"]
+
+
+def test_caption_slots_reserves_at_most_two(monkeypatch):
+    import verirag.retrieval.hybrid as H
+
+    monkeypatch.setattr(settings, "p3_bundle", True)
+    caps = [_h(f"c{i}", "figure_caption", "A", i, 0.99 - i / 100) for i in range(5)]
+    texts = [_h(f"t{i}", "text", "A", i, 0.5 - i / 100) for i in range(8)]
+    out = H.reserve_caption_slots("figure?", caps + texts, list(texts))
+    assert sum(1 for h in out if h.metadata["content_type"] == "figure_caption") == 2
+
+
+# --------------------------------------------------------------------------
+# p3_bundle 2: list_row_scope
+# --------------------------------------------------------------------------
+def test_list_row_scope_rule_is_appended_only_under_the_flag(monkeypatch):
+    from verirag.generation.generator import LIST_ROW_SCOPE_RULE, _SYSTEM_PROMPT
+
+    assert "take the list" not in _SYSTEM_PROMPT          # not in the base prompt
+    assert "from the one row or table the question names" in LIST_ROW_SCOPE_RULE
+    assert "do not add items from neighbouring rows" in LIST_ROW_SCOPE_RULE
+
+
+def test_list_row_scope_reaches_the_generator_prompt(monkeypatch):
+    import verirag.generation.generator as G
+
+    seen = {}
+    monkeypatch.setattr(G, "chat_completion",
+                        lambda messages, **kw: seen.setdefault("p", messages[0]["content"]) and "" or "x [1]")
+    hits = [SearchHit(chunk_id="c1", raw_text="| a | b |",
+                      metadata={"content_type": "table", "page": 1, "source_path": "/d/x.pdf",
+                                "doc_id": "d", "parent_text": "| a | b |"})]
+    monkeypatch.setattr(settings, "p3_bundle", False)
+    G.generate_answer("List the specifications.", hits, G.AnswerFormat.CONCISE)
+    assert "from the one row or table" not in seen["p"]
+    seen.clear()
+    monkeypatch.setattr(settings, "p3_bundle", True)
+    G.generate_answer("List the specifications.", hits, G.AnswerFormat.CONCISE)
+    assert "from the one row or table" in seen["p"]

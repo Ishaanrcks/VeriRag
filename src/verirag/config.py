@@ -142,6 +142,16 @@ class Settings(BaseSettings):
     # questions whose answer is only visible in a picture (13 of which are in no
     # stored chunk at all, because a caption describes a figure rather than
     # enumerating its contents).
+    # p3_bundle: three narrow fixes measured on the C2 baseline --
+    #   caption_slots   reserve 2 of the 8 final slots for same-document captions
+    #                   on questions that mention a figure (Q4: its gold value is
+    #                   in a caption ranked #1 that never reached the generator)
+    #   list_row_scope  take a list from the row the question names (Q155 built its
+    #                   list from the wrong table)
+    #   fullest_form    prefer the longest form of an extracted value present in the
+    #                   answer (Q186 gave city names where gold wanted full addresses)
+    p3_bundle: bool = False
+    caption_slots_reserved: int = 2
     visual_count: bool = False
     visual_count_calls_per_question: int = 6
     # Benchmark runs pin generation to temperature 0 so a rerun is comparable;
