@@ -20,14 +20,19 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 import modal
 
-from eval_modal.image import MODEL_CACHE, VOLUME_PATH, secret as verirag_secret, volume, volumes
-
+# Inlined from eval_modal/image.py so this module has NO eval_modal import at
+# container runtime -- the ragas image mounts only the payloads, not the repo, and
+# a top-level eval_modal import crash-loops every container (that was the bug).
 APP_PREFIX = "veri-rag"
+VOLUME_NAME = "veri-rag-mmlongbench"
+VOLUME_PATH = "/vol"
+MODEL_CACHE = "/models"
 STORE = f"{VOLUME_PATH}/mmlongbench"
+
+volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
+volumes = {VOLUME_PATH: volume}
 SHARDS = 4
 LOCAL_PAYLOADS = "/tmp/claude-501/matrix"   # payloads_{C2,R2,M0}.json live here
 
@@ -36,8 +41,11 @@ RAGAS_PINS = [
     "ragas==0.2.15", "langchain==0.3.14", "langchain-core==0.3.29",
     "langchain-community==0.3.14", "langchain-openai==0.2.14",
     "langchain-text-splitters==0.3.5", "litellm", "sentence-transformers",
-    "chromadb", "datasets", "huggingface_hub",
+    "chromadb", "huggingface_hub",
 ]
+# Python 3.12, NOT 3.11: ragas pulls datasets->pyarrow (needs numpy>=2), and
+# langchain-community caps numpy<2 only for python < 3.12. The local venv that the
+# smoke test passed on is 3.13, so 3.12 mirrors it. On 3.11 the two are irreconcilable.
 EMBED_MODEL = "BAAI/bge-base-en-v1.5"
 _bake = (
     "from huggingface_hub import snapshot_download; "
@@ -45,7 +53,7 @@ _bake = (
 )
 
 image = (
-    modal.Image.debian_slim(python_version="3.11")
+    modal.Image.debian_slim(python_version="3.12")
     .pip_install(*RAGAS_PINS)
     .env({"HF_HOME": MODEL_CACHE, "PYTHONUNBUFFERED": "1", "TOKENIZERS_PARALLELISM": "false"})
     .run_commands(f'python -c "{_bake}"')
@@ -73,13 +81,13 @@ def _citation_chunk_ids(r: dict) -> list[str]:
 
 
 @app.function(cpu=4, memory=8192, timeout=7200, retries=0,
-              volumes=volumes, secrets=[verirag_secret(), groq_secret])
+              volumes=volumes, secrets=[groq_secret])
 def score_shard(config: str, index: int) -> list[dict]:
     """Score one strided shard; returns per-question metric rows."""
     volume.reload()
     import chromadb
-    from datasets import Dataset
     from ragas import evaluate
+    from ragas.dataset_schema import EvaluationDataset, SingleTurnSample
     from ragas.embeddings import LangchainEmbeddingsWrapper
     from ragas.llms import LangchainLLMWrapper
     from ragas.metrics import (answer_relevancy, context_precision,
@@ -107,9 +115,14 @@ def score_shard(config: str, index: int) -> list[dict]:
                          question=q["question"], ground_truth=str(q["ground_truth"]),
                          answer=_verified_answer(q), contexts=ctx))
 
-    ds = Dataset.from_list([dict(question=r["question"], answer=r["answer"],
-                                 contexts=r["contexts"], ground_truth=r["ground_truth"])
-                            for r in rows])
+    # ragas's native dataset (no HF datasets/pyarrow). An answer with no citations
+    # has no contexts; a single empty context keeps the sample valid and scores the
+    # context metrics as 0/NaN, which is the honest reading of "nothing grounded it".
+    ds = EvaluationDataset(samples=[
+        SingleTurnSample(user_input=r["question"], response=r["answer"],
+                         retrieved_contexts=r["contexts"] or [""],
+                         reference=r["ground_truth"])
+        for r in rows])
     judge = LangchainLLMWrapper(ChatOpenAI(
         model=JUDGE_MODEL, base_url="https://api.groq.com/openai/v1",
         api_key=os.environ["GROQ_API_KEY"], temperature=0.0, max_tokens=2048, timeout=120))
@@ -139,7 +152,7 @@ def _num(v):
         return None
 
 
-@app.function(cpu=2, memory=4096, timeout=1800, volumes=volumes, secrets=[verirag_secret()])
+@app.function(cpu=2, memory=4096, timeout=1800, volumes=volumes, secrets=[groq_secret])
 def merge(config: str, shard_rows: list[list[dict]]) -> dict:
     """One report from the shard rows: mean and standard error per metric, in-image."""
     rows = [r for shard in shard_rows for r in shard]
