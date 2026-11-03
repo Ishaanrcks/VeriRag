@@ -167,90 +167,18 @@ def _gate_badge(label: str, passed: bool) -> str:
             f"border-radius:11px;font-size:0.82em'>{label} {word}</span>")
 
 
-def _render_result(query, r) -> tuple[str, str]:
-    """(answer_markdown, sources_markdown) for a VeriRAGResult."""
-    abstained = bool(getattr(r, "abstained", False))
-    outcome = getattr(r, "outcome", "verified")
-
-    if abstained:
-        if outcome == "abstained_ungrounded":
-            head = ("[blocked] **Could not verify the answer.** VeriRAG found relevant material "
-                    "and drafted an answer, but at least one claim could not be verified — "
-                    "withheld rather than shown unverified.")
-        elif outcome == "abstained_insufficient":
-            head = ("[--] **Not enough relevant information.** VeriRAG declined rather than "
-                    "answering from general knowledge.")
-        else:
-            head = "[--] **VeriRAG declined to answer.**"
-        why = getattr(r, "abstention_reason", None) or "No reason recorded."
-        ans = f"{head}\n\n<details open><summary><b>Why</b></summary>\n\n{why}\n\n</details>"
-        srcs = ""
-        if outcome == "abstained_ungrounded":
-            srcs = _excerpts_md(getattr(r, "retrieved_citations", []) or [])
-        return ans, srcs
-
-    parts = []
-    if outcome == "partial":
-        parts.append("[partial] **Partially verified.** Some statements could not be verified "
-                     "against the sources; only those under *Verified facts* are confirmed — "
-                     "treat the rest with caution.")
-    parts.append("### Answer\n\n" + (getattr(r, "answer", None) or ""))
-
-    g1 = getattr(r, "gate1_verdict", None)
-    g2 = getattr(r, "gate2_verdict", None)
-    g1_ok = bool(g1 and getattr(g1, "verdict", "") == "sufficient")
-    g2_ok = bool(g2 and getattr(g2, "overall_grounded", False))
-    badges = (_gate_badge("Gate 1 coverage", g1_ok) +
-              " <span style='color:#888'>-&gt;</span> " +
-              _gate_badge("Gate 2 groundedness", g2_ok))
-    corrections = getattr(r, "regeneration_count", 0)
-    verdict_word = "Partially verified" if outcome == "partial" else "Verified"
-    parts.append(badges + f"\n\n_{verdict_word} · {getattr(r,'total_latency_ms',0)/1000:.1f}s · "
-                 f"{corrections} self-correction{'' if corrections == 1 else 's'} · "
-                 f"~${getattr(r,'estimated_cost_usd',0):.4f}_")
-
-    if SHOW_CANDIDATE and getattr(r, "candidate_answer", None):
-        reason = getattr(r, "candidate_reason", None)
-        parts.append("### [!] Unverified candidate (not quality-checked)\n\n"
-                     + (f"_{reason}_\n\n" if reason else "") + r.candidate_answer)
-
-    return "\n\n".join(parts), _sources_md(getattr(r, "citations", []) or [])
-
-
 import re as _re
 
 
 def _clean_table_cell(text: str) -> str:
-    """Strip PDF text-extraction artefacts from table content: leader dots
-    (". . . ."), merged CamelCase words, and runs of whitespace. Applied only to
-    table chunks (the core already serialized them to GFM markdown; we clean that
-    serialized string, since per-cell data is not exposed here)."""
+    """Strip PDF text-extraction artefacts from table content: leader dots, merged
+    CamelCase words, and runs of whitespace."""
     if not isinstance(text, str):
         return str(text)
     text = _re.sub(r"(\.\s*){3,}", " ", text)
     text = _re.sub(r"([a-z])([A-Z])", r"\1 \2", text)
     text = _re.sub(r"\s{2,}", " ", text)
     return text.strip()
-
-
-def _pdf_link(abs_path: str, page=None) -> str:
-    """A clickable link that opens the file (at an exact page for PDFs) in a new
-    tab. Gradio serves it at /file=<abs_path> when the dir is in allowed_paths."""
-    if not abs_path:
-        return ""
-    if str(abs_path).lower().endswith(".pdf") and page not in (None, "", "-"):
-        return f'<a href="/file={abs_path}#page={page}" target="_blank">p.{page} (open)</a>'
-    return f'<a href="/file={abs_path}" target="_blank">open</a>'
-
-
-def _resolve_doc_path(doc_name: str) -> str | None:
-    """Absolute path for a retrieved chunk's document, when resolvable. Demo-corpus
-    files resolve by name; session uploads (Gradio temp paths) do not, so they get
-    no link rather than a broken one."""
-    if not doc_name:
-        return None
-    cand = H.DEMO_CORPUS_DIR / doc_name
-    return str(cand) if cand.exists() else None
 
 
 def _provenance(content_types) -> str:
@@ -260,57 +188,94 @@ def _provenance(content_types) -> str:
     return " + ".join(labels) or "text"
 
 
-def _sources_md(citations) -> str:
+def _render_result(query, r: dict) -> tuple[str, str]:
+    """(answer_markdown, sources_markdown) from the backend's JSON result dict."""
+    outcome = r.get("outcome", "verified")
+
+    if r.get("abstained"):
+        if outcome == "abstained_ungrounded":
+            head = ("[blocked] **Could not verify the answer.** VeriRAG found relevant material "
+                    "and drafted an answer, but at least one claim could not be verified — "
+                    "withheld rather than shown unverified.")
+        elif outcome == "abstained_insufficient":
+            head = ("[--] **Not enough relevant information.** VeriRAG declined rather than "
+                    "answering from general knowledge.")
+        else:
+            head = "[--] **VeriRAG declined to answer.**"
+        why = r.get("abstention_reason") or "No reason recorded."
+        ans = f"{head}\n\n<details open><summary><b>Why</b></summary>\n\n{why}\n\n</details>"
+        srcs = _excerpts_md(r.get("retrieved_citations") or []) if outcome == "abstained_ungrounded" else ""
+        return ans, srcs
+
+    parts = []
+    if outcome == "partial":
+        parts.append("[partial] **Partially verified.** Some statements could not be verified "
+                     "against the sources; only those under *Verified facts* are confirmed — "
+                     "treat the rest with caution.")
+    parts.append("### Answer\n\n" + (r.get("answer") or ""))
+
+    g1, g2 = r.get("gate1_verdict") or {}, r.get("gate2_verdict") or {}
+    g1_ok = g1.get("verdict") == "sufficient"
+    g2_ok = bool(g2.get("overall_grounded"))
+    badges = (_gate_badge("Gate 1 coverage", g1_ok) +
+              " <span style='color:#888'>-&gt;</span> " +
+              _gate_badge("Gate 2 groundedness", g2_ok))
+    corrections = r.get("regeneration_count", 0)
+    verdict_word = "Partially verified" if outcome == "partial" else "Verified"
+    parts.append(badges + f"\n\n_{verdict_word} · {r.get('total_latency_ms', 0) / 1000:.1f}s · "
+                 f"{corrections} self-correction{'' if corrections == 1 else 's'} · "
+                 f"~${r.get('estimated_cost_usd', 0):.4f}_")
+
+    if SHOW_CANDIDATE and r.get("candidate_answer"):
+        reason = r.get("candidate_reason")
+        parts.append("### [!] Unverified candidate (not quality-checked)\n\n"
+                     + (f"_{reason}_\n\n" if reason else "") + r["candidate_answer"])
+
+    return "\n\n".join(parts), _sources_md(r.get("citations") or [], r.get("media") or {})
+
+
+def _sources_md(citations: list[dict], media: dict) -> str:
     if not citations:
         return ""
-    from pathlib import Path
-    media = H.media_by_chunk_id(citations)
     out = ["### Sources"]
     for c in citations:
-        prov = _provenance(getattr(c, "content_types", []))
-        if getattr(c, "source_type", "") == "external":
-            out.append(f"**[{c.number}]** *external* — [{c.url}]({c.url}) · {prov}")
+        prov = _provenance(c.get("content_types"))
+        if c.get("source_type") == "external":
+            out.append(f"**[{c['number']}]** *external* — [{c.get('url')}]({c.get('url')}) · {prov}")
         else:
-            src = getattr(c, "source_path", "") or ""
-            page_list = [p for p in (getattr(c, "pages", []) or [])]
-            pages = ", ".join(str(p) for p in page_list)
+            pages = ", ".join(str(p) for p in (c.get("pages") or []))
             ptxt = f" · page(s) {pages}" if pages else ""
-            link = f" · {_pdf_link(src, page_list[0] if page_list else None)}" if src else ""
-            out.append(f"**[{c.number}]** *local* — `{src}`{ptxt} · {prov}{link}")
-        for cid in getattr(c, "contributing_chunk_ids", []) or []:
+            out.append(f"**[{c['number']}]** *local* — `{c.get('source_path','')}`{ptxt} · {prov}")
+        for cid in c.get("contributing_chunk_ids") or []:
             m = media.get(cid)
             if not m:
                 continue
             if m["content_type"] == "table" and m.get("text"):
                 out.append(f"_Table — page {m.get('page')}_\n\n{_clean_table_cell(m['text'])}")
             elif m["content_type"] == "figure_caption":
-                ip = m.get("image_path")
-                if ip and os.path.exists(ip) and H.image_path_is_safe(ip):
-                    out.append(f"![figure]({ip})\n\n_Figure — page {m.get('page')}_")
+                if m.get("image_b64"):          # backend sent the crop as a data URI
+                    out.append(f"![figure]({m['image_b64']})\n\n_Figure — page {m.get('page')}_")
                 elif m.get("text"):
                     out.append(f"_Figure — page {m.get('page')}_: {m['text']}")
     return "\n\n".join(out)
 
 
-def _excerpts_md(citations) -> str:
+def _excerpts_md(citations: list[dict]) -> str:
     if not citations:
         return ""
     out = ["### Relevant excerpts from your documents",
            "_The retrieved passages the generator saw. Shown because the answer "
            "could not be verified — inspect them yourself._"]
     for c in citations:
-        txt = getattr(c, "parent_text", "") or ""
-        out.append(f"> {html.escape(txt[:1200])}")
+        out.append(f"> {html.escape((c.get('parent_text') or '')[:1200])}")
     return "\n\n".join(out)
 
 
-def _trace_md(r) -> str:
-    trace = getattr(r, "trace", []) or []
-    head = (f"_{len(trace)} step(s) · {getattr(r,'regeneration_count',0)} regeneration(s) · "
-            f"{getattr(r,'llm_call_count',0)} LLM call(s)_\n")
-    lines = [head]
-    for i, step in enumerate(trace, 1):
-        lines.append(f"{i}. {H.friendly_step(step)}  \n   _{step}_")
+def _trace_md(r: dict) -> str:
+    trace = r.get("trace") or []
+    head = (f"_{len(trace)} step(s) · {r.get('regeneration_count', 0)} regeneration(s) · "
+            f"{r.get('llm_call_count', 0)} LLM call(s)_\n")
+    lines = [head] + [f"{i}. {H.friendly_step(s)}  \n   _{s}_" for i, s in enumerate(trace, 1)]
     return "\n".join(lines)
 
 
@@ -383,115 +348,9 @@ def ask(question, pdf_format, corpus_only, free_used, byo_key, session_id):
         free_used += 1
     answer_md, sources_md = _render_result(question, result)
     status = "[OK] Done" + (f" · {FREE_QUERIES - free_used} free queries left" if use_backend else "")
-    full_log = _pipelog_md(list(getattr(result, "pipeline_log", None) or []))
-    log(f"done: outcome={getattr(result,'outcome',None)}")
+    full_log = result.get("pipelog_md") or "Run a query to see the pipeline trace."
+    log(f"done: outcome={result.get('outcome')}")
     yield (status, answer_md, sources_md, _trace_md(result), full_log, free_used)
-
-
-# ---------------------------------------------------------------------------
-# Pipeline Log rendering
-# ---------------------------------------------------------------------------
-_TYPE_COLORS = {"text": "#6495ed", "table": "#2ea043", "image caption": "#ab7dff"}
-
-
-def _pipelog_md(events) -> str:
-    if not events:
-        return "Run a query to see the pipeline trace."
-    from verirag.pipeline_log import (abstain_parts, gate1_line, gate2_rows,
-                                      included_lines, retrieval_rows)
-
-    def of(stage):
-        return [e for e in events if e.stage == stage]
-
-    out: list[str] = []
-    rets = of("retrieval")
-    if rets:
-        ev = rets[-1]
-        n, m = ev.detail["chunk_count"], ev.detail["doc_count"]
-        out.append(f"### Retrieval — {n} chunk(s) from {m} document(s)")
-        rows = retrieval_rows(ev.detail["chunks"])
-        for row, chunk in zip(rows, ev.detail["chunks"]):
-            abs_path = _resolve_doc_path(chunk.get("doc_name"))
-            if abs_path:                       # CHANGE 4: clickable page link
-                row["Page"] = _pdf_link(abs_path, chunk.get("page"))
-            if "table" in str(row.get("Type", "")).lower():   # CHANGE 5: clean table text
-                row["Snippet"] = _clean_table_cell(row.get("Snippet", ""))
-        out.append(_rows_table(rows,
-                               ["Rank", "Page", "Type", "Score", "Document", "Snippet"]))
-        out.append("_Score is the cross-encoder rerank score (the value Gate 1 reads)._")
-
-    ctxs = of("context")
-    if ctxs:
-        ev = ctxs[-1]
-        lines = included_lines(ev.detail["chunks_included"])
-        out.append("### Final context sent to LLM")
-        out.append(f"_{len(ev.detail['chunks_included'])} chunk(s) included:_")
-        out += [f"- {ln}" for ln in lines[:15]]
-        if len(lines) > 15:
-            out.append(f"_... and {len(lines) - 15} more_")
-        out.append(f"<details><summary>View exact context — "
-                   f"{ev.detail['char_count']:,} characters</summary>\n\n```\n"
-                   f"{ev.detail['full_context'][:20000]}\n```\n\n</details>")
-
-    out.append("### Gate 1 — Coverage")
-    g1 = of("gate1")
-    if g1:
-        for ev in g1:
-            ok = ev.detail["verdict"] == "pass"
-            out.append(("[OK] " if ok else "[!] ") + gate1_line(ev.detail))
-    else:
-        out.append("_Gate 1 did not run on this path (whole-document summarization skips it)._")
-
-    regens = of("regen")
-    if regens:
-        out.append("### Regeneration")
-        for ev in regens:
-            d = ev.detail
-            out.append(f"[i] Attempt {d['iteration']} of {d['max_iterations']} — "
-                       f"triggered by: {d['reason']}")
-
-    g2 = of("gate2")
-    if g2:
-        out.append("### Gate 2 — Groundedness")
-        if len(g2) > 1:
-            out.append(f"_Gate 2 ran {len(g2)} times; showing the final check._")
-        claims = g2[-1].detail["claims"]
-        if claims:
-            out.append(_rows_table(gate2_rows(claims),
-                                   ["Claim", "Verdict", "Source Type", "Score"]))
-            out.append("_Score: NLI prob. or token-overlap, by verdict type._")
-        else:
-            out.append("_No checkable claims were extracted from the answer._")
-
-    out.append("### Result")
-    ab, an = of("abstain"), of("answer")
-    if ab:
-        head, bullets = abstain_parts(ab[-1].detail["reason"])
-        out.append(f"[!] **Abstained — {head}**")
-        out += [f"- {b}" for b in bullets]
-    elif an:
-        out.append("[OK] **Answered**")
-        out.append(an[-1].detail["text"])
-    return "\n\n".join(out)
-
-
-def _rows_table(rows, cols) -> str:
-    """A GFM markdown table from a list of dict rows (Gradio Markdown renders it)."""
-    if not rows:
-        return "_(none)_"
-    present = [c for c in cols if any(c in r for r in rows)]
-    head = "| " + " | ".join(present) + " |"
-    sep = "| " + " | ".join("---" for _ in present) + " |"
-    body = []
-    for r in rows:
-        cells = []
-        for c in present:
-            v = r.get(c, "")
-            if isinstance(v, float):
-                v = f"{v:.3f}"
-            cells.append(str(v).replace("\n", " ").replace("|", "\\|")[:200])
-        body.append("| " + " | ".join(cells) + " |")
-    return "\n".join([head, sep, *body])
 
 
 # ---------------------------------------------------------------------------
@@ -628,8 +487,4 @@ if __name__ == "__main__":
         print("WARNING: DEEPSEEK_API_KEY is not set — the free path will fail until it is.")
     _DEMO_NAMES = H.startup()
     print(f"Demo corpus preloaded: {_DEMO_NAMES}")
-    build_demo().queue(max_size=16).launch(
-        server_name="0.0.0.0",
-        # serve demo-corpus files (and uploads) over /file= so PDF page links open
-        allowed_paths=[str(H.DEMO_CORPUS_DIR), str(H.UPLOAD_TEMP_DIR)],
-    )
+    build_demo().queue(max_size=16).launch(server_name="0.0.0.0")
