@@ -1,0 +1,24 @@
+# VeriRAG demo — CPU-only Hugging Face Space.
+# Pins mirror the research requirements.txt so the Space runs the pipeline exactly
+# as final-c2 ships. CPU torch wheel (no CUDA) via the index-url below.
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# --- UI: Gradio pinned to a version with gr.BrowserState (added 4.42; 5.x stable) ---
+gradio==5.9.1
+
+# --- pipeline core (match the frozen stack) ---
+langchain==1.4.6
+langchain-community==0.4.2
+langchain-openai==1.7.2
+langgraph==1.2.16
+pydantic==2.14.1
+pydantic-settings==2.16.1
+chromadb==1.5.9
+sentence-transformers==6.2.0
+transformers==5.20.2
+torch==2.14.1
+pymupdf==2.0
+openai==3.36.0
+tenacity==9.2.1
+numpy==2.4.6
+rank-bm25==0.2.2
