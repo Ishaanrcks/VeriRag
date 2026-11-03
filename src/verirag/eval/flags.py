@@ -37,6 +37,7 @@ FLAGS = (
     "critic_iterations_one",
     "visual_count",
     "p3_bundle",
+    "unverified_candidate",
 )
 
 

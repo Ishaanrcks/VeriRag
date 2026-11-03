@@ -81,6 +81,13 @@ class VeriRAGResult:
     total_latency_ms: float = 0.0
     llm_call_count: int = 0
     estimated_cost_usd: float = 0.0
+    # BENCHMARK FLAG unverified_candidate. Strictly separate from `answer`: the
+    # candidate is what the pipeline WOULD have said with nothing verifying it,
+    # measured at 50% precision, so it is a lead and never an answer. None unless
+    # the flag is on and the pipeline declined.
+    candidate_answer: str | None = None
+    candidate_reason: str | None = None
+    candidate_sources: list = field(default_factory=list)
     gate1_verdict: Gate1Verdict | None = None
     gate2_verdict: Gate2Verdict | None = None
     # Citations from the last generation attempt. On ``verified`` this
@@ -354,6 +361,7 @@ def _build_result(
     retrieved_citations = (
         list(generated_answer.citations) if generated_answer else []
     )
+    candidate = _unverified_candidate(final_state, derived["outcome"])
     return VeriRAGResult(
         answer=final_state.get("final_answer"),
         citations=final_state.get("final_citations") or [],
@@ -370,7 +378,36 @@ def _build_result(
         retrieved_citations=retrieved_citations,
         pipeline_log=list(final_state.get("pipeline_log") or []),
         verified_facts=list(final_state.get("verified_facts") or []),
+        candidate_answer=candidate.answer if candidate else None,
+        candidate_reason=candidate.reason if candidate else None,
+        candidate_sources=candidate.sources if candidate else [],
     )
+
+
+def _unverified_candidate(final_state: dict, outcome: str):
+    """The ungated answer for a declined question, or None.
+
+    Produced only under the ``unverified_candidate`` flag, only when the pipeline
+    did NOT return a verified answer, and only when generation actually ran. A Gate 1
+    decline means nothing relevant was retrieved, so there is nothing to offer and
+    none is made -- the rule exists so that declining for want of evidence can never
+    be turned into a guess.
+    """
+    from verirag.config import settings
+
+    if not settings.unverified_candidate:
+        return None
+    if outcome == "verified":
+        return None
+    if outcome == "abstained_insufficient":   # Gate 1 declined: no evidence, no candidate
+        return None
+    generated = final_state.get("generated_answer")
+    if generated is None or not (getattr(generated, "answer_text", "") or "").strip():
+        return None
+    from verirag.generation.candidate import build_candidate
+
+    return build_candidate(generated.answer_text, final_state.get("gate2_verdict"),
+                           list(getattr(generated, "hits_used", None) or []))
 
 
 def run_query_streaming(

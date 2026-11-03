@@ -376,6 +376,11 @@ def process_question(
         gate1=(f"{g1.verdict}/{g1.decision_path}/{g1.max_rerank_score:.3f}" if g1 else None),
         gate2_labels=dict(collections.Counter(c.verdict for c in g2.claims)) if g2 else {},
         visual_checks=list(getattr(g2, "visual_checks", []) or []) if g2 else [],
+        # UNVERIFIED candidate, recorded alongside but NEVER scored: `pred` and
+        # `score` above come from the verified answer only.
+        candidate_answer=getattr(result, "candidate_answer", None),
+        candidate_reason=getattr(result, "candidate_reason", None),
+        candidate_sources=list(getattr(result, "candidate_sources", None) or []),
         retrieved=_retrieved(result),
         citations=[dict(doc_id=c.doc_id, pages=c.pages,
                         chunk_ids=c.contributing_chunk_ids)

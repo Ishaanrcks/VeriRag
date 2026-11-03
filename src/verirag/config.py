@@ -150,6 +150,11 @@ class Settings(BaseSettings):
     #                   list from the wrong table)
     #   fullest_form    prefer the longest form of an extracted value present in the
     #                   answer (Q186 gave city names where gold wanted full addresses)
+    # unverified_candidate: when the gated pipeline declines, also return the
+    # ungated answer in SEPARATE fields, clearly labelled. Measured candidate
+    # precision on the stored C2/R2 runs is 50% (20 of 40), so it is offered as a
+    # lead, never as a verified answer, and never folded into the headline score.
+    unverified_candidate: bool = False
     p3_bundle: bool = False
     caption_slots_reserved: int = 2
     visual_count: bool = False
