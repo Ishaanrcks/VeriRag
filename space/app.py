@@ -142,6 +142,19 @@ def _ingest(files, session_id):
     return "\n\n".join(msgs), _corpus_md(session_id)
 
 
+def ingest_url(url, session_id):
+    """Fetch a document by URL and ingest it into this visitor's session."""
+    if not (url or "").strip():
+        return "[!] Paste a URL first."
+    try:
+        name = H.ingest_from_url(url, session_id, MAX_PDF_MB, MAX_PDF_PAGES)
+    except DemoError as e:
+        return f"[!] {e}"
+    except Exception as e:  # noqa: BLE001
+        return f"[!] {H._friendly(e)}"
+    return f"[ok] Added **{name}** to your corpus."
+
+
 def _stats_md() -> str:
     s = H.system_stats()
     if isinstance(s, str):
@@ -528,6 +541,14 @@ def build_demo() -> gr.Blocks:
                             "Only you can query what you upload; it is cleared automatically._")
                 ingest_btn = gr.Button("Ingest uploaded files", interactive=False)
                 ingest_msg = gr.Markdown()
+                gr.Markdown("**Or add by URL**")
+                url_box = gr.Textbox(
+                    label="Document URL",
+                    placeholder="https://arxiv.org/abs/2310.11511",
+                    lines=1,
+                )
+                url_btn = gr.Button("Fetch and ingest", size="sm")
+                url_status = gr.Markdown()
                 corpus_md = gr.Markdown()
                 refresh_btn = gr.Button("Refresh corpus list", size="sm")
                 with gr.Accordion("System stats", open=False):
@@ -588,6 +609,8 @@ def build_demo() -> gr.Blocks:
                         inputs=question, outputs=ask_btn)
 
         ingest_btn.click(_ingest, inputs=[uploads, session_id], outputs=[ingest_msg, corpus_md])
+        url_btn.click(ingest_url, inputs=[url_box, session_id], outputs=url_status).then(
+            _corpus_md, inputs=session_id, outputs=corpus_md)
         refresh_btn.click(_corpus_md, inputs=session_id, outputs=corpus_md)
         stats_btn.click(_stats_md, outputs=stats_md)
 

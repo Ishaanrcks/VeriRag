@@ -22,3 +22,4 @@ openai==3.36.0
 tenacity==9.2.1
 numpy==2.4.6
 rank-bm25==0.2.2
+requests==2.34.2            # add-by-URL ingest (also a chromadb/transformers dep)
