@@ -1,0 +1,3775 @@
+{
+  "name": "mmlongbench_subset200",
+  "source": "https://huggingface.co/datasets/yubo2333/MMLongBench-Doc (data/train-00000-of-00001.parquet, 1091 questions, 135 docs)",
+  "paper": "https://arxiv.org/abs/2407.01523",
+  "corpus": "documents/<doc_id> in the HF dataset repo; NOT yet downloaded (subset needs 107 PDFs)",
+  "scope_note": "Stratified random sample of 200 of 1091, seed 42, proportional allocation (largest remainder) over group x cross_page. group = 'unanswerable' if answer == 'Not answerable', else the single evidence type (text/table/chart/layout/figure), 'multiple' if >1 evidence types, 'unlabeled_evidence' if the raw evidence_sources is empty although the question is answerable (19 in full set). cross_page = len(evidence_pages) > 1 (matches the paper's ~33%). No must_contain: MMLongBench-Doc answers are typed (Int/Float/Str/List/None) and need the benchmark's own scorer or a judge, not substring matching. evidence_pages are 1-indexed.",
+  "strata_counts": {
+    "multiple": 43,
+    "table": 26,
+    "chart": 20,
+    "figure": 33,
+    "unanswerable": 45,
+    "layout": 6,
+    "unlabeled_evidence": 3,
+    "text": 24
+  },
+  "full_dataset_breakdown": {
+    "group": {
+      "chart": "107 (9.8%)",
+      "figure": "180 (16.5%)",
+      "layout": "32 (2.9%)",
+      "multiple": "236 (21.6%)",
+      "table": "143 (13.1%)",
+      "text": "130 (11.9%)",
+      "unanswerable": "244 (22.4%)",
+      "unlabeled_evidence": "19 (1.7%)"
+    },
+    "answerability": {
+      "answer": "847 (77.6%)",
+      "decline": "244 (22.4%)"
+    },
+    "cross_page": {
+      "cross_page": "360 (33.0%)",
+      "single_or_none": "731 (67.0%)"
+    },
+    "any_evidence_type": {
+      "chart": "178 (16.3%)",
+      "figure": "293 (26.9%)",
+      "layout": "119 (10.9%)",
+      "table": "218 (20.0%)",
+      "text": "298 (27.3%)"
+    }
+  },
+  "subset_breakdown": {
+    "group": {
+      "chart": "20 (10.0%)",
+      "figure": "33 (16.5%)",
+      "layout": "6 (3.0%)",
+      "multiple": "43 (21.5%)",
+      "table": "26 (13.0%)",
+      "text": "24 (12.0%)",
+      "unanswerable": "45 (22.5%)",
+      "unlabeled_evidence": "3 (1.5%)"
+    },
+    "answerability": {
+      "answer": "155 (77.5%)",
+      "decline": "45 (22.5%)"
+    },
+    "cross_page": {
+      "cross_page": "65 (32.5%)",
+      "single_or_none": "135 (67.5%)"
+    },
+    "any_evidence_type": {
+      "chart": "33 (16.5%)",
+      "figure": "54 (27.0%)",
+      "layout": "22 (11.0%)",
+      "table": "35 (17.5%)",
+      "text": "55 (27.5%)"
+    }
+  },
+  "doc_ids": [
+    "05-03-18-political-release.pdf",
+    "0b85477387a9d0cc33fca0f4becaa0e5.pdf",
+    "0e94b4197b10096b1f4c699701570fbf.pdf",
+    "11-21-16-Updated-Post-Election-Release.pdf",
+    "2023.acl-long.386.pdf",
+    "2023.findings-emnlp.248.pdf",
+    "2210.02442v1.pdf",
+    "2303.05039v2.pdf",
+    "2303.08559v2.pdf",
+    "2305.13186v3.pdf",
+    "2306.05425v1.pdf",
+    "2307.09288v2.pdf",
+    "2309.17421v2.pdf",
+    "2310.05634v2.pdf",
+    "2310.07609v1.pdf",
+    "2310.09158v1.pdf",
+    "2311.16502v3.pdf",
+    "2312.04350v3.pdf",
+    "2312.09390v1.pdf",
+    "2312.10997v5.pdf",
+    "2401.18059v1.pdf",
+    "2405.09818v1.pdf",
+    "3276a5b991c49cf5f9a4af0f7d6fce67.pdf",
+    "3M_2018_10K.pdf",
+    "52b3137455e7ca4df65021a200aef724.pdf",
+    "698bba535087fa9a7f9009e172a7f763.pdf",
+    "8dfc21ec151fb9d3578fc32d5c4e5df9.pdf",
+    "91521110100M_4K_UHD_Display_User_Manual_V1.1.pdf",
+    "936c0e2c2e6c8e0c07c51bfaf7fd0a83.pdf",
+    "ACTIVISIONBLIZZARD_2019_10K.pdf",
+    "ADOBE_2015_10K.pdf",
+    "BESTBUY_2023_10K.pdf",
+    "Bergen-Brochure-en-2022-23.pdf",
+    "COSTCO_2021_10K.pdf",
+    "Campaign_038_Introducing_AC_Whitepaper_v5e.pdf",
+    "DSA-278777.pdf",
+    "GPL-Graduate-Studies-Professional-Learning-Brochure-Jul-2021.pdf",
+    "Guide-for-international-students-web.pdf",
+    "ISEP_student_handbook_2020.pdf",
+    "Independents-Report.pdf",
+    "Macbook_air.pdf",
+    "NETFLIX_2015_10K.pdf",
+    "NIKE_2021_10K.pdf",
+    "NUS-Business-School-BBA-Brochure-2024.pdf",
+    "NYU_graduate.pdf",
+    "PG_20.07.30_U.S.-Views-China_final.pdf",
+    "PG_2020.05.21_International-Cooperation-COVID_FINAL.pdf",
+    "PG_2021.03.04_US-Views-on-China_FINAL.pdf",
+    "PH_2016.06.08_Economy-Final.pdf",
+    "PIP_Seniors-and-Tech-Use_040314.pdf",
+    "PI_2017.10.04_Automation_FINAL.pdf",
+    "PI_2018.11.19_algorithms_FINAL.pdf",
+    "PP_2019.01.17_Trump-economy_FINAL2.pdf",
+    "PP_2020.08.06_COVID-19-Restrictions_FINAL-1.pdf",
+    "PS_2018.01.09_STEM_FINAL.pdf",
+    "PWC_opportunity_of_lifetime.pdf",
+    "Pew-Research-Center_Hispanic-Identity-Report_12.20.2017.pdf",
+    "RAR.pdf",
+    "SAO-StudentSupport_Guidebook-Content.pdf",
+    "STEPBACK.pdf",
+    "Sinopolis-Chengdu.pdf",
+    "User_Manual_1500S_Classic_EN.pdf",
+    "a5879805d70c854ea4361e43a84e3bb2.pdf",
+    "afe620b9beac86c1027b96d31d396407.pdf",
+    "amb-siteaudits-ds15-150204174043-conversion-gate01_95.pdf",
+    "asdaaburson-marstellerarabyouthsurvey2014-140407100615-phpapp01_95.pdf",
+    "avalaunchpresentationsthatkickasteriskv3copy-150318114804-conversion-gate01_95.pdf",
+    "b3m5kaeqm2w8n4bwcesw-140602121350-phpapp02_95.pdf",
+    "bdf54dxa.pdf",
+    "bigdatatrends-120723191058-phpapp02_95.pdf",
+    "c31e6580d0175ab3f9d99d1ff0bfa000.pdf",
+    "caltraincapacitymountainview1-150701205750-lva1-app6891_95.pdf",
+    "camry_ebrochure.pdf",
+    "catvsdogdlpycon15se-150512122612-lva1-app6891_95.pdf",
+    "competitiveoutcomes-091006065143-phpapp01_95.pdf",
+    "csewt7zsecmmbzjufbyx-signature-24d91a254426c21c3079384270e1f138dc43a271cfe15d6d520d68205855b2a3-poli-150306115347-conversion-gate01_95.pdf",
+    "ddoseattle-150627210357-lva1-app6891_95.pdf",
+    "digitalmeasurementframework22feb2011v6novideo-110221233835-phpapp01_95.pdf",
+    "dr-vorapptchapter1emissionsources-121120210508-phpapp02_95.pdf",
+    "e639029d16094ea71d964e2fb953952b.pdf",
+    "e79deb02a0c0e87511080836c5d4347b.pdf",
+    "earlybird-110722143746-phpapp02_95.pdf",
+    "earthlinkweb-150213112111-conversion-gate02_95.pdf",
+    "edb88a99670417f64a6b719646aed326.pdf",
+    "efd88e41c5f2606c57929cac6c1c0605.pdf",
+    "efis-140411041451-phpapp01_95.pdf",
+    "f1f5242528411b262be447e61e2eb10f.pdf",
+    "f86d073b0d735ac873a65d906ba82758.pdf",
+    "fd76bbefe469561966e5387aa709c482.pdf",
+    "finalmediafindingspdf-141228031149-conversion-gate02_95.pdf",
+    "finalpresentationdeck-whatwhyhowofcertificationsocial-160324220748_95.pdf",
+    "germanwingsdigitalcrisisanalysis-150403064828-conversion-gate01_95.pdf",
+    "guojixueshengshenghuozhinanyingwen9.1.pdf",
+    "indonesiamobilemarketresearch-ag-150106055934-conversion-gate02_95.pdf",
+    "measuringsuccessonfacebooktwitterlinkedin-160317142140_95.pdf",
+    "mi_phone.pdf",
+    "nielsen2015musicbizpresentation-final-150526143534-lva1-app6891_95.pdf",
+    "obs-productdesc-en.pdf",
+    "q1-2023-bilibili-inc-investor-presentation.pdf",
+    "reportq32015-151009093138-lva1-app6891_95.pdf",
+    "san-francisco-11-contents.pdf",
+    "stereo_headset.pdf",
+    "t480_ug_en.pdf",
+    "tacl_a_00660.pdf",
+    "transform-software-delivery-with-valueedge-brochure.pdf",
+    "watch_d.pdf",
+    "welcome-to-nus.pdf"
+  ],
+  "questions": [
+    {
+      "id": 1,
+      "source_index": 582,
+      "group": "multiple",
+      "question": "How many committee members from Texas are presented in the conference of improving the quality and efficiency of commodity distribution to federal child nutrition programs?",
+      "ground_truth": "1",
+      "expected_verdict": "answer",
+      "doc_id": "e639029d16094ea71d964e2fb953952b.pdf",
+      "doc_type": "Administration/Industry file",
+      "evidence_pages": [
+        2,
+        5
+      ],
+      "evidence_sources": [
+        "text",
+        "table"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 2,
+      "source_index": 370,
+      "group": "table",
+      "question": "Which executive directors have attended Board Meetings more than 6 times?",
+      "ground_truth": "Mr. S.V. Shanbhag",
+      "expected_verdict": "answer",
+      "doc_id": "afe620b9beac86c1027b96d31d396407.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        9
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 3,
+      "source_index": 355,
+      "group": "chart",
+      "question": "In the United States, which group has the highest proportion of people who believe that the U.S. will have less influence in world affairs after the coronavirus outbreak compared to before the outbreak?",
+      "ground_truth": "Liberal",
+      "expected_verdict": "answer",
+      "doc_id": "PG_2020.05.21_International-Cooperation-COVID_FINAL.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        19
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 4,
+      "source_index": 621,
+      "group": "multiple",
+      "question": "What year is printed on the t-shirt the man is wearing in the photograph in which he is holding a serving plate full of what gives a utility of +10 from consuming 1 assuming standard consumption economics?",
+      "ground_truth": "2007",
+      "expected_verdict": "answer",
+      "doc_id": "competitiveoutcomes-091006065143-phpapp01_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        4,
+        5
+      ],
+      "evidence_sources": [
+        "figure",
+        "text"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 5,
+      "source_index": 536,
+      "group": "figure",
+      "question": "Which category has the most topical trust flows?",
+      "ground_truth": "Recreation / Travel",
+      "expected_verdict": "answer",
+      "doc_id": "amb-siteaudits-ds15-150204174043-conversion-gate01_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        28
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 6,
+      "source_index": 1002,
+      "group": "figure",
+      "question": "In the photo provided by BRYAN VOON,  how many different people are there wearing glasses?",
+      "ground_truth": "3",
+      "expected_verdict": "answer",
+      "doc_id": "NUS-Business-School-BBA-Brochure-2024.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        22
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 7,
+      "source_index": 735,
+      "group": "figure",
+      "question": "Is the Germanwings Facebook account logo consistent before and after the first 120 minutes?",
+      "ground_truth": "yes",
+      "expected_verdict": "answer",
+      "doc_id": "germanwingsdigitalcrisisanalysis-150403064828-conversion-gate01_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        8,
+        9,
+        10
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 8,
+      "source_index": 532,
+      "group": "unanswerable",
+      "question": "According to the slides, what is the average session duration for TV?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "amb-siteaudits-ds15-150204174043-conversion-gate01_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 9,
+      "source_index": 533,
+      "group": "multiple",
+      "question": "According to the multi-channel conversion visualizer, which channel led to the most conversions?",
+      "ground_truth": "Direct",
+      "expected_verdict": "answer",
+      "doc_id": "amb-siteaudits-ds15-150204174043-conversion-gate01_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        16
+      ],
+      "evidence_sources": [
+        "table",
+        "figure"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 10,
+      "source_index": 465,
+      "group": "table",
+      "question": "Which country or region codes are needed to install Windows 10 in Mainland China?",
+      "ground_truth": "SC",
+      "expected_verdict": "answer",
+      "doc_id": "t480_ug_en.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        80
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 11,
+      "source_index": 266,
+      "group": "unanswerable",
+      "question": "How many lines go through the Union Square/Market Street station in Toronto in the slides?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "caltraincapacitymountainview1-150701205750-lva1-app6891_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 12,
+      "source_index": 997,
+      "group": "layout",
+      "question": "How much time does it take from clifton campus to the city centre by bus? Your answer should be formatted as 'xx mins'.",
+      "ground_truth": "15 mins",
+      "expected_verdict": "answer",
+      "doc_id": "Guide-for-international-students-web.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        61
+      ],
+      "evidence_sources": [
+        "layout"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 13,
+      "source_index": 749,
+      "group": "multiple",
+      "question": "What temperature sensors are illustrated with figures in the slides?",
+      "ground_truth": "['Engine temperature sensor', 'Inlet air temperature sensor']",
+      "expected_verdict": "answer",
+      "doc_id": "efis-140411041451-phpapp01_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        25,
+        27
+      ],
+      "evidence_sources": [
+        "text",
+        "figure"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 14,
+      "source_index": 802,
+      "group": "figure",
+      "question": "How many faces are shown in this document?",
+      "ground_truth": "10",
+      "expected_verdict": "answer",
+      "doc_id": "transform-software-delivery-with-valueedge-brochure.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        1,
+        6,
+        9,
+        11,
+        12,
+        18
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 15,
+      "source_index": 499,
+      "group": "multiple",
+      "question": "According to the Pew Research Center 2015 National Survey of Latinos, what is the percentages of Foreign born Latinos most often uses the name of their origin country to describe themselves?",
+      "ground_truth": "65%",
+      "expected_verdict": "answer",
+      "doc_id": "Pew-Research-Center_Hispanic-Identity-Report_12.20.2017.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        9,
+        10
+      ],
+      "evidence_sources": [
+        "chart",
+        "layout"
+      ],
+      "answer_format": "Float",
+      "cross_page": true
+    },
+    {
+      "id": 16,
+      "source_index": 826,
+      "group": "figure",
+      "question": "Which application software interfaces are displayed in the slides? ",
+      "ground_truth": "['Microsoft Office OneNote', 'SOAPWare']",
+      "expected_verdict": "answer",
+      "doc_id": "c31e6580d0175ab3f9d99d1ff0bfa000.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        6,
+        7
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 17,
+      "source_index": 478,
+      "group": "table",
+      "question": "What are the error descriptions corresponding to error numbers 88 and 188?",
+      "ground_truth": "['Boiler: over-temperature ', 'Heater error ']",
+      "expected_verdict": "answer",
+      "doc_id": "User_Manual_1500S_Classic_EN.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        88,
+        89
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 18,
+      "source_index": 690,
+      "group": "unlabeled_evidence",
+      "question": "How many % of voters reactions are \"angry\" about Trump's victory?",
+      "ground_truth": "31%",
+      "expected_verdict": "answer",
+      "doc_id": "11-21-16-Updated-Post-Election-Release.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        8
+      ],
+      "evidence_sources": [],
+      "answer_format": "Float",
+      "cross_page": false
+    },
+    {
+      "id": 19,
+      "source_index": 934,
+      "group": "chart",
+      "question": "How many lateral bar graphs are present in the document?",
+      "ground_truth": "10",
+      "expected_verdict": "answer",
+      "doc_id": "c31e6580d0175ab3f9d99d1ff0bfa000.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        15,
+        16,
+        17,
+        18
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 20,
+      "source_index": 46,
+      "group": "multiple",
+      "question": "Which Youtube does the slides use to show the consequce of blindly following data?",
+      "ground_truth": "Girl crash into lake following bad GPS direction",
+      "expected_verdict": "answer",
+      "doc_id": "ddoseattle-150627210357-lva1-app6891_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        49,
+        50
+      ],
+      "evidence_sources": [
+        "figure",
+        "layout"
+      ],
+      "answer_format": "Str",
+      "cross_page": true
+    },
+    {
+      "id": 21,
+      "source_index": 1008,
+      "group": "table",
+      "question": "what is the FY2019 fixed asset turnover ratio for Activision Blizzard?",
+      "ground_truth": "24.26",
+      "expected_verdict": "answer",
+      "doc_id": "ACTIVISIONBLIZZARD_2019_10K.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        69,
+        70
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Float",
+      "cross_page": true
+    },
+    {
+      "id": 22,
+      "source_index": 189,
+      "group": "text",
+      "question": "How many datasets are used for experiments of this paper in all? Give me an integer.",
+      "ground_truth": "9",
+      "expected_verdict": "answer",
+      "doc_id": "2303.08559v2.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        0
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 23,
+      "source_index": 269,
+      "group": "multiple",
+      "question": "How many colors are in the slide 14?",
+      "ground_truth": "6",
+      "expected_verdict": "answer",
+      "doc_id": "caltraincapacitymountainview1-150701205750-lva1-app6891_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        14
+      ],
+      "evidence_sources": [
+        "chart",
+        "layout"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 24,
+      "source_index": 434,
+      "group": "text",
+      "question": "Which dataset was introduced in the 'coding time' section of the PPT for training?",
+      "ground_truth": "Cat vs Dog dataset",
+      "expected_verdict": "answer",
+      "doc_id": "catvsdogdlpycon15se-150512122612-lva1-app6891_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        34
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 25,
+      "source_index": 937,
+      "group": "text",
+      "question": "What are the HIT applications?",
+      "ground_truth": "['Patient registration/ demographics', 'Insurance validation', 'Billing systems', 'Appointment systems', 'Computerized Physician Order Entry (CPOE)', 'EMR/EHR/CPR', 'Pharmacy systems', 'Lab systems', 'Imaging systems', 'Telemedicine', 'Patient education', 'Decision Support', 'Library resources', 'Sensors']",
+      "expected_verdict": "answer",
+      "doc_id": "c31e6580d0175ab3f9d99d1ff0bfa000.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        4
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "List",
+      "cross_page": false
+    },
+    {
+      "id": 26,
+      "source_index": 194,
+      "group": "figure",
+      "question": "How many figures in this document show the old gate of Tsinghua (\"Er Xiao Men\" in Chinese)?",
+      "ground_truth": "1",
+      "expected_verdict": "answer",
+      "doc_id": "guojixueshengshenghuozhinanyingwen9.1.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        4
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 27,
+      "source_index": 159,
+      "group": "layout",
+      "question": "According to the presentation, what are three bad fonts?",
+      "ground_truth": "['Times New Roman', 'Arial', 'Comic Sans']",
+      "expected_verdict": "answer",
+      "doc_id": "avalaunchpresentationsthatkickasteriskv3copy-150318114804-conversion-gate01_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        6
+      ],
+      "evidence_sources": [
+        "layout"
+      ],
+      "answer_format": "List",
+      "cross_page": false
+    },
+    {
+      "id": 28,
+      "source_index": 747,
+      "group": "multiple",
+      "question": "Which subsystem of fuel injection system is not elaborated?",
+      "ground_truth": "Air induction system",
+      "expected_verdict": "answer",
+      "doc_id": "efis-140411041451-phpapp01_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [],
+      "evidence_sources": [
+        "figure",
+        "text"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 29,
+      "source_index": 1016,
+      "group": "table",
+      "question": "what is long-term debt of  Costco in FY 2021? Anwser in millions.",
+      "ground_truth": "10314",
+      "expected_verdict": "answer",
+      "doc_id": "COSTCO_2021_10K.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        38,
+        53
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Float",
+      "cross_page": true
+    },
+    {
+      "id": 30,
+      "source_index": 874,
+      "group": "table",
+      "question": "How many tables are included in Pages 5-10?",
+      "ground_truth": "5",
+      "expected_verdict": "answer",
+      "doc_id": "2307.09288v2.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        6,
+        7,
+        8,
+        9
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 31,
+      "source_index": 296,
+      "group": "multiple",
+      "question": "What is the evaluation metric that has highest number for the method located at the bottom of the model structure figure across the three datasets? Please write down the answer with string format.",
+      "ground_truth": "H@10",
+      "expected_verdict": "answer",
+      "doc_id": "2303.05039v2.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        5,
+        8
+      ],
+      "evidence_sources": [
+        "text",
+        "table",
+        "figure",
+        "layout"
+      ],
+      "answer_format": "Str",
+      "cross_page": true
+    },
+    {
+      "id": 32,
+      "source_index": 337,
+      "group": "unanswerable",
+      "question": "How many people with white shirt are there in the Page 14?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "welcome-to-nus.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 33,
+      "source_index": 647,
+      "group": "multiple",
+      "question": "For the papers that adopted the Self-Refine strategy in Table 2, how many of them are not mentioned in the \"Self-Correction\" section of page 9? Write the answer in int format.",
+      "ground_truth": "5",
+      "expected_verdict": "answer",
+      "doc_id": "tacl_a_00660.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        6,
+        9
+      ],
+      "evidence_sources": [
+        "table",
+        "text"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 34,
+      "source_index": 206,
+      "group": "multiple",
+      "question": "Among the adults conducted the survey on April 25 - May 1 2018, how many adults rated Trump's government ethical standards as poor? ",
+      "ground_truth": "541",
+      "expected_verdict": "answer",
+      "doc_id": "05-03-18-political-release.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        3,
+        4
+      ],
+      "evidence_sources": [
+        "text",
+        "chart"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 35,
+      "source_index": 347,
+      "group": "chart",
+      "question": "How many Republicans are not confident at all that Trump keeps his own business interests separate from the decisions he makes as president?",
+      "ground_truth": "10%",
+      "expected_verdict": "answer",
+      "doc_id": "PP_2019.01.17_Trump-economy_FINAL2.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        9
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "Float",
+      "cross_page": false
+    },
+    {
+      "id": 36,
+      "source_index": 167,
+      "group": "figure",
+      "question": "How many percentage respondents in this survey access to internet few times a week or more?",
+      "ground_truth": "14%",
+      "expected_verdict": "answer",
+      "doc_id": "finalmediafindingspdf-141228031149-conversion-gate02_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        40,
+        41
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Float",
+      "cross_page": true
+    },
+    {
+      "id": 37,
+      "source_index": 18,
+      "group": "figure",
+      "question": "Which continent has the most number of registered participant for advanced science course in CTBTO?",
+      "ground_truth": "Europe",
+      "expected_verdict": "answer",
+      "doc_id": "0e94b4197b10096b1f4c699701570fbf.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        13
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 38,
+      "source_index": 1026,
+      "group": "text",
+      "question": "How much did COSTCO spend on repurchasing of common stock in FY2021?Answer in millions.\n",
+      "ground_truth": "495.00",
+      "expected_verdict": "answer",
+      "doc_id": "COSTCO_2021_10K.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        29
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "Float",
+      "cross_page": false
+    },
+    {
+      "id": 39,
+      "source_index": 318,
+      "group": "multiple",
+      "question": "To built-in install for the integrated diswasher model,  how many mm should the diswasher leave between the cabinet bottom and floor?",
+      "ground_truth": "100",
+      "expected_verdict": "answer",
+      "doc_id": "bdf54dxa.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        24
+      ],
+      "evidence_sources": [
+        "text",
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 40,
+      "source_index": 214,
+      "group": "multiple",
+      "question": "What is the percentage gap between the youngest age group and the oldest age group that strongly disapproves of the way the president, who started his job in 2018, was handling his job in the survey of U.S. adults conducted April 25-May 1, 2018? Please write the answer in float format",
+      "ground_truth": "7.0",
+      "expected_verdict": "answer",
+      "doc_id": "05-03-18-political-release.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        8,
+        10
+      ],
+      "evidence_sources": [
+        "text",
+        "chart"
+      ],
+      "answer_format": "Float",
+      "cross_page": true
+    },
+    {
+      "id": 41,
+      "source_index": 426,
+      "group": "figure",
+      "question": "What types of animals appear in the PPT?",
+      "ground_truth": "['Dog', 'Cat', 'Bear']",
+      "expected_verdict": "answer",
+      "doc_id": "catvsdogdlpycon15se-150512122612-lva1-app6891_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        1,
+        9
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 42,
+      "source_index": 960,
+      "group": "text",
+      "question": "Does CFCs causes skin burn? Directly answer 'yes' or 'no'.",
+      "ground_truth": "Yes",
+      "expected_verdict": "answer",
+      "doc_id": "b3m5kaeqm2w8n4bwcesw-140602121350-phpapp02_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        18,
+        20
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "Str",
+      "cross_page": true
+    },
+    {
+      "id": 43,
+      "source_index": 872,
+      "group": "figure",
+      "question": "List all the error types mentioned in the case studies in Pages 95-100",
+      "ground_truth": "['Reasoning Error', 'Perceptual Error', 'Lack of Knowledge']",
+      "expected_verdict": "answer",
+      "doc_id": "2311.16502v3.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        96,
+        98,
+        99,
+        100
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 44,
+      "source_index": 645,
+      "group": "figure",
+      "question": "How many strategies are plotted for training-time correction, generation-time correction, and post-hoc correction, respectively? Write the answer in the list format, e.g., [\"1\",\"2\"]",
+      "ground_truth": "['3', '2', '3']",
+      "expected_verdict": "answer",
+      "doc_id": "tacl_a_00660.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        6,
+        7,
+        9
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 45,
+      "source_index": 483,
+      "group": "text",
+      "question": "What technology does the car’s Wi-Fi Connect use?",
+      "ground_truth": "4G",
+      "expected_verdict": "answer",
+      "doc_id": "camry_ebrochure.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        6
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 46,
+      "source_index": 521,
+      "group": "unanswerable",
+      "question": "According to this slides, what age range accounts for the most users of the Amazon?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "measuringsuccessonfacebooktwitterlinkedin-160317142140_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 47,
+      "source_index": 1043,
+      "group": "table",
+      "question": "What is payables  turnover in FY2021 for Nike? Round your answer to two decimal places.",
+      "ground_truth": "9.67",
+      "expected_verdict": "answer",
+      "doc_id": "NIKE_2021_10K.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        59,
+        61
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Float",
+      "cross_page": true
+    },
+    {
+      "id": 48,
+      "source_index": 648,
+      "group": "multiple",
+      "question": "For the papers that adopted the Model Debate strategy in Table 2, how many of them are not mentioned in Section 3.4? Write the answer in float format.",
+      "ground_truth": "2",
+      "expected_verdict": "answer",
+      "doc_id": "tacl_a_00660.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        6,
+        10
+      ],
+      "evidence_sources": [
+        "table",
+        "text"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 49,
+      "source_index": 887,
+      "group": "text",
+      "question": "List all the sections that discuss about the experiment setup?",
+      "ground_truth": "['Section 4.1', 'Section 4.2', 'Section 4.3', 'Appendix A']",
+      "expected_verdict": "answer",
+      "doc_id": "2312.09390v1.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        7,
+        8,
+        9,
+        10,
+        28
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 50,
+      "source_index": 98,
+      "group": "unanswerable",
+      "question": "What will happen when you press twice the down button?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "watch_d.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 51,
+      "source_index": 572,
+      "group": "unanswerable",
+      "question": "What types of discrimination are most commonly reported by children in STEM jobs compared to men and experienced by teenagers in workplaces with a higher proportion of teenages in the survey of Pew Research Center, January 2018?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "PS_2018.01.09_STEM_FINAL.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 52,
+      "source_index": 430,
+      "group": "figure",
+      "question": "How many times does the image of a tiger appear in the PPT?",
+      "ground_truth": "0",
+      "expected_verdict": "answer",
+      "doc_id": "catvsdogdlpycon15se-150512122612-lva1-app6891_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 53,
+      "source_index": 868,
+      "group": "unanswerable",
+      "question": "How many tables are included in Pages 105-110?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "2311.16502v3.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 54,
+      "source_index": 127,
+      "group": "figure",
+      "question": "What is the title of the of the Figure 2?",
+      "ground_truth": "Diagram of Breccia Gashes with top denuded off but bottom shown in cliff",
+      "expected_verdict": "answer",
+      "doc_id": "fd76bbefe469561966e5387aa709c482.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        3
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 55,
+      "source_index": 391,
+      "group": "chart",
+      "question": "What is the title of the diagram on page 9?",
+      "ground_truth": "Leadership, Workforce and Infrastructure",
+      "expected_verdict": "answer",
+      "doc_id": "e79deb02a0c0e87511080836c5d4347b.pdf",
+      "doc_type": "Administration/Industry file",
+      "evidence_pages": [
+        12
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 56,
+      "source_index": 492,
+      "group": "figure",
+      "question": "How many triangles appear on the eighth side?",
+      "ground_truth": "4",
+      "expected_verdict": "answer",
+      "doc_id": "q1-2023-bilibili-inc-investor-presentation.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        8
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 57,
+      "source_index": 180,
+      "group": "multiple",
+      "question": "Among all samples belonging to 'Public Health' subject,  how many percentage samples showcased in this paper? Give me a ratio.",
+      "ground_truth": "0.55%",
+      "expected_verdict": "answer",
+      "doc_id": "2311.16502v3.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        3,
+        20
+      ],
+      "evidence_sources": [
+        "layout",
+        "figure"
+      ],
+      "answer_format": "Float",
+      "cross_page": true
+    },
+    {
+      "id": 58,
+      "source_index": 43,
+      "group": "unanswerable",
+      "question": "According to the chart \"Levels of Analytics\", what are the four business cooperation activities?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "ddoseattle-150627210357-lva1-app6891_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 59,
+      "source_index": 223,
+      "group": "multiple",
+      "question": "Among the Higher-income seniors, what are the percentage of them go online, has smartphone phone, and own a tablet computer? Please write the answer in the list format and in descend order,e.g., [\"9%\",\"8%\"] in the Pew Research Center’s Internet Project July 18-September 30, 2013 tracking survey?",
+      "ground_truth": "['90%', '42%', '39%']",
+      "expected_verdict": "answer",
+      "doc_id": "PIP_Seniors-and-Tech-Use_040314.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        8,
+        9,
+        10
+      ],
+      "evidence_sources": [
+        "table",
+        "text"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 60,
+      "source_index": 376,
+      "group": "unanswerable",
+      "question": "What were the GDP growth amounts for the third and fourth quarters respectively?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "afe620b9beac86c1027b96d31d396407.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 61,
+      "source_index": 424,
+      "group": "unanswerable",
+      "question": "What is in the overlap area between Danger Zone and Machine Learning?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "catvsdogdlpycon15se-150512122612-lva1-app6891_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 62,
+      "source_index": 659,
+      "group": "multiple",
+      "question": "Which port has the alternative function that capture Trigger from port 0-3?",
+      "ground_truth": "P1.1",
+      "expected_verdict": "answer",
+      "doc_id": "DSA-278777.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        4
+      ],
+      "evidence_sources": [
+        "text",
+        "table"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 63,
+      "source_index": 368,
+      "group": "text",
+      "question": "Where are the two plants of GODFREY PHILLIPS INDIA LIMITED located?",
+      "ground_truth": "['V.K.K. MENON ROAD (SAHAR ROAD),CHAKALA,ANDHERI (EAST),MUMBAI-400099', 'International Tobacco Company Ltd. Delhi- Meerut Road, Guldhar, Ghaziabad']",
+      "expected_verdict": "answer",
+      "doc_id": "afe620b9beac86c1027b96d31d396407.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        15
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "List",
+      "cross_page": false
+    },
+    {
+      "id": 64,
+      "source_index": 631,
+      "group": "table",
+      "question": "When using GPT-4 as the base language model, how many datasets does Logic-LM (without self-refinement) outperform the two baseline models in? ",
+      "ground_truth": "4",
+      "expected_verdict": "answer",
+      "doc_id": "2023.findings-emnlp.248.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        7
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 65,
+      "source_index": 767,
+      "group": "table",
+      "question": "What are the optimizers used in this research?",
+      "ground_truth": "SGD",
+      "expected_verdict": "answer",
+      "doc_id": "2210.02442v1.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        14,
+        15
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Str",
+      "cross_page": true
+    },
+    {
+      "id": 66,
+      "source_index": 730,
+      "group": "unanswerable",
+      "question": "How many Tweets are attributed to Boeing?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "germanwingsdigitalcrisisanalysis-150403064828-conversion-gate01_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 67,
+      "source_index": 959,
+      "group": "text",
+      "question": "What are used for long-distance communication as introduced in this slide?",
+      "ground_truth": "['radiowaves', 'microwaves']",
+      "expected_verdict": "answer",
+      "doc_id": "b3m5kaeqm2w8n4bwcesw-140602121350-phpapp02_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        17,
+        18
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 68,
+      "source_index": 953,
+      "group": "chart",
+      "question": "How many years have there been more than 4,000 births (thousands)?",
+      "ground_truth": "11",
+      "expected_verdict": "answer",
+      "doc_id": "csewt7zsecmmbzjufbyx-signature-24d91a254426c21c3079384270e1f138dc43a271cfe15d6d520d68205855b2a3-poli-150306115347-conversion-gate01_95.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        8
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 69,
+      "source_index": 285,
+      "group": "multiple",
+      "question": "In the figure that locates at the top of page 5, what is the final step? Please write down the answer in string format.",
+      "ground_truth": "4. The final prediction result with rationale.",
+      "expected_verdict": "answer",
+      "doc_id": "2310.07609v1.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        5
+      ],
+      "evidence_sources": [
+        "text",
+        "layout",
+        "figure"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 70,
+      "source_index": 283,
+      "group": "multiple",
+      "question": "In the proposed system, how many modules are implemented with Large Language Models backbone?",
+      "ground_truth": "5",
+      "expected_verdict": "answer",
+      "doc_id": "2310.07609v1.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        2
+      ],
+      "evidence_sources": [
+        "figure",
+        "text"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 71,
+      "source_index": 803,
+      "group": "figure",
+      "question": "What is the title of the page that contains a screenshot?",
+      "ground_truth": "ValueEdge insights",
+      "expected_verdict": "answer",
+      "doc_id": "transform-software-delivery-with-valueedge-brochure.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        10
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 72,
+      "source_index": 809,
+      "group": "unanswerable",
+      "question": "For those who are Phd students, what percentage of U.S. workers say technology generally makes their jobs more interesting",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "PI_2017.10.04_Automation_FINAL.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 73,
+      "source_index": 326,
+      "group": "multiple",
+      "question": "How many end-use mobile electronic devices are contained in the Enterprise cloud boxes (web disks) in the flow chart? ",
+      "ground_truth": "4",
+      "expected_verdict": "answer",
+      "doc_id": "obs-productdesc-en.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        22
+      ],
+      "evidence_sources": [
+        "text",
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 74,
+      "source_index": 57,
+      "group": "multiple",
+      "question": "In Q3 2015, what is the approximate range of cost in 1 day (dollar) of a mobile incentive platform in Vietnam for installing? Answer with a list of two number for boundary, for example [3000, 4000]",
+      "ground_truth": "[1500, 8000]",
+      "expected_verdict": "answer",
+      "doc_id": "reportq32015-151009093138-lva1-app6891_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        26,
+        27
+      ],
+      "evidence_sources": [
+        "layout",
+        "figure"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 75,
+      "source_index": 209,
+      "group": "unanswerable",
+      "question": "According to the survey on April 25 - May 1, 2018, what are the domains with the highest percentage that adults are very confident and not at all confident of  Joe Biden's govenment? Please write the answer in the list format and with alphabetical order, e.g., [\"A\",\"B\"]",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "05-03-18-political-release.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 76,
+      "source_index": 682,
+      "group": "multiple",
+      "question": "What is the deadline  month of the January intake ISEP students need to nominate supervisors and nominations of tac? Write the answer in list format, e.g., [\"Jan\",\"Feb\"]",
+      "ground_truth": "['Jun', 'Aug']",
+      "expected_verdict": "answer",
+      "doc_id": "ISEP_student_handbook_2020.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        13
+      ],
+      "evidence_sources": [
+        "chart",
+        "text"
+      ],
+      "answer_format": "List",
+      "cross_page": false
+    },
+    {
+      "id": 77,
+      "source_index": 480,
+      "group": "figure",
+      "question": "What color is the car on the cover?",
+      "ground_truth": "red",
+      "expected_verdict": "answer",
+      "doc_id": "camry_ebrochure.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        1
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 78,
+      "source_index": 605,
+      "group": "multiple",
+      "question": "Besides the two companies on page 42, what is the contact phone number of another company? Please write in string format.",
+      "ground_truth": "+1-615-591-2955",
+      "expected_verdict": "answer",
+      "doc_id": "earthlinkweb-150213112111-conversion-gate02_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        42,
+        43
+      ],
+      "evidence_sources": [
+        "figure",
+        "text"
+      ],
+      "answer_format": "Str",
+      "cross_page": true
+    },
+    {
+      "id": 79,
+      "source_index": 1082,
+      "group": "table",
+      "question": "what is total current assets in FY2023 for Bestbuy? Answer in million.",
+      "ground_truth": "8802",
+      "expected_verdict": "answer",
+      "doc_id": "BESTBUY_2023_10K.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        39
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 80,
+      "source_index": 673,
+      "group": "multiple",
+      "question": "How many cameras outside the China area does the figure at Page 19 has? Write the answer in float format.",
+      "ground_truth": "3.0",
+      "expected_verdict": "answer",
+      "doc_id": "Campaign_038_Introducing_AC_Whitepaper_v5e.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        22
+      ],
+      "evidence_sources": [
+        "layout",
+        "figure"
+      ],
+      "answer_format": "Float",
+      "cross_page": false
+    },
+    {
+      "id": 81,
+      "source_index": 938,
+      "group": "text",
+      "question": "How many times does \"HIT\" appear in slide?",
+      "ground_truth": "3",
+      "expected_verdict": "answer",
+      "doc_id": "c31e6580d0175ab3f9d99d1ff0bfa000.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        1,
+        3,
+        4
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 82,
+      "source_index": 811,
+      "group": "multiple",
+      "question": "How many US workers say email or social media have had a postive impact on their own careers or jobs?",
+      "ground_truth": "2481",
+      "expected_verdict": "answer",
+      "doc_id": "PI_2017.10.04_Automation_FINAL.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        3,
+        12
+      ],
+      "evidence_sources": [
+        "chart",
+        "text"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 83,
+      "source_index": 94,
+      "group": "figure",
+      "question": "How many incorrect postures of measuring blood pressure are demostrated if this guidebook?",
+      "ground_truth": "8",
+      "expected_verdict": "answer",
+      "doc_id": "watch_d.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        15
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 84,
+      "source_index": 718,
+      "group": "table",
+      "question": "What service specifications are associated with the SRM Component of Information Sharing?",
+      "ground_truth": "['Microsoft Oracle Open Database Connectivity (ODBC)', 'Microsoft Online Analytical Processing (OLAP)', 'XML for Analysis', 'Microsoft Active Server Pages (ASP)', 'Microsoft Active Server Pages .Net (ASP.Net)', 'System to System', 'Internal (within Agency)']",
+      "expected_verdict": "answer",
+      "doc_id": "936c0e2c2e6c8e0c07c51bfaf7fd0a83.pdf",
+      "doc_type": "Administration/Industry file",
+      "evidence_pages": [
+        12,
+        13
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 85,
+      "source_index": 688,
+      "group": "chart",
+      "question": "How many charts are related to mudslinging?",
+      "ground_truth": "3",
+      "expected_verdict": "answer",
+      "doc_id": "11-21-16-Updated-Post-Election-Release.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        7,
+        34
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 86,
+      "source_index": 210,
+      "group": "multiple",
+      "question": "What percentage of the party that holds the highest total percentage of good policy ideas and high ethical standards reported that they followed the news about congressional elections in their state very closely in the survey of U.S. adults conducted from April 25 to May 1, 2018?",
+      "ground_truth": "21%",
+      "expected_verdict": "answer",
+      "doc_id": "05-03-18-political-release.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        11,
+        13
+      ],
+      "evidence_sources": [
+        "chart",
+        "text"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 87,
+      "source_index": 8,
+      "group": "unanswerable",
+      "question": "What's the percentage of people who are democrats and voted in the last election compared to the entire population in 2024?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "Independents-Report.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 88,
+      "source_index": 310,
+      "group": "unanswerable",
+      "question": "In the Section Introduction, what is the subsection name contains a figure of screen in the guidebook?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "91521110100M_4K_UHD_Display_User_Manual_V1.1.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 89,
+      "source_index": 1018,
+      "group": "table",
+      "question": "what is total debt to EBITDA ratio of COSTCO in FY2021?round your answer to three decimal places.",
+      "ground_truth": "1.344",
+      "expected_verdict": "answer",
+      "doc_id": "COSTCO_2021_10K.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        36,
+        38,
+        40,
+        53
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Float",
+      "cross_page": true
+    },
+    {
+      "id": 90,
+      "source_index": 147,
+      "group": "figure",
+      "question": "How many \"Redacted\" signals in Page 0286 in all?",
+      "ground_truth": "8",
+      "expected_verdict": "answer",
+      "doc_id": "edb88a99670417f64a6b719646aed326.pdf",
+      "doc_type": "Administration/Industry file",
+      "evidence_pages": [
+        17
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 91,
+      "source_index": 971,
+      "group": "unanswerable",
+      "question": "According to the paper, there are five different relation types between two events.",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "2310.09158v1.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 92,
+      "source_index": 342,
+      "group": "text",
+      "question": "For the learning resources, which facilities are opened on Saturday in NUS Kent Ridge Campus? Give me a list.",
+      "ground_truth": "['Computing Commons', 'Central Library', 'Medical Library', 'Chinese Library', 'Science Library', 'Hon Sui Sen Memorial Library']",
+      "expected_verdict": "answer",
+      "doc_id": "welcome-to-nus.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        19,
+        20
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 93,
+      "source_index": 451,
+      "group": "table",
+      "question": "In the 4-shot classification task, how much higher is the top-5 average accuracy of RAR (LLaVA1.5) compared to the top-1 accuracy?\n\n",
+      "ground_truth": "18.9%",
+      "expected_verdict": "answer",
+      "doc_id": "RAR.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        24,
+        25
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Float",
+      "cross_page": true
+    },
+    {
+      "id": 94,
+      "source_index": 62,
+      "group": "chart",
+      "question": "In figure 1, which relation arrows do not point to specific leaf nodes?",
+      "ground_truth": "['movement', 'birth', 'place of birth', 'member']",
+      "expected_verdict": "answer",
+      "doc_id": "2310.05634v2.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        1
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "List",
+      "cross_page": false
+    },
+    {
+      "id": 95,
+      "source_index": 16,
+      "group": "text",
+      "question": "How does this document define the law of good gestalt?",
+      "ground_truth": "Elements of objects tend to be perceptually grouped together if they form a pattern that is regular, simple, and orderly.",
+      "expected_verdict": "answer",
+      "doc_id": "0e94b4197b10096b1f4c699701570fbf.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        11
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 96,
+      "source_index": 972,
+      "group": "unanswerable",
+      "question": "The authors propose four different solutions for logical reasoning of LLMs.",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "2310.09158v1.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 97,
+      "source_index": 52,
+      "group": "chart",
+      "question": "Regarding the global iOS breakdown, what percentage of the pie chart was iOS 9?",
+      "ground_truth": "51%",
+      "expected_verdict": "answer",
+      "doc_id": "reportq32015-151009093138-lva1-app6891_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        7
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "Float",
+      "cross_page": false
+    },
+    {
+      "id": 98,
+      "source_index": 479,
+      "group": "unanswerable",
+      "question": "What are the error descriptions corresponding to error numbers 288 and 388?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "User_Manual_1500S_Classic_EN.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 99,
+      "source_index": 1032,
+      "group": "text",
+      "question": "What amount did  personnel-related costs increase for Netfilx in 2015? Answer in millions.",
+      "ground_truth": "253.3",
+      "expected_verdict": "answer",
+      "doc_id": "NETFLIX_2015_10K.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        24
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "Float",
+      "cross_page": false
+    },
+    {
+      "id": 100,
+      "source_index": 297,
+      "group": "multiple",
+      "question": "How many green and grey rectangles in the first figure of the paper? Please list the numbers in the list format by descending order. e.g., [\"2\",\"1\"]",
+      "ground_truth": "['3', '1']",
+      "expected_verdict": "answer",
+      "doc_id": "2305.13186v3.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        2
+      ],
+      "evidence_sources": [
+        "figure",
+        "text"
+      ],
+      "answer_format": "List",
+      "cross_page": false
+    },
+    {
+      "id": 101,
+      "source_index": 81,
+      "group": "text",
+      "question": "Which subsection does the section \"AUGMENTATION PROCESS IN RAG\" include?",
+      "ground_truth": "['Iterative Retrieval ', 'Recursive Retrieval ', 'Adaptive Retrieval ']",
+      "expected_verdict": "answer",
+      "doc_id": "2312.10997v5.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        10,
+        11
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 102,
+      "source_index": 775,
+      "group": "figure",
+      "question": "How many subplots are related to obvious loss spikies?",
+      "ground_truth": "1",
+      "expected_verdict": "answer",
+      "doc_id": "2405.09818v1.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        6,
+        7
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 103,
+      "source_index": 709,
+      "group": "figure",
+      "question": "What DNA repair mechanisms does Figure 11 demonstrate?",
+      "ground_truth": "['Base Excision Repair (BER)', 'Nucleotide Excision Repair (NER)', 'Mismatch Repair (MMR)', 'Direct Reversal Repair', 'Recombinational Repair']",
+      "expected_verdict": "answer",
+      "doc_id": "f1f5242528411b262be447e61e2eb10f.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        18
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "List",
+      "cross_page": false
+    },
+    {
+      "id": 104,
+      "source_index": 205,
+      "group": "unanswerable",
+      "question": "According to this guideline, what is on the left side of the Thinkpad's camera?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "Macbook_air.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 105,
+      "source_index": 853,
+      "group": "multiple",
+      "question": "For first two gases that causes greenhouse effect, list their proportions of the exhaust gas from Gasoline-engine. ",
+      "ground_truth": "['13.7%', '0.1%']",
+      "expected_verdict": "answer",
+      "doc_id": "dr-vorapptchapter1emissionsources-121120210508-phpapp02_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        48,
+        49
+      ],
+      "evidence_sources": [
+        "text",
+        "chart"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 106,
+      "source_index": 15,
+      "group": "chart",
+      "question": "What range does red color represents in approximate distance from the Mississippi River in the chart that tracks the West NIle Virus in Europe?",
+      "ground_truth": "0-375 miles",
+      "expected_verdict": "answer",
+      "doc_id": "0e94b4197b10096b1f4c699701570fbf.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        10
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 107,
+      "source_index": 217,
+      "group": "unanswerable",
+      "question": "How many non-partisan people in the survey  of U.S. adults conducted April 25- May 1, 2019 said neither the Republican Party nor the Democratic Party  has ‘high ethical standards'?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "05-03-18-political-release.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 108,
+      "source_index": 320,
+      "group": "multiple",
+      "question": "How many \"objects\" with black color does the figure in Page 2 contains?",
+      "ground_truth": "7",
+      "expected_verdict": "answer",
+      "doc_id": "obs-productdesc-en.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        6
+      ],
+      "evidence_sources": [
+        "figure",
+        "text"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 109,
+      "source_index": 571,
+      "group": "multiple",
+      "question": "What types of discrimination are most commonly reported by women in STEM jobs compared to men and experienced by women in workplaces with a higher proportion of women in the survey of Pew Research Center, January 2018?",
+      "ground_truth": "Were treated as if they were not competent and they feel the need to prove themselves at work all/some of the time.",
+      "expected_verdict": "answer",
+      "doc_id": "PS_2018.01.09_STEM_FINAL.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        9,
+        10
+      ],
+      "evidence_sources": [
+        "text",
+        "chart"
+      ],
+      "answer_format": "Str",
+      "cross_page": true
+    },
+    {
+      "id": 110,
+      "source_index": 54,
+      "group": "chart",
+      "question": "In 2014, which one has more mobile apps globally, Apple App store or Google Play store? How many Apps does it have in million?",
+      "ground_truth": "['Google Play store', '1.3']",
+      "expected_verdict": "answer",
+      "doc_id": "reportq32015-151009093138-lva1-app6891_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        10
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "List",
+      "cross_page": false
+    },
+    {
+      "id": 111,
+      "source_index": 927,
+      "group": "chart",
+      "question": "How much did the proportion of the favorable views of China among the American public decresed from 2005 to 2020?",
+      "ground_truth": "21%",
+      "expected_verdict": "answer",
+      "doc_id": "PG_20.07.30_U.S.-Views-China_final.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        4
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "Float",
+      "cross_page": false
+    },
+    {
+      "id": 112,
+      "source_index": 253,
+      "group": "multiple",
+      "question": "Looking at the Slide of country overview, by what percent did \"Smartphone Penetration\" grow between 2013 and 2015?",
+      "ground_truth": "26%",
+      "expected_verdict": "answer",
+      "doc_id": "indonesiamobilemarketresearch-ag-150106055934-conversion-gate02_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        3
+      ],
+      "evidence_sources": [
+        "text",
+        "layout",
+        "chart"
+      ],
+      "answer_format": "Float",
+      "cross_page": false
+    },
+    {
+      "id": 113,
+      "source_index": 1084,
+      "group": "table",
+      "question": "what is interest coverage ratio for AMCOR'FY 2020? round your answer to three decimal?",
+      "ground_truth": "51.286",
+      "expected_verdict": "answer",
+      "doc_id": "BESTBUY_2023_10K.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        40
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Float",
+      "cross_page": false
+    },
+    {
+      "id": 114,
+      "source_index": 912,
+      "group": "text",
+      "question": "List the STAFF MEMBERS IN the RESIDENCE HALL",
+      "ground_truth": "['Residence Hall Director', 'Residence Hall Assistant Director', 'Residence Hall Resource Manager', 'Resident Assistant']",
+      "expected_verdict": "answer",
+      "doc_id": "NYU_graduate.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        21
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "List",
+      "cross_page": false
+    },
+    {
+      "id": 115,
+      "source_index": 207,
+      "group": "unanswerable",
+      "question": "Among the adults conducted the survey on April 25 - May 1 2022, how many adults rated Trump's government ethical standards as poor? ",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "05-03-18-political-release.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 116,
+      "source_index": 491,
+      "group": "unanswerable",
+      "question": "What percentage of users are under 25?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "q1-2023-bilibili-inc-investor-presentation.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 117,
+      "source_index": 14,
+      "group": "chart",
+      "question": "According to the chart on page 14 how much time was spent with family and friends in 2010?",
+      "ground_truth": "21%",
+      "expected_verdict": "answer",
+      "doc_id": "0e94b4197b10096b1f4c699701570fbf.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        14
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "Float",
+      "cross_page": false
+    },
+    {
+      "id": 118,
+      "source_index": 989,
+      "group": "table",
+      "question": "What is thed dental telephone number for fullerton healthcare at NTU?",
+      "ground_truth": "(65) 6790 8331",
+      "expected_verdict": "answer",
+      "doc_id": "SAO-StudentSupport_Guidebook-Content.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        19
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 119,
+      "source_index": 196,
+      "group": "figure",
+      "question": "What is the place locating at the intersection between Zijing Road and Xuetang Road? Give me the letter shown in the campus map of this guideline.  For example, \"A\". ",
+      "ground_truth": "C",
+      "expected_verdict": "answer",
+      "doc_id": "guojixueshengshenghuozhinanyingwen9.1.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        34
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 120,
+      "source_index": 274,
+      "group": "multiple",
+      "question": "Did more respondents say they are Product/Brand Focused or Customer Focused?",
+      "ground_truth": "Customer Focused",
+      "expected_verdict": "answer",
+      "doc_id": "digitalmeasurementframework22feb2011v6novideo-110221233835-phpapp01_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        16
+      ],
+      "evidence_sources": [
+        "text",
+        "chart"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 121,
+      "source_index": 333,
+      "group": "figure",
+      "question": "In the figure at Page at the second last, howm many people are standing? ",
+      "ground_truth": "1",
+      "expected_verdict": "answer",
+      "doc_id": "GPL-Graduate-Studies-Professional-Learning-Brochure-Jul-2021.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        16
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 122,
+      "source_index": 389,
+      "group": "figure",
+      "question": "How many people are there in the images on the cover?",
+      "ground_truth": "12",
+      "expected_verdict": "answer",
+      "doc_id": "e79deb02a0c0e87511080836c5d4347b.pdf",
+      "doc_type": "Administration/Industry file",
+      "evidence_pages": [
+        1
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 123,
+      "source_index": 154,
+      "group": "unanswerable",
+      "question": "What is the fifth FAQ shown in this slides?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "finalpresentationdeck-whatwhyhowofcertificationsocial-160324220748_95.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 124,
+      "source_index": 904,
+      "group": "unanswerable",
+      "question": "How steps are needed to pair and connecting the headset with a computer (Windows 9.0)?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "stereo_headset.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 125,
+      "source_index": 610,
+      "group": "unanswerable",
+      "question": "How many girls in total are there in the slides? Please list the page number in the list format, e.g., [\"1\",\"2\"]",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "earthlinkweb-150213112111-conversion-gate02_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 126,
+      "source_index": 993,
+      "group": "multiple",
+      "question": "How many social media accounts does NTU have?",
+      "ground_truth": "6",
+      "expected_verdict": "answer",
+      "doc_id": "Guide-for-international-students-web.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        3
+      ],
+      "evidence_sources": [
+        "layout",
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 127,
+      "source_index": 125,
+      "group": "unanswerable",
+      "question": "in which paragraph and page is the green italic numerals located?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "fd76bbefe469561966e5387aa709c482.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 128,
+      "source_index": 910,
+      "group": "figure",
+      "question": "How many pictures are shown in Pages 25-28?",
+      "ground_truth": "13",
+      "expected_verdict": "answer",
+      "doc_id": "NYU_graduate.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        25,
+        26,
+        27,
+        28
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 129,
+      "source_index": 228,
+      "group": "unanswerable",
+      "question": "What is the gap of infants with College graduate contain a cell phone and a tablet computer in the Pew Research Center’s Internet Project July 18-September 30, 2013 tracking survey? ",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "PIP_Seniors-and-Tech-Use_040314.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 130,
+      "source_index": 916,
+      "group": "figure",
+      "question": "How many employees dose PWC Assurance have?",
+      "ground_truth": "1914",
+      "expected_verdict": "answer",
+      "doc_id": "PWC_opportunity_of_lifetime.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        7
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 131,
+      "source_index": 638,
+      "group": "unanswerable",
+      "question": "How many complete in-context examples are shown in the figure at the bottom of page 6985? Please write down the answer with float format.",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "2023.acl-long.386.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 132,
+      "source_index": 1013,
+      "group": "table",
+      "question": "What is common equity  for COSTCO in FY2021? ",
+      "ground_truth": "18078",
+      "expected_verdict": "answer",
+      "doc_id": "COSTCO_2021_10K.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        38
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Float",
+      "cross_page": false
+    },
+    {
+      "id": 133,
+      "source_index": 282,
+      "group": "unanswerable",
+      "question": "How many numbers with purple color are mentioned in the example figure of question-guidue reasoning?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "2310.07609v1.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 134,
+      "source_index": 756,
+      "group": "figure",
+      "question": "According to the figure, what is the first step of cold start?",
+      "ground_truth": "Prompt",
+      "expected_verdict": "answer",
+      "doc_id": "2306.05425v1.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        5
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 135,
+      "source_index": 998,
+      "group": "chart",
+      "question": "From 2022 graduate employment survey,  graduates with which degree have the highest average monthly salary?",
+      "ground_truth": "BBA - Bachelor of Business Administration",
+      "expected_verdict": "answer",
+      "doc_id": "NUS-Business-School-BBA-Brochure-2024.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        3
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 136,
+      "source_index": 1015,
+      "group": "table",
+      "question": "what is EBITDA  for costco in FY2021?",
+      "ground_truth": "8489",
+      "expected_verdict": "answer",
+      "doc_id": "COSTCO_2021_10K.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        36,
+        40
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Float",
+      "cross_page": true
+    },
+    {
+      "id": 137,
+      "source_index": 148,
+      "group": "table",
+      "question": "What is the zip code of the address to which the attached consumer complaint form send?",
+      "ground_truth": "89706",
+      "expected_verdict": "answer",
+      "doc_id": "edb88a99670417f64a6b719646aed326.pdf",
+      "doc_type": "Administration/Industry file",
+      "evidence_pages": [
+        5
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 138,
+      "source_index": 321,
+      "group": "unanswerable",
+      "question": "How many \"subjects\" with black color does the figure in Page 2 contains?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "obs-productdesc-en.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 139,
+      "source_index": 1003,
+      "group": "multiple",
+      "question": "How many weeks do students need to reach work experience milestone and get 8 units?",
+      "ground_truth": "16",
+      "expected_verdict": "answer",
+      "doc_id": "NUS-Business-School-BBA-Brochure-2024.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        11,
+        16
+      ],
+      "evidence_sources": [
+        "figure",
+        "layout"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 140,
+      "source_index": 1048,
+      "group": "table",
+      "question": "What is quick ratio cycle in FY2021 for Nike? Round your answer to two decimal places.\n\n",
+      "ground_truth": "1.85",
+      "expected_verdict": "answer",
+      "doc_id": "NIKE_2021_10K.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        61
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Float",
+      "cross_page": false
+    },
+    {
+      "id": 141,
+      "source_index": 627,
+      "group": "unanswerable",
+      "question": "For the dataset that uses HOVER as the symbolic solver, how many examples in this dataset are used for evaluation?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "2023.findings-emnlp.248.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 142,
+      "source_index": 542,
+      "group": "figure",
+      "question": "In Figure 107, what's the battery percentage shown in the screenshot?",
+      "ground_truth": "76%",
+      "expected_verdict": "answer",
+      "doc_id": "2309.17421v2.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        137
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Float",
+      "cross_page": false
+    },
+    {
+      "id": 143,
+      "source_index": 463,
+      "group": "figure",
+      "question": "Which side of the camera indicator is on the infrared camera lens?",
+      "ground_truth": "on the right",
+      "expected_verdict": "answer",
+      "doc_id": "t480_ug_en.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        51,
+        52
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Str",
+      "cross_page": true
+    },
+    {
+      "id": 144,
+      "source_index": 714,
+      "group": "table",
+      "question": "WHAT IS THE LAST YEAR PRESENT IN THE TABULUAR COLUMN?",
+      "ground_truth": "2008",
+      "expected_verdict": "answer",
+      "doc_id": "936c0e2c2e6c8e0c07c51bfaf7fd0a83.pdf",
+      "doc_type": "Administration/Industry file",
+      "evidence_pages": [
+        5
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 145,
+      "source_index": 785,
+      "group": "text",
+      "question": "What restaurants/teahouses in Qingyang District are recommended? Answer in English.",
+      "ground_truth": "['Chen Mapo Doufu', 'Yu Zhi Lan', 'Wenshu Monastery Teahouse']",
+      "expected_verdict": "answer",
+      "doc_id": "Sinopolis-Chengdu.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        38,
+        39
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 146,
+      "source_index": 109,
+      "group": "multiple",
+      "question": "Which transport is included in \"Norway in a Nutshell\" but not \"Sognefjord in a Nutshell\"",
+      "ground_truth": "bus",
+      "expected_verdict": "answer",
+      "doc_id": "Bergen-Brochure-en-2022-23.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        32
+      ],
+      "evidence_sources": [
+        "layout",
+        "text"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 147,
+      "source_index": 128,
+      "group": "unanswerable",
+      "question": "What is the title of the of the Figure 7?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "fd76bbefe469561966e5387aa709c482.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 148,
+      "source_index": 1088,
+      "group": "text",
+      "question": "what kinds of business or segment does 3M have in FY2018?",
+      "ground_truth": "['Industrial Business', 'Safety and Graphics Business', 'Health Care Business', 'Electronics and Energy Business', 'Consumer Business']",
+      "expected_verdict": "answer",
+      "doc_id": "3M_2018_10K.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        4,
+        5
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 149,
+      "source_index": 473,
+      "group": "figure",
+      "question": "How many types of main menu functions are there?",
+      "ground_truth": "11",
+      "expected_verdict": "answer",
+      "doc_id": "User_Manual_1500S_Classic_EN.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        29
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 150,
+      "source_index": 367,
+      "group": "unanswerable",
+      "question": "What was the percentage shortfall in Japan's GDP growth from 2002 to 2023 compared to the forecast?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "afe620b9beac86c1027b96d31d396407.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 151,
+      "source_index": 815,
+      "group": "unanswerable",
+      "question": "Among all the emotions that social media makes users feel, what was the 23rd most popular emotion?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "PI_2018.11.19_algorithms_FINAL.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 152,
+      "source_index": 1066,
+      "group": "table",
+      "question": "what is the FY2015 operating cash flow ratio for Adobe?",
+      "ground_truth": "0.66",
+      "expected_verdict": "answer",
+      "doc_id": "ADOBE_2015_10K.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        59,
+        63
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 153,
+      "source_index": 324,
+      "group": "multiple",
+      "question": "What is the benefit of level-2 in the system has passed TRUCS in Page 8?",
+      "ground_truth": "Multi-AZ storage",
+      "expected_verdict": "answer",
+      "doc_id": "obs-productdesc-en.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        12
+      ],
+      "evidence_sources": [
+        "figure",
+        "text"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 154,
+      "source_index": 882,
+      "group": "multiple",
+      "question": "In Figure 1, compared the second subfigure, what is the difference of the first subfigure on supervisor-student relationship?",
+      "ground_truth": "\"humans supervise models are weaker than humans\"",
+      "expected_verdict": "answer",
+      "doc_id": "2312.09390v1.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        2
+      ],
+      "evidence_sources": [
+        "text",
+        "figure"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 155,
+      "source_index": 239,
+      "group": "text",
+      "question": "How many square miles did the Hamilton country covers on year 1882? Return me a rounded integer.",
+      "ground_truth": "538",
+      "expected_verdict": "answer",
+      "doc_id": "698bba535087fa9a7f9009e172a7f763.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        11
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 156,
+      "source_index": 770,
+      "group": "unanswerable",
+      "question": "On the dataset map of DermaMNIST, does the map by ground truth or pseudo-labels have a larger confidence variance?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "2210.02442v1.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 157,
+      "source_index": 681,
+      "group": "multiple",
+      "question": "What is the maximum hours of ISEP buddy scheme does a Singaporean ISEP students require to do?",
+      "ground_truth": "10",
+      "expected_verdict": "answer",
+      "doc_id": "ISEP_student_handbook_2020.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        9,
+        10
+      ],
+      "evidence_sources": [
+        "text",
+        "table"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 158,
+      "source_index": 818,
+      "group": "chart",
+      "question": "Among the US adults who think it's acceptable for companies to use automatic peronsal finance scores, what proportion of these people thinks because it would be effective? ",
+      "ground_truth": "31%",
+      "expected_verdict": "answer",
+      "doc_id": "PI_2018.11.19_algorithms_FINAL.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        13
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "Float",
+      "cross_page": false
+    },
+    {
+      "id": 159,
+      "source_index": 173,
+      "group": "chart",
+      "question": "In the year in which Palestine was added to the survey, respondents who believe traditional values are outdated increased by how many percentage points compared to 2011?",
+      "ground_truth": "29%",
+      "expected_verdict": "answer",
+      "doc_id": "asdaaburson-marstellerarabyouthsurvey2014-140407100615-phpapp01_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        6,
+        10
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "Float",
+      "cross_page": true
+    },
+    {
+      "id": 160,
+      "source_index": 789,
+      "group": "unanswerable",
+      "question": "Which page of the guidebook refers to the most central part of Oakland?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "san-francisco-11-contents.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 161,
+      "source_index": 35,
+      "group": "chart",
+      "question": "How many pages include charts whose horizontal-axis are set as year (like 2024)?",
+      "ground_truth": "13",
+      "expected_verdict": "answer",
+      "doc_id": "earlybird-110722143746-phpapp02_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        11,
+        13,
+        15,
+        16,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        31,
+        38
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 162,
+      "source_index": 489,
+      "group": "unanswerable",
+      "question": "By what percentage has gross profit increased in Q1 of 2021 compared to Q1 of 2020?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "q1-2023-bilibili-inc-investor-presentation.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 163,
+      "source_index": 693,
+      "group": "chart",
+      "question": "How many charts depict partisan differences?",
+      "ground_truth": "12",
+      "expected_verdict": "answer",
+      "doc_id": "PP_2020.08.06_COVID-19-Restrictions_FINAL-1.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        6,
+        7,
+        9,
+        10,
+        11,
+        13,
+        14,
+        15,
+        16,
+        17,
+        19,
+        20
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 164,
+      "source_index": 6,
+      "group": "chart",
+      "question": "According to this report, from 2014 to 2015, one group has the most significant drop of percentage of households claiming their income was falling behind cost of living.\nWhich group is this, and what is the percentage droped?",
+      "ground_truth": "['White', '10%']",
+      "expected_verdict": "answer",
+      "doc_id": "PH_2016.06.08_Economy-Final.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        11
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "List",
+      "cross_page": false
+    },
+    {
+      "id": 165,
+      "source_index": 28,
+      "group": "layout",
+      "question": "What is the web address in the orange box in page 47 that gives the Wiki Query Service code?",
+      "ground_truth": "https://w.wiki/6gb",
+      "expected_verdict": "answer",
+      "doc_id": "52b3137455e7ca4df65021a200aef724.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        47
+      ],
+      "evidence_sources": [
+        "layout"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 166,
+      "source_index": 936,
+      "group": "unlabeled_evidence",
+      "question": "Mention Tablet Capture Devices used by some hospitals?",
+      "ground_truth": "['Mircosoft Office OneNote', 'Windows Journal', 'Microsoft Educational Pack for Tablet PC', 'Microsoft Experience Pack for Tablet PC', 'Sticky Notes', 'Snipping Tool']",
+      "expected_verdict": "answer",
+      "doc_id": "c31e6580d0175ab3f9d99d1ff0bfa000.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ],
+      "evidence_sources": [],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 167,
+      "source_index": 994,
+      "group": "layout",
+      "question": "Starting from page 62, how many pages are there about the introduction of the scholarship?",
+      "ground_truth": "4",
+      "expected_verdict": "answer",
+      "doc_id": "Guide-for-international-students-web.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        3,
+        62,
+        63,
+        64,
+        65,
+        66
+      ],
+      "evidence_sources": [
+        "layout"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 168,
+      "source_index": 595,
+      "group": "text",
+      "question": "what is the CA, Bar no of the report?",
+      "ground_truth": "239516",
+      "expected_verdict": "answer",
+      "doc_id": "3276a5b991c49cf5f9a4af0f7d6fce67.pdf",
+      "doc_type": "Administration/Industry file",
+      "evidence_pages": [
+        15
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 169,
+      "source_index": 592,
+      "group": "text",
+      "question": "How many times does Exhibit P-10 mentioned in the document? List all pages and formatted as a list, for example, [\"1\",\"2\"]",
+      "ground_truth": "['1', '2', '3', '10']",
+      "expected_verdict": "answer",
+      "doc_id": "a5879805d70c854ea4361e43a84e3bb2.pdf",
+      "doc_type": "Administration/Industry file",
+      "evidence_pages": [
+        1,
+        2,
+        3,
+        10
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "List",
+      "cross_page": true
+    },
+    {
+      "id": 170,
+      "source_index": 70,
+      "group": "chart",
+      "question": "What are the horizontal and vertical axis of Figure 3 respectively?",
+      "ground_truth": "['Context Length', 'F1']",
+      "expected_verdict": "answer",
+      "doc_id": "2401.18059v1.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        6
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "List",
+      "cross_page": false
+    },
+    {
+      "id": 171,
+      "source_index": 177,
+      "group": "multiple",
+      "question": "Among the top 10 findings, how many of them are supported by statistical results grouped by the countries?",
+      "ground_truth": "4",
+      "expected_verdict": "answer",
+      "doc_id": "asdaaburson-marstellerarabyouthsurvey2014-140407100615-phpapp01_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        11,
+        19,
+        20,
+        25,
+        37
+      ],
+      "evidence_sources": [
+        "layout",
+        "chart"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 172,
+      "source_index": 460,
+      "group": "chart",
+      "question": "In the \"Error Analysis of Step-Back Prompting\", what is the sum of the baseline wrong percentages in TimeQA and MMLU high-school Physics?",
+      "ground_truth": "60.4%",
+      "expected_verdict": "answer",
+      "doc_id": "STEPBACK.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        6,
+        12
+      ],
+      "evidence_sources": [
+        "chart"
+      ],
+      "answer_format": "Float",
+      "cross_page": true
+    },
+    {
+      "id": 173,
+      "source_index": 105,
+      "group": "layout",
+      "question": "In chaper 2.2, how many museums in Bergen does this brochure introduce?",
+      "ground_truth": "31",
+      "expected_verdict": "answer",
+      "doc_id": "Bergen-Brochure-en-2022-23.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        11,
+        12,
+        13,
+        14
+      ],
+      "evidence_sources": [
+        "layout"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 174,
+      "source_index": 115,
+      "group": "multiple",
+      "question": "Please list all countries whose power and influence respondents would like to see diminished in the results of this report on Questions Q41a-t.",
+      "ground_truth": "['China', 'North Korea', 'Russia', 'Iran']",
+      "expected_verdict": "answer",
+      "doc_id": "PG_2021.03.04_US-Views-on-China_FINAL.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        16
+      ],
+      "evidence_sources": [
+        "chart",
+        "layout"
+      ],
+      "answer_format": "List",
+      "cross_page": false
+    },
+    {
+      "id": 175,
+      "source_index": 857,
+      "group": "figure",
+      "question": "What are the two companies that offer both of business intelligence in its app and structured DB in its infrastructure? ",
+      "ground_truth": "['ORACLE', 'IBM']",
+      "expected_verdict": "answer",
+      "doc_id": "bigdatatrends-120723191058-phpapp02_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        8
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "List",
+      "cross_page": false
+    },
+    {
+      "id": 176,
+      "source_index": 311,
+      "group": "table",
+      "question": "In the table at page 28,  which signal has the least frequency in the guidebook?",
+      "ground_truth": "\"3840 x 2160\" at 30 Hz",
+      "expected_verdict": "answer",
+      "doc_id": "91521110100M_4K_UHD_Display_User_Manual_V1.1.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        29
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 177,
+      "source_index": 137,
+      "group": "text",
+      "question": "Which individual lead this program?",
+      "ground_truth": "Allison Crimmins",
+      "expected_verdict": "answer",
+      "doc_id": "efd88e41c5f2606c57929cac6c1c0605.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        14
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 178,
+      "source_index": 1039,
+      "group": "table",
+      "question": "what percentage did Global streaming memberships increase from 2014 to 2015?Answer in percentage term, round to one decimal places.",
+      "ground_truth": "30.3%",
+      "expected_verdict": "answer",
+      "doc_id": "NETFLIX_2015_10K.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        19
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Float",
+      "cross_page": false
+    },
+    {
+      "id": 179,
+      "source_index": 264,
+      "group": "multiple",
+      "question": "How many website URLs are included in the Section Internet Industry in the slides?",
+      "ground_truth": "24",
+      "expected_verdict": "answer",
+      "doc_id": "indonesiamobilemarketresearch-ag-150106055934-conversion-gate02_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        18,
+        19,
+        20,
+        21,
+        23,
+        25,
+        26,
+        27,
+        28
+      ],
+      "evidence_sources": [
+        "text",
+        "layout"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 180,
+      "source_index": 895,
+      "group": "unanswerable",
+      "question": "List all the icons about signals that can not be found in Status Bar",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "mi_phone.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 181,
+      "source_index": 928,
+      "group": "unanswerable",
+      "question": "How much did the proportion of the favorable views of China among the American public incresed from 2005 to 2020?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "PG_20.07.30_U.S.-Views-China_final.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 182,
+      "source_index": 839,
+      "group": "table",
+      "question": "What is the combined percentage of Album Sales % and Song Sales % for the Country genre?",
+      "ground_truth": "23",
+      "expected_verdict": "answer",
+      "doc_id": "nielsen2015musicbizpresentation-final-150526143534-lva1-app6891_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        9
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 183,
+      "source_index": 61,
+      "group": "multiple",
+      "question": "Which news appear in both Vietnam mobile news and APPOTA news?",
+      "ground_truth": "Bluebird Award",
+      "expected_verdict": "answer",
+      "doc_id": "reportq32015-151009093138-lva1-app6891_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [
+        13,
+        31
+      ],
+      "evidence_sources": [
+        "layout",
+        "figure"
+      ],
+      "answer_format": "Str",
+      "cross_page": true
+    },
+    {
+      "id": 184,
+      "source_index": 606,
+      "group": "unanswerable",
+      "question": "Besides the two companies on page 42, what is the contact phone number of another two companies? Please write in string format.",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "earthlinkweb-150213112111-conversion-gate02_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 185,
+      "source_index": 433,
+      "group": "figure",
+      "question": "Which animal did the detector ultimately recognize the person as?",
+      "ground_truth": "Dog",
+      "expected_verdict": "answer",
+      "doc_id": "catvsdogdlpycon15se-150512122612-lva1-app6891_95.pdf",
+      "doc_type": "Tutorial/Workshop",
+      "evidence_pages": [
+        58,
+        60,
+        61
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Str",
+      "cross_page": true
+    },
+    {
+      "id": 186,
+      "source_index": 944,
+      "group": "unanswerable",
+      "question": "What percentage of the shareholder was held by foreign companies and institutional investors as of March 31, 2017?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "f86d073b0d735ac873a65d906ba82758.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 187,
+      "source_index": 156,
+      "group": "unanswerable",
+      "question": "The quote colored in green is said by whom?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "finalpresentationdeck-whatwhyhowofcertificationsocial-160324220748_95.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 188,
+      "source_index": 914,
+      "group": "text",
+      "question": "How large student community center can be which residents have access? Give me a number of its square.",
+      "ground_truth": "8300",
+      "expected_verdict": "answer",
+      "doc_id": "NYU_graduate.pdf",
+      "doc_type": "Brochure",
+      "evidence_pages": [
+        18
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 189,
+      "source_index": 386,
+      "group": "layout",
+      "question": "WHAT IS THE 2nd OBJECTIVE OF REGULATORY EFFICIENCY?",
+      "ground_truth": "By December 31,2018, reduce the average time to issue a facility license from 60 days (2015) to 45 days",
+      "expected_verdict": "answer",
+      "doc_id": "e79deb02a0c0e87511080836c5d4347b.pdf",
+      "doc_type": "Administration/Industry file",
+      "evidence_pages": [
+        5
+      ],
+      "evidence_sources": [
+        "layout"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 190,
+      "source_index": 1089,
+      "group": "table",
+      "question": "what is the net fair value of derivative instruments for 3M in FY2018? Answer in million.",
+      "ground_truth": "93",
+      "expected_verdict": "answer",
+      "doc_id": "3M_2018_10K.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        104
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Float",
+      "cross_page": false
+    },
+    {
+      "id": 191,
+      "source_index": 445,
+      "group": "unanswerable",
+      "question": "In the pipeline diagram of the BERT model, which type of organism is used as the input case?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "RAR.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 192,
+      "source_index": 507,
+      "group": "text",
+      "question": "What's the geographic market name for EPS Code AR01?\n\n",
+      "ground_truth": "Little Rock",
+      "expected_verdict": "answer",
+      "doc_id": "8dfc21ec151fb9d3578fc32d5c4e5df9.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        8
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 193,
+      "source_index": 658,
+      "group": "multiple",
+      "question": "How many parts has the prefix N in the packages?",
+      "ground_truth": "2",
+      "expected_verdict": "answer",
+      "doc_id": "DSA-278777.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [
+        3
+      ],
+      "evidence_sources": [
+        "text",
+        "table"
+      ],
+      "answer_format": "Int",
+      "cross_page": false
+    },
+    {
+      "id": 194,
+      "source_index": 628,
+      "group": "figure",
+      "question": "For all the examples given in Figure 5 and Figure 6, how many of them Logic-LM predicted the correct answer?",
+      "ground_truth": "2",
+      "expected_verdict": "answer",
+      "doc_id": "2023.findings-emnlp.248.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        9,
+        19
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Int",
+      "cross_page": true
+    },
+    {
+      "id": 195,
+      "source_index": 977,
+      "group": "text",
+      "question": "What rung is the second ladder of causation refer to?",
+      "ground_truth": "intervention",
+      "expected_verdict": "answer",
+      "doc_id": "2312.04350v3.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        3
+      ],
+      "evidence_sources": [
+        "text"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 196,
+      "source_index": 1074,
+      "group": "table",
+      "question": "What is Interest to Average Total Debt for the fiscal year ending January 28, 2023? Answer in percentage term, round to three decimal places",
+      "ground_truth": "2.91%",
+      "expected_verdict": "answer",
+      "doc_id": "BESTBUY_2023_10K.pdf",
+      "doc_type": "Financial report",
+      "evidence_pages": [
+        39,
+        40
+      ],
+      "evidence_sources": [
+        "table"
+      ],
+      "answer_format": "Float",
+      "cross_page": true
+    },
+    {
+      "id": 197,
+      "source_index": 314,
+      "group": "unanswerable",
+      "question": "Which step in the figure at the top of page 10 poured the salt to the microwave? Write the answer in int format.",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "bdf54dxa.pdf",
+      "doc_type": "Guidebook",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    },
+    {
+      "id": 198,
+      "source_index": 234,
+      "group": "unlabeled_evidence",
+      "question": "With whom did the NAMRU-3 team visit Monrovia, Liberia, in November 2012? Enumerate their names within a list.",
+      "ground_truth": "['Walter Gwenigale', 'Fatorma Bolay', 'Vernon Graham']",
+      "expected_verdict": "answer",
+      "doc_id": "0b85477387a9d0cc33fca0f4becaa0e5.pdf",
+      "doc_type": "Administration/Industry file",
+      "evidence_pages": [
+        7
+      ],
+      "evidence_sources": [],
+      "answer_format": "List",
+      "cross_page": false
+    },
+    {
+      "id": 199,
+      "source_index": 539,
+      "group": "figure",
+      "question": "In Figure 122, what's the colour of OSCARb in the prompt?",
+      "ground_truth": "Blue",
+      "expected_verdict": "answer",
+      "doc_id": "2309.17421v2.pdf",
+      "doc_type": "Academic paper",
+      "evidence_pages": [
+        153
+      ],
+      "evidence_sources": [
+        "figure"
+      ],
+      "answer_format": "Str",
+      "cross_page": false
+    },
+    {
+      "id": 200,
+      "source_index": 742,
+      "group": "unanswerable",
+      "question": "How many percent of Airbus focused tweets are in English?",
+      "ground_truth": "Not answerable",
+      "expected_verdict": "decline",
+      "doc_id": "germanwingsdigitalcrisisanalysis-150403064828-conversion-gate01_95.pdf",
+      "doc_type": "Research report / Introduction",
+      "evidence_pages": [],
+      "evidence_sources": [],
+      "answer_format": "None",
+      "cross_page": false
+    }
+  ]
+}

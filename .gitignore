@@ -48,3 +48,6 @@ dist/
 # Modal: the client token lives in ~/.modal.toml (outside the repo), but never commit a copy
 .modal.toml
 .modal/
+
+# Transient per-run eval checkpoints under the results subdir
+eval_results/results/*_PARTIAL.json
