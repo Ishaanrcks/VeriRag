@@ -661,7 +661,11 @@ def _make_add_paper(i: int):
 
 def build_demo() -> gr.Blocks:
     with gr.Blocks(title="VeriRAG", theme=gr.themes.Soft(), fill_width=True, css=_CSS) as demo:
-        session_id = gr.State(value=H.new_session_id())
+        # The CALLABLE, not its result: gr.State evaluates a plain value once at
+        # build time, so every visitor would share one session id -- and with it
+        # each other's uploads. Passing the function makes Gradio call it per
+        # visitor, which is what the session-scoped retrieval assumes.
+        session_id = gr.State(value=H.new_session_id)
         # Last query's MissingFacts (demo_helpers.MissingFacts or None), for
         # Features 3 (recommendations) and 4 (report) to read without recomputing.
         missing_state = gr.State(value=None)
