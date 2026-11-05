@@ -11,6 +11,10 @@ data/images/*
 !data/chroma/.gitkeep
 !data/images/.gitkeep
 
+# Runtime data written when the app is launched from space/ (cd space && python app.py):
+# relative data/ paths resolve there, so figure images and the store land in space/data/.
+space/data/
+
 # Eval results (keep the directory)
 eval/results/*
 !eval/results/.gitkeep
