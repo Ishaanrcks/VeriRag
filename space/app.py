@@ -182,10 +182,39 @@ def _gate_badge(label: str, passed: bool) -> str:
             f"border-radius:11px;font-size:0.82em'>{label} {word}</span>")
 
 
-def _render_result(query, r) -> tuple[str, str]:
-    """(answer_markdown, sources_markdown) for a VeriRAGResult."""
+def _missing_facts_md(mf) -> str:
+    """The structured "Not verified" / "Missing from the documents" sections.
+    Empty string when there is nothing to show (a fully verified answer)."""
+    if mf is None:
+        return ""
+    out = []
+    if mf.unverified_claims:
+        out.append("### Not verified\n\nThe following statements could not be grounded "
+                   "in the sources:\n\n" + "\n".join(f"- {c}" for c in mf.unverified_claims))
+    if mf.missing_info:
+        out.append("### Missing from the documents\n\n"
+                   + "\n".join(f"- {m}" for m in mf.missing_info))
+    return "\n\n".join(out)
+
+
+def _strip_unverified_note(answer: str) -> str:
+    """Drop the core's trailing prose note (partial.UNVERIFIED_NOTE); the
+    structured sections replace it. The Verified facts list itself is untouched."""
+    try:
+        from verirag.generation.partial import UNVERIFIED_NOTE
+    except Exception:  # noqa: BLE001
+        return answer
+    return answer.replace(UNVERIFIED_NOTE, "").rstrip()
+
+
+def _render_result(query, r, mf=None) -> tuple[str, str]:
+    """(answer_markdown, sources_markdown) for a VeriRAGResult. ``mf`` is its
+    MissingFacts (computed/cached by demo_helpers when not passed)."""
     abstained = bool(getattr(r, "abstained", False))
     outcome = getattr(r, "outcome", "verified")
+    if mf is None:
+        mf = H.extract_missing_facts(r, question=query)
+    missing_md = _missing_facts_md(mf)
 
     if abstained:
         if outcome == "abstained_ungrounded":
@@ -198,7 +227,14 @@ def _render_result(query, r) -> tuple[str, str]:
         else:
             head = "[--] **VeriRAG declined to answer.**"
         why = getattr(r, "abstention_reason", None) or "No reason recorded."
+        if mf.unverified_claims:
+            # The reason lists the same claims as "- ..." lines; the structured
+            # "Not verified" section below shows them, so keep only the headline.
+            from verirag.pipeline_log import abstain_parts
+            why, _ = abstain_parts(why)
         ans = f"{head}\n\n<details open><summary><b>Why</b></summary>\n\n{why}\n\n</details>"
+        if missing_md:
+            ans += "\n\n" + missing_md
         srcs = ""
         if outcome == "abstained_ungrounded":
             srcs = _excerpts_md(getattr(r, "retrieved_citations", []) or [])
@@ -209,7 +245,9 @@ def _render_result(query, r) -> tuple[str, str]:
         parts.append("[partial] **Partially verified.** Some statements could not be verified "
                      "against the sources; only those under *Verified facts* are confirmed — "
                      "treat the rest with caution.")
-    parts.append("### Answer\n\n" + (getattr(r, "answer", None) or ""))
+    parts.append("### Answer\n\n" + _strip_unverified_note(getattr(r, "answer", None) or ""))
+    if missing_md:
+        parts.append(missing_md)
 
     g1 = getattr(r, "gate1_verdict", None)
     g2 = getattr(r, "gate2_verdict", None)
@@ -330,7 +368,8 @@ def _trace_md(r) -> str:
 
 
 def ask(question, pdf_format, corpus_only, free_used, byo_key, session_id):
-    """Streaming handler. Yields (status, answer, sources, trace, pipelog_md, free_used).
+    """Streaming handler. Yields (status, answer, sources, trace, pipelog_md, free_used,
+    missing_facts) -- missing_facts is a MissingFacts on a result, else None.
 
     Each pipeline step updates the status AND the live Pipeline Log in real time;
     the final yield replaces the live log with the full formatted tables. Gradio
@@ -346,7 +385,7 @@ def ask(question, pdf_format, corpus_only, free_used, byo_key, session_id):
     try:
         question = H.validate_question(question, MAX_QUESTION_CHARS)
     except DemoError as e:
-        yield (f"[!] {e}", "", "", "", "Run a query to see the pipeline trace.", free_used)
+        yield (f"[!] {e}", "", "", "", "Run a query to see the pipeline trace.", free_used, None)
         return
 
     visitor_free = free_used < FREE_QUERIES
@@ -356,7 +395,7 @@ def ask(question, pdf_format, corpus_only, free_used, byo_key, session_id):
                if not _budget_allows() else f"You've used your {FREE_QUERIES} free demo queries.")
         yield (f"[key] {why} Paste your own DeepSeek API key below to continue — used "
                "only for your session, never stored.", "", "", "",
-               "Run a query to see the pipeline trace.", free_used)
+               "Run a query to see the pipeline trace.", free_used, None)
         return
     user_key = None if use_backend else byo_key
 
@@ -371,18 +410,18 @@ def ask(question, pdf_format, corpus_only, free_used, byo_key, session_id):
         if kind == "step":
             log(f"step: {payload}")
             live_log.append(f"**{payload}**")
-            yield ("[running] Thinking...", "", "", "", "\n\n".join(live_log), free_used)
+            yield ("[running] Thinking...", "", "", "", "\n\n".join(live_log), free_used, None)
         elif kind == "__quota__":
             msg = ("[blocked] **API limit reached on your key.** Wait a moment and try again, or "
                    "use a different key." if payload else
                    "[blocked] **The demo is experiencing high traffic** and has hit its API quota. "
                    "Try again in a few minutes, or enter your own DeepSeek API key.")
             log("quota")
-            yield (msg, "", "", "", "\n\n".join(live_log), free_used)
+            yield (msg, "", "", "", "\n\n".join(live_log), free_used, None)
             return
         elif kind == "__error__":
             log(f"error: {payload}")
-            yield (f"[!] Query failed: {payload}", "", "", "", "\n\n".join(live_log), free_used)
+            yield (f"[!] Query failed: {payload}", "", "", "", "\n\n".join(live_log), free_used, None)
             return
         elif kind == "__result__":
             result = payload
@@ -390,17 +429,18 @@ def ask(question, pdf_format, corpus_only, free_used, byo_key, session_id):
     if result is None:
         log("no result")
         yield ("[!] Query failed: no result produced.", "", "", "",
-               "\n\n".join(live_log), free_used)
+               "\n\n".join(live_log), free_used, None)
         return
 
     if use_backend:
         _budget_consume()
         free_used += 1
-    answer_md, sources_md = _render_result(question, result)
+    missing = H.extract_missing_facts(result, question=question, user_key=user_key)
+    answer_md, sources_md = _render_result(question, result, missing)
     status = "[OK] Done" + (f" · {FREE_QUERIES - free_used} free queries left" if use_backend else "")
     full_log = _pipelog_md(list(getattr(result, "pipeline_log", None) or []))
     log(f"done: outcome={getattr(result,'outcome',None)}")
-    yield (status, answer_md, sources_md, _trace_md(result), full_log, free_used)
+    yield (status, answer_md, sources_md, _trace_md(result), full_log, free_used, missing)
 
 
 # ---------------------------------------------------------------------------
@@ -528,6 +568,9 @@ code, pre { font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace !i
 def build_demo() -> gr.Blocks:
     with gr.Blocks(title="VeriRAG", theme=gr.themes.Soft(), fill_width=True, css=_CSS) as demo:
         session_id = gr.State(value=H.new_session_id())
+        # Last query's MissingFacts (demo_helpers.MissingFacts or None), for
+        # Features 3 (recommendations) and 4 (report) to read without recomputing.
+        missing_state = gr.State(value=None)
         free_used = gr.BrowserState(0, storage_key="verirag_free_used")
 
         gr.Markdown(NOTICE)
@@ -628,7 +671,7 @@ def build_demo() -> gr.Blocks:
 
         _ask_io = dict(
             inputs=[question, fmt, corpus_only, free_used, byo_key, session_id],
-            outputs=[status, answer, sources, trace, pipelog_md, free_used],
+            outputs=[status, answer, sources, trace, pipelog_md, free_used, missing_state],
             concurrency_limit=1,
         )
         run = (ask_btn.click(_running, outputs=[stop_btn, ask_btn])

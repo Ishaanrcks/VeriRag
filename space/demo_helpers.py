@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import contextlib
 import ipaddress
+import json
 import logging
 import os
 import queue
@@ -42,6 +43,7 @@ import sys
 import tempfile
 import threading
 import uuid
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
@@ -741,6 +743,16 @@ def stream_query(query: str, answer_format, corpus_only: bool, session_id: str,
                                 _, summary = next(gen)
                                 events.put(("step", friendly_step(summary)))
                             except StopIteration as stop:
+                                # Missing-facts extraction may make one LLM call;
+                                # do it HERE, while the lock and this visitor's key
+                                # context are held, so it bills/quotas exactly like
+                                # the query itself. The result is cached on the
+                                # object, so the UI's later read is free.
+                                try:
+                                    extract_missing_facts(stop.value, question=query,
+                                                          _lock_held=True)
+                                except Exception:  # never fail the answer over this extra
+                                    logger.exception("missing-facts extraction failed")
                                 events.put(("__result__", stop.value))
                                 return
                     except QuotaExceededError:
@@ -761,6 +773,199 @@ def stream_query(query: str, answer_format, corpus_only: bool, session_id: str,
     finally:
         cancel.set()
 
+
+
+# ---------------------------------------------------------------------------
+# structured missing facts (Feature 2)
+# ---------------------------------------------------------------------------
+@dataclass
+class MissingFacts:
+    """What a result could NOT establish, in a form the UI renders as lists and
+    later features (recommendations, reports) consume programmatically."""
+
+    unverified_claims: list[str] = field(default_factory=list)  # claims Gate 2 could not ground
+    missing_info: list[str] = field(default_factory=list)       # what information was absent
+    is_complete: bool = True                                     # True when nothing is missing
+
+
+_MISSING_CACHE_ATTR = "_verirag_missing_facts"
+_MISSING_MAX_ITEMS = 5
+_MISSING_ITEM_MAX_CHARS = 120
+
+_MISSING_PROMPT = """A document question-answering system could not fully answer a \
+question from the user's documents. Below is what it reported.
+
+Question: {question}
+
+Outcome: {outcome}
+
+System's explanation:
+{reason}
+
+Statements it could not ground in the documents:
+{claims}
+
+Name the GAPS: the information the QUESTION needs that the user's documents \
+do not contain. Rules:
+- Name the gap, not the content of a statement. Do NOT repeat or paraphrase \
+the unverified statements above; e.g. write "COPD treatment recommendations", \
+not "LAMA monotherapy for mild symptoms".
+- Merge overlapping gaps into one. Usually 1-3 items; never more than {max_items}.
+- Each item is a short noun phrase under 10 words, most important first.
+- Do not invent facts or name sources.
+
+Return ONLY a JSON array of strings."""
+
+
+def _final_claim_rows(result) -> list[dict]:
+    """Gate 2's FINAL per-claim verdicts as ``{"text", "verdict", "label"}``.
+
+    Primary source is ``result.pipeline_log``: one ``gate2`` LogEvent per critic
+    pass, whose ``detail["claims"]`` carry the bucket (grounded / ungrounded /
+    excluded) and the raw label; the LAST such event is the verdict the outcome
+    was decided on. Falls back to ``result.gate2_verdict.claims`` (bucketed the
+    same way) when the log has no gate2 event."""
+    gate2 = [e for e in (getattr(result, "pipeline_log", None) or [])
+             if getattr(e, "stage", None) == "gate2"]
+    if gate2:
+        return list((gate2[-1].detail or {}).get("claims") or [])
+    verdict = getattr(result, "gate2_verdict", None)
+    if verdict is None:
+        return []
+    from verirag.pipeline_log import claim_verdict_bucket
+    return [{"text": c.claim_text, "verdict": claim_verdict_bucket(c.verdict),
+             "label": c.verdict} for c in (getattr(verdict, "claims", None) or [])]
+
+
+def _gate1_reason(result) -> str | None:
+    for e in reversed(getattr(result, "pipeline_log", None) or []):
+        if getattr(e, "stage", None) == "gate1":
+            return (e.detail or {}).get("llm_reason")
+    return None
+
+
+def _parse_phrase_list(text: str | None) -> list[str]:
+    """A JSON array of strings from an LLM reply (tolerates code fences and
+    surrounding prose); [] if none can be read."""
+    if not text:
+        return []
+    start, end = text.find("["), text.rfind("]")
+    if start == -1 or end <= start:
+        return []
+    try:
+        items = json.loads(text[start:end + 1])
+    except ValueError:
+        return []
+    out: list[str] = []
+    for item in items if isinstance(items, list) else []:
+        if not isinstance(item, str):
+            continue
+        phrase = " ".join(item.split()).strip(" -*.;:")
+        if phrase and phrase.lower() not in {p.lower() for p in out}:
+            out.append(phrase[:_MISSING_ITEM_MAX_CHARS])
+        if len(out) == _MISSING_MAX_ITEMS:
+            break
+    return out
+
+
+def _fallback_missing_info(result) -> list[str]:
+    """Used only when the LLM call fails on a full abstention, where the UI must
+    still say something: the pipeline's own headline, verbatim (not invented)."""
+    from verirag.pipeline_log import abstain_parts
+    headline, _ = abstain_parts(getattr(result, "abstention_reason", None) or "")
+    return [headline[:200]] if headline and headline != "No reason recorded." else []
+
+
+def _llm_missing_info(result, question: str | None, unverified: list[str]) -> list[str]:
+    from verirag.llm.client import chat_completion
+    outcome = getattr(result, "outcome", "") or ""
+    reason_parts = []
+    if getattr(result, "abstention_reason", None):
+        reason_parts.append(result.abstention_reason)
+    g1 = _gate1_reason(result)
+    if g1:
+        reason_parts.append(f"Coverage check: {g1}")
+    if outcome == "partial" and getattr(result, "answer", None):
+        from verirag.generation.partial import split_verified_facts
+        body, _ = split_verified_facts(result.answer)
+        reason_parts.append(f"Answer as given (partially verified):\n{body[:2000]}")
+    prompt = _MISSING_PROMPT.format(
+        question=(question or "(not recorded)")[:500],
+        outcome=outcome or "unknown",
+        reason="\n\n".join(reason_parts)[:4000] or "(none)",
+        claims="\n".join(f"- {c}" for c in unverified)[:3000] or "(none)",
+        max_items=_MISSING_MAX_ITEMS,
+    )
+    reply = chat_completion(messages=[{"role": "user", "content": prompt}],
+                            temperature=0.0, max_tokens=200)
+    return _parse_phrase_list(reply)
+
+
+def extract_missing_facts(result, question: str | None = None,
+                          user_key: str | None = None,
+                          _lock_held: bool = False) -> MissingFacts:
+    """Structured view of what ``result`` could not establish.
+
+    * unverified_claims: claims in Gate 2's final pass bucketed ``ungrounded``
+      (not_supported, external_unsupported, caption_only_uncertified,
+      false_hedge). ``excluded`` claims (meta statements, unverifiable hedges)
+      are deliberately dropped by the pipeline and are NOT missing facts.
+    * missing_info: the pipeline exposes no structured "what was absent" (only
+      prose: the abstention reason and Gate 1's LLM reason), so ONE DeepSeek call
+      turns that prose into 1-5 noun phrases. Never called for a fully verified
+      answer, which gets [] -- nothing is invented.
+    * is_complete: no unverified claims AND outcome == "verified".
+
+    Cached on the result object: re-renders and later features read it for free.
+    The LLM call runs under ``_REQUEST_LOCK`` + ``_key_context(user_key)`` so it
+    uses the visitor's key / the shared budget exactly as the query did;
+    ``stream_query`` calls this while it already holds both (``_lock_held``).
+    """
+    cached = getattr(result, _MISSING_CACHE_ATTR, None)
+    if isinstance(cached, MissingFacts):
+        return cached
+
+    outcome = getattr(result, "outcome", "verified") or "verified"
+    abstained = bool(getattr(result, "abstained", False))
+
+    unverified: list[str] = []
+    if outcome != "abstained_insufficient":     # nothing was generated to verify
+        seen: set[str] = set()
+        for row in _final_claim_rows(result):
+            if row.get("verdict") != "ungrounded":
+                continue
+            text = " ".join(str(row.get("text") or "").split())
+            if text and text.lower() not in seen:
+                seen.add(text.lower())
+                unverified.append(text)
+
+    fully_verified = outcome == "verified" and not abstained
+    missing: list[str] = []
+    if not fully_verified:
+        def call() -> list[str]:
+            return _llm_missing_info(result, question, unverified)
+        try:
+            if _lock_held:
+                missing = call()
+            else:
+                with _REQUEST_LOCK, _key_context(user_key):
+                    missing = call()
+        except Exception as exc:  # noqa: BLE001 - quota/network: degrade, never fail
+            # Includes QuotaExceededError: a verified/partial answer the visitor
+            # already has must not be replaced by a quota error over this extra.
+            logger.warning("missing-facts call failed (%s): %s", type(exc).__name__, exc)
+            missing = []
+        if not missing and abstained:
+            missing = _fallback_missing_info(result)
+
+    facts = MissingFacts(
+        unverified_claims=unverified,
+        missing_info=missing,
+        is_complete=fully_verified and not unverified,
+    )
+    with contextlib.suppress(Exception):
+        setattr(result, _MISSING_CACHE_ATTR, facts)
+    return facts
 
 # ---------------------------------------------------------------------------
 # citation media + friendly phrasing (ported from the Streamlit UI)
