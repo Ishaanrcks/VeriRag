@@ -967,6 +967,220 @@ def extract_missing_facts(result, question: str | None = None,
         setattr(result, _MISSING_CACHE_ATTR, facts)
     return facts
 
+
+# ---------------------------------------------------------------------------
+# arXiv paper suggestions (Feature 3)
+# ---------------------------------------------------------------------------
+# After a partial or abstained answer, find arXiv papers that could fill the
+# MissingFacts gaps. Two DeepSeek calls (search string; one batched relevance
+# judgement) run under _REQUEST_LOCK + _key_context, exactly like the query; the
+# arXiv request itself runs OUTSIDE the lock (it is slow and needs no key) and
+# under a hard deadline, because the arxiv client sets no request timeout.
+ARXIV_SEARCH_TIMEOUT = 20          # seconds, whole search
+_ARXIV_ABSTRACT_FOR_LLM = 700      # chars of each abstract shown to the judge
+_ARXIV_SNIPPET_CHARS = 200
+_ARXIV_LOCK = threading.Lock()     # one shared client; arXiv asks for spaced requests
+_ARXIV_CLIENT = None
+
+
+@dataclass
+class PaperSuggestion:
+    title: str
+    authors: str           # "A, B, C et al." -- at most 3 names
+    year: str
+    abstract_snippet: str  # first ~200 chars of the abstract
+    arxiv_url: str         # the /abs/ page
+    pdf_url: str           # the /pdf/ link
+    reason: str            # one sentence: which missing fact it addresses
+
+
+_ARXIV_QUERY_PROMPT = """Write an arXiv search query for papers that would \
+supply information missing from a user's documents.
+
+Question: {question}
+
+Information missing from the documents:
+{missing}
+
+Rules: 3 to 8 words, plain keywords only (no quotes, no AND/OR, no field \
+prefixes), the technical terms a paper title or abstract would use. Return \
+ONLY the query."""
+
+_ARXIV_JUDGE_PROMPT = """A user asked a question their documents could not \
+fully answer.
+
+Question: {question}
+
+Information missing from the documents:
+{missing}
+
+Candidate arXiv papers:
+{papers}
+
+For EACH candidate, decide whether its abstract shows it would supply one of \
+the missing items. Be strict: same field or same keywords is not enough.
+Return ONLY a JSON array, one object per candidate:
+[{{"n": <candidate number>, "fills": true|false, "reason": "<one sentence naming \
+the specific missing item it covers, or why it does not>"}}]"""
+
+
+def _llm_under_key(prompt: str, user_key: str | None, max_tokens: int) -> str | None:
+    """One DeepSeek call with the visitor's key/budget context, like the query."""
+    from verirag.llm.client import chat_completion
+    with _REQUEST_LOCK, _key_context(user_key):
+        return chat_completion(messages=[{"role": "user", "content": prompt}],
+                               temperature=0.0, max_tokens=max_tokens)
+
+
+_QUERY_STOPWORDS = frozenset({
+    "the", "a", "an", "of", "for", "and", "or", "to", "in", "on", "by", "with",
+    "what", "which", "how", "does", "did", "is", "are", "was", "were", "this", "that", "these",
+    "those", "from", "about", "according", "brief", "document", "documents", "paper",
+})
+
+
+def _clean_search_query(text: str | None) -> str:
+    """At most 8 plain keywords: no quotes, operators or field prefixes."""
+    line = (text or "").strip().splitlines()[0] if (text or "").strip() else ""
+    line = re.sub(r"\b(AND|OR|ANDNOT)\b|\w+:", " ", line)
+    words = re.findall(r"[A-Za-z0-9][A-Za-z0-9\-]*", line)
+    return " ".join(words[:8])
+
+
+def _fallback_search_query(question: str, missing: MissingFacts) -> str:
+    source = (missing.missing_info[0] if missing.missing_info else question) or ""
+    words = [w for w in re.findall(r"[A-Za-z0-9][A-Za-z0-9\-]*", source)
+             if w.lower() not in _QUERY_STOPWORDS and len(w) > 2]
+    return " ".join(words[:6])
+
+
+def _arxiv_client():
+    global _ARXIV_CLIENT
+    if _ARXIV_CLIENT is None:
+        import arxiv
+        _ARXIV_CLIENT = arxiv.Client(page_size=20, delay_seconds=3, num_retries=1)
+    return _ARXIV_CLIENT
+
+
+def _search_arxiv(query: str, n: int) -> list[dict]:
+    """Up to ``n`` arXiv results by relevance, as plain dicts. Raises on failure
+    or when ARXIV_SEARCH_TIMEOUT passes (caller turns that into [])."""
+    import concurrent.futures
+
+    def run() -> list[dict]:
+        import arxiv
+        with _ARXIV_LOCK:
+            results = _arxiv_client().results(arxiv.Search(
+                query=query, max_results=n, sort_by=arxiv.SortCriterion.Relevance))
+            out = []
+            for r in results:
+                out.append({
+                    "title": " ".join((r.title or "").split()),
+                    "authors": [a.name for a in (r.authors or [])],
+                    "year": str(r.published.year) if r.published else "",
+                    "summary": " ".join((r.summary or "").split()),
+                    "abs_url": (r.entry_id or "").replace("http://", "https://", 1),
+                    "pdf_url": (r.pdf_url or "").replace("http://", "https://", 1),
+                })
+            return out
+
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    try:
+        return pool.submit(run).result(timeout=ARXIV_SEARCH_TIMEOUT)
+    finally:
+        pool.shutdown(wait=False)
+
+
+def _format_authors(names: list[str]) -> str:
+    names = [n for n in names if n]
+    if not names:
+        return "Unknown authors"
+    return ", ".join(names[:3]) + (" et al." if len(names) > 3 else "")
+
+
+def _snippet(text: str, limit: int = _ARXIV_SNIPPET_CHARS) -> str:
+    text = " ".join((text or "").split())
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    return (cut.rsplit(" ", 1)[0] if " " in cut else cut).rstrip(" ,;:.")
+
+
+def _parse_judgements(text: str | None) -> dict[int, str]:
+    """``{candidate number: reason}`` for candidates judged to fill a gap."""
+    if not text:
+        return {}
+    start, end = text.find("["), text.rfind("]")
+    if start == -1 or end <= start:
+        return {}
+    try:
+        items = json.loads(text[start:end + 1])
+    except ValueError:
+        return {}
+    out: dict[int, str] = {}
+    for item in items if isinstance(items, list) else []:
+        if not isinstance(item, dict) or item.get("fills") is not True:
+            continue
+        try:
+            n = int(item.get("n"))
+        except (TypeError, ValueError):
+            continue
+        reason = " ".join(str(item.get("reason") or "").split())[:300]
+        if reason:
+            out[n] = reason
+    return out
+
+
+def suggest_papers(missing: MissingFacts, question: str, user_key: str | None,
+                   max_results: int = 5) -> list[PaperSuggestion]:
+    """arXiv papers that could fill ``missing``'s gaps, each with a reason.
+
+    Returns [] for a complete answer (never suggests on a fully verified one),
+    when nothing qualifies, and on ANY failure (arXiv down or slow, quota, bad
+    LLM output) -- this is an extra and must never break the query.
+    """
+    if missing is None or missing.is_complete:
+        return []
+    if not (missing.missing_info or missing.unverified_claims):
+        return []
+    gaps = missing.missing_info or missing.unverified_claims
+    gaps_text = "\n".join(f"- {g}" for g in gaps[:5])
+    try:
+        # 1) search string (DeepSeek call 1 of 2)
+        raw = _llm_under_key(_ARXIV_QUERY_PROMPT.format(
+            question=(question or "")[:500], missing=gaps_text), user_key, 40)
+        query = _clean_search_query(raw) or _fallback_search_query(question, missing)
+        if not query:
+            return []
+        # 2) arXiv, by relevance, 2x candidates (outside the lock, deadline)
+        candidates = [c for c in _search_arxiv(query, max_results * 2)
+                      if c["title"] and c["pdf_url"] and c["abs_url"]]
+        logger.info("arxiv suggest: query=%r candidates=%d", query, len(candidates))
+        if not candidates:
+            return []
+        # 3) one batched relevance judgement (DeepSeek call 2 of 2)
+        papers = "\n\n".join(
+            f"[{i}] {c['title']} ({c['year']})\n{c['summary'][:_ARXIV_ABSTRACT_FOR_LLM]}"
+            for i, c in enumerate(candidates, 1))
+        verdicts = _parse_judgements(_llm_under_key(_ARXIV_JUDGE_PROMPT.format(
+            question=(question or "")[:500], missing=gaps_text, papers=papers),
+            user_key, 120 * len(candidates)))
+    except Exception as exc:  # noqa: BLE001 - arXiv/quota/network: an extra, never fatal
+        logger.warning("arxiv suggest failed (%s): %s", type(exc).__name__, exc)
+        return []
+
+    out: list[PaperSuggestion] = []
+    for i, c in enumerate(candidates, 1):           # keep arXiv's relevance order
+        if i not in verdicts:
+            continue
+        out.append(PaperSuggestion(
+            title=c["title"], authors=_format_authors(c["authors"]), year=c["year"],
+            abstract_snippet=_snippet(c["summary"]), arxiv_url=c["abs_url"],
+            pdf_url=c["pdf_url"], reason=verdicts[i]))
+        if len(out) == max_results:
+            break
+    return out
+
 # ---------------------------------------------------------------------------
 # citation media + friendly phrasing (ported from the Streamlit UI)
 # ---------------------------------------------------------------------------

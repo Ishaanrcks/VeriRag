@@ -49,6 +49,7 @@ DAILY_BUDGET_QUERIES = 200        # total server-key queries/day, then everyone 
 MAX_PDF_MB = 10.0
 MAX_PDF_PAGES = 60                # arXiv papers with appendices routinely run 30-50
 MAX_QUESTION_CHARS = 500
+MAX_PAPER_SUGGESTIONS = 5        # fixed number of suggestion slots (Gradio needs it up front)
 SHOW_CANDIDATE = os.getenv("UNVERIFIED_CANDIDATE", "false").lower() == "true"
 # ============================================================================
 
@@ -369,7 +370,8 @@ def _trace_md(r) -> str:
 
 def ask(question, pdf_format, corpus_only, free_used, byo_key, session_id):
     """Streaming handler. Yields (status, answer, sources, trace, pipelog_md, free_used,
-    missing_facts) -- missing_facts is a MissingFacts on a result, else None.
+    missing_facts, query_ctx) -- missing_facts is a MissingFacts on a result, else None;
+    query_ctx is {"question", "use_backend"} on a result, else None.
 
     Each pipeline step updates the status AND the live Pipeline Log in real time;
     the final yield replaces the live log with the full formatted tables. Gradio
@@ -385,7 +387,7 @@ def ask(question, pdf_format, corpus_only, free_used, byo_key, session_id):
     try:
         question = H.validate_question(question, MAX_QUESTION_CHARS)
     except DemoError as e:
-        yield (f"[!] {e}", "", "", "", "Run a query to see the pipeline trace.", free_used, None)
+        yield (f"[!] {e}", "", "", "", "Run a query to see the pipeline trace.", free_used, None, None)
         return
 
     visitor_free = free_used < FREE_QUERIES
@@ -395,7 +397,7 @@ def ask(question, pdf_format, corpus_only, free_used, byo_key, session_id):
                if not _budget_allows() else f"You've used your {FREE_QUERIES} free demo queries.")
         yield (f"[key] {why} Paste your own DeepSeek API key below to continue — used "
                "only for your session, never stored.", "", "", "",
-               "Run a query to see the pipeline trace.", free_used, None)
+               "Run a query to see the pipeline trace.", free_used, None, None)
         return
     user_key = None if use_backend else byo_key
 
@@ -410,18 +412,18 @@ def ask(question, pdf_format, corpus_only, free_used, byo_key, session_id):
         if kind == "step":
             log(f"step: {payload}")
             live_log.append(f"**{payload}**")
-            yield ("[running] Thinking...", "", "", "", "\n\n".join(live_log), free_used, None)
+            yield ("[running] Thinking...", "", "", "", "\n\n".join(live_log), free_used, None, None)
         elif kind == "__quota__":
             msg = ("[blocked] **API limit reached on your key.** Wait a moment and try again, or "
                    "use a different key." if payload else
                    "[blocked] **The demo is experiencing high traffic** and has hit its API quota. "
                    "Try again in a few minutes, or enter your own DeepSeek API key.")
             log("quota")
-            yield (msg, "", "", "", "\n\n".join(live_log), free_used, None)
+            yield (msg, "", "", "", "\n\n".join(live_log), free_used, None, None)
             return
         elif kind == "__error__":
             log(f"error: {payload}")
-            yield (f"[!] Query failed: {payload}", "", "", "", "\n\n".join(live_log), free_used, None)
+            yield (f"[!] Query failed: {payload}", "", "", "", "\n\n".join(live_log), free_used, None, None)
             return
         elif kind == "__result__":
             result = payload
@@ -429,7 +431,7 @@ def ask(question, pdf_format, corpus_only, free_used, byo_key, session_id):
     if result is None:
         log("no result")
         yield ("[!] Query failed: no result produced.", "", "", "",
-               "\n\n".join(live_log), free_used, None)
+               "\n\n".join(live_log), free_used, None, None)
         return
 
     if use_backend:
@@ -440,7 +442,11 @@ def ask(question, pdf_format, corpus_only, free_used, byo_key, session_id):
     status = "[OK] Done" + (f" · {FREE_QUERIES - free_used} free queries left" if use_backend else "")
     full_log = _pipelog_md(list(getattr(result, "pipeline_log", None) or []))
     log(f"done: outcome={getattr(result,'outcome',None)}")
-    yield (status, answer_md, sources_md, _trace_md(result), full_log, free_used, missing)
+    # What the follow-up suggestions step needs to bill/key exactly like this query:
+    # which key path was used (never the key itself).
+    query_ctx = {"question": question, "use_backend": use_backend}
+    yield (status, answer_md, sources_md, _trace_md(result), full_log, free_used, missing,
+           query_ctx)
 
 
 # ---------------------------------------------------------------------------
@@ -565,12 +571,104 @@ code, pre { font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace !i
 """
 
 
+
+# ---------------------------------------------------------------------------
+# arXiv suggestions (Feature 3)
+# ---------------------------------------------------------------------------
+_PAPERS_LABEL = "Papers that might fill the gaps"
+
+
+def _md_escape(text: str) -> str:
+    """Neutralise markdown/HTML in text that comes from arXiv or the LLM."""
+    text = str(text or "").replace("\\", "\\\\")
+    for ch in "*_`[]#|":
+        text = text.replace(ch, "\\" + ch)
+    return text.replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _paper_md(p) -> str:
+    return (f"**{_md_escape(p.title)}** ({_md_escape(p.year)}) — {_md_escape(p.authors)}\n\n"
+            f"{_md_escape(p.reason)}\n\n"
+            f"*{_md_escape(p.abstract_snippet)}...*\n\n"
+            f"[View on ArXiv]({p.arxiv_url})")
+
+
+def _papers_updates(acc, header, papers, status=""):
+    """The full output tuple: accordion, header md, N paper mds, N buttons,
+    papers state, status md."""
+    mds = [gr.update(value=_paper_md(papers[i]), visible=True) if i < len(papers)
+           else gr.update(value="", visible=False) for i in range(MAX_PAPER_SUGGESTIONS)]
+    btns = [gr.update(visible=i < len(papers), interactive=True)
+            for i in range(MAX_PAPER_SUGGESTIONS)]
+    return (acc, header, *mds, *btns, list(papers), status)
+
+
+def _papers_hidden():
+    return _papers_updates(gr.update(visible=False, label=_PAPERS_LABEL), "", [])
+
+
+def papers_flow(missing, query_ctx, byo_key):
+    """Runs as a .then() AFTER ask() has rendered the answer, so it never delays
+    it. Hidden for a complete answer; otherwise "Searching ArXiv..." first, then
+    the suggestions. Keys/budget: reuses the query's own key path (server budget
+    or the visitor's key), recorded in query_ctx by ask()."""
+    if missing is None or query_ctx is None or getattr(missing, "is_complete", True):
+        yield _papers_hidden()
+        return
+    use_backend = bool(query_ctx.get("use_backend"))
+    user_key = None if use_backend else ((byo_key or "").strip() or None)
+    if not use_backend and not user_key:
+        yield _papers_updates(gr.update(visible=True, label=_PAPERS_LABEL),
+                              "Add your DeepSeek API key above to search arXiv for papers.", [])
+        return
+    yield _papers_updates(gr.update(visible=True, label=f"{_PAPERS_LABEL} (searching...)"),
+                          "Searching ArXiv...", [])
+    papers = H.suggest_papers(missing, query_ctx.get("question") or "", user_key,
+                              max_results=MAX_PAPER_SUGGESTIONS)
+    if not papers:
+        yield _papers_updates(gr.update(visible=True, label=f"{_PAPERS_LABEL} (none found)"),
+                              "No arXiv papers found that clearly cover what your documents "
+                              "are missing.", [])
+        return
+    header = (f"{len(papers)} arXiv paper(s) that may cover what your documents are missing. "
+              "Adding one downloads it into your private corpus (this can take a few "
+              "minutes for papers with many figures).")
+    yield _papers_updates(gr.update(visible=True, label=f"{_PAPERS_LABEL} ({len(papers)})"),
+                          header, papers)
+
+
+def _make_add_paper(i: int):
+    def add_paper(papers, session_id):
+        if not papers or i >= len(papers):
+            yield "[!] That suggestion is no longer available. Ask again.", gr.update()
+            return
+        p = papers[i]
+        title = _md_escape(p.title)
+        yield f"[running] Adding **{title}**...", gr.update()
+        try:
+            _, skipped = H.ingest_from_url(p.pdf_url, session_id, MAX_PDF_MB, MAX_PDF_PAGES)
+        except DemoError as e:
+            yield f"[!] {e}", gr.update()
+            return
+        except Exception as e:  # noqa: BLE001
+            yield f"[!] {H._friendly(e)}", gr.update()
+            return
+        msg = (f"[i] **{title}** is already in your corpus. Re-ask your question to use it."
+               if skipped else f"[ok] Added **{title}**. Re-ask your question to use it.")
+        yield msg, _corpus_md(session_id)
+    return add_paper
+
+
 def build_demo() -> gr.Blocks:
     with gr.Blocks(title="VeriRAG", theme=gr.themes.Soft(), fill_width=True, css=_CSS) as demo:
         session_id = gr.State(value=H.new_session_id())
         # Last query's MissingFacts (demo_helpers.MissingFacts or None), for
         # Features 3 (recommendations) and 4 (report) to read without recomputing.
         missing_state = gr.State(value=None)
+        # {"question", "use_backend"} of the last answered query (never the key):
+        # lets the arXiv step bill exactly like the query it follows.
+        query_ctx = gr.State(value=None)
+        papers_state = gr.State(value=[])        # list[PaperSuggestion] on screen
         free_used = gr.BrowserState(0, storage_key="verirag_free_used")
 
         gr.Markdown(NOTICE)
@@ -631,6 +729,14 @@ def build_demo() -> gr.Blocks:
                         status = gr.Markdown()
                         answer = gr.Markdown()
                         sources = gr.Markdown()
+                        with gr.Accordion(_PAPERS_LABEL, open=False, visible=False) as papers_acc:
+                            papers_md = gr.Markdown()
+                            paper_mds, paper_btns = [], []
+                            for _i in range(MAX_PAPER_SUGGESTIONS):
+                                paper_mds.append(gr.Markdown(visible=False))
+                                paper_btns.append(gr.Button("Add to corpus", size="sm",
+                                                            visible=False))
+                            paper_status = gr.Markdown()
                         with gr.Accordion("Show reasoning trace", open=False):
                             trace = gr.Markdown()
                     with gr.Tab("Pipeline Log"):
@@ -671,7 +777,8 @@ def build_demo() -> gr.Blocks:
 
         _ask_io = dict(
             inputs=[question, fmt, corpus_only, free_used, byo_key, session_id],
-            outputs=[status, answer, sources, trace, pipelog_md, free_used, missing_state],
+            outputs=[status, answer, sources, trace, pipelog_md, free_used, missing_state,
+                     query_ctx],
             concurrency_limit=1,
         )
         run = (ask_btn.click(_running, outputs=[stop_btn, ask_btn])
@@ -684,9 +791,21 @@ def build_demo() -> gr.Blocks:
         srun.then(_idle, outputs=[stop_btn, ask_btn]).then(
             _free_banner, inputs=free_used, outputs=free_md)
 
+        # arXiv suggestions: a separate step AFTER the answer has rendered.
+        _papers_out = [papers_acc, papers_md, *paper_mds, *paper_btns, papers_state, paper_status]
+        _papers_io = {"inputs": [missing_state, query_ctx, byo_key], "outputs": _papers_out}
+        prun = run.then(papers_flow, **_papers_io)
+        psrun = srun.then(papers_flow, **_papers_io)
+        # A new question clears the old suggestions and cancels a search in flight.
+        for trigger in (ask_btn.click, question.submit):
+            trigger(_papers_hidden, outputs=_papers_out, cancels=[prun, psrun])
+        for _i, _btn in enumerate(paper_btns):
+            _btn.click(_make_add_paper(_i), inputs=[papers_state, session_id],
+                       outputs=[paper_status, corpus_md])
+
         # Stop cancels whichever generator is running, resets the status, re-idles.
         stop_btn.click(lambda: "[stopped] Query cancelled.", outputs=status,
-                       cancels=[run, srun]).then(_idle, outputs=[stop_btn, ask_btn])
+                       cancels=[run, srun, prun, psrun]).then(_idle, outputs=[stop_btn, ask_btn])
 
     return demo
 

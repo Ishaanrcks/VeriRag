@@ -30,3 +30,4 @@ tavily-python==0.8.5        # verirag.external.fetcher (imported by graph.nodes 
 python-docx==1.2.0          # verirag.loaders.office (imported by verirag.ingest -> every ingest)
 python-pptx==1.0.2          # verirag.loaders.office
 tiktoken==0.14.0            # verirag.chunking.chunker
+arxiv==4.0.1               # Feature 3: arXiv paper suggestions (same pin as root requirements.txt)
