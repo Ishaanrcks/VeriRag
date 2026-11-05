@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import queue
 import re
 import shutil
 import sys
@@ -252,6 +253,42 @@ def _safe_url(url: str) -> str:
         return "<unparseable url>"
 
 
+def _http_status_message(status: int) -> str:
+    """User-facing reason for an HTTP error status (no raw exception text)."""
+    if status in (404, 410):
+        return "That URL was not found (404). Check the link and try again."
+    if status in (401, 403):
+        return "That site refused access to the document (login or permission required)."
+    if status == 429:
+        return "That site is rate-limiting requests right now. Try again in a minute."
+    if status >= 500:
+        return f"That site returned a server error ({status}). Try again later."
+    return f"That site returned an error ({status})."
+
+
+def _normalise_url(raw: str) -> str:
+    """Strip, default the scheme to https, and reject anything that cannot be a
+    web address (spaces, no dot in the host) with a specific message."""
+    u = (raw or "").strip()
+    if not u:
+        raise DemoError("Paste a URL first.")
+    scheme = urlsplit(u).scheme.lower()
+    if "://" not in u and scheme and scheme not in ("http", "https") and not u.lower().startswith(("mailto:", "javascript:", "data:", "file:")):
+        scheme = ""            # "example.com:8080/x" parses as scheme "example.com"
+    if "://" in u and scheme not in ("http", "https"):
+        raise DemoError("Paste an http:// or https:// link to a PDF file.")
+    if u.lower().startswith(("mailto:", "javascript:", "data:", "file:")):
+        raise DemoError("Paste an http:// or https:// link to a PDF file.")
+    if "://" not in u:
+        u = f"https://{u}"
+    parts = urlsplit(u)
+    host = (parts.hostname or "")
+    if re.search(r"\s", u) or "." not in host or host.startswith(".") or host.endswith("."):
+        raise DemoError("That doesn't look like a valid URL. Paste a full link, "
+                        "e.g. https://arxiv.org/abs/2310.11511")
+    return u
+
+
 def _looks_like_pdf_href(href: str) -> bool:
     path = urlsplit(href).path.lower()
     return path.endswith(".pdf") or "/pdf/" in path
@@ -340,7 +377,8 @@ def resolve_pdf_url(url: str) -> str:
     try:
         with session.get(url, stream=True, timeout=URL_DOWNLOAD_TIMEOUT,
                          allow_redirects=True, headers=_URL_HEADERS) as resp:
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                raise DemoError(_http_status_message(resp.status_code))
             ctype = (resp.headers.get("Content-Type") or "").lower()
             if "pdf" in ctype:
                 return url          # the "page" is itself a PDF
@@ -382,7 +420,8 @@ def download_pdf(url: str, max_mb: float) -> Path:
     try:
         with session.get(url, stream=True, timeout=URL_DOWNLOAD_TIMEOUT,
                          allow_redirects=True, headers=_URL_HEADERS) as resp:
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                raise DemoError(_http_status_message(resp.status_code))
             ctype = (resp.headers.get("Content-Type") or "").lower()
             declared_pdf = "pdf" in ctype
 
@@ -487,20 +526,14 @@ def _display_name_from_url(url: str) -> str:
     return f"{cleaned}.pdf"
 
 
-def ingest_from_url(url: str, session_id: str, max_mb: float, max_pages: int) -> str:
+def ingest_from_url(url: str, session_id: str, max_mb: float, max_pages: int) -> tuple[str, bool]:
     """Download the PDF behind ``url`` and ingest it for ``session_id``.
 
     Goes through the very same guards and ingest entrypoint as an upload, so the
-    size/page limits and session tagging are identical. Returns the display name
-    the document was ingested under."""
-    u = (url or "").strip()
-    if not u:
-        raise DemoError("Paste a URL first.")
-    scheme = urlsplit(u).scheme.lower()
-    if not scheme:
-        u = f"https://{u}"
-    elif scheme not in ("http", "https"):
-        raise DemoError("Paste an http:// or https:// link to a PDF file.")
+    size/page limits and session tagging are identical. Returns
+    ``(display_name, skipped)``; ``skipped`` is True when ingest found the same
+    content already in the corpus and added nothing."""
+    u = _normalise_url(url)
 
     pdf_url = resolve_pdf_url(u)
     downloaded = download_pdf(pdf_url, max_mb)
@@ -519,12 +552,12 @@ def ingest_from_url(url: str, session_id: str, max_mb: float, max_pages: int) ->
     try:
         validate_upload(str(staged), max_mb, max_pages)
         # ingest_upload takes _REQUEST_LOCK itself; do not wrap it (not reentrant).
-        ingest_upload(str(staged), session_id)
+        res = ingest_upload(str(staged), session_id)
     except Exception:
         _discard_temp(staged)      # nothing was ingested, so keep no junk around
         raise
     logger.info("ingested from url: %s", _safe_url(pdf_url))
-    return staged.name
+    return staged.name, bool(getattr(res, "skipped", False))
 
 
 # ---------------------------------------------------------------------------
@@ -546,6 +579,12 @@ def _key_context(user_key: str | None):
         settings.deepseek_api_key = prev
 
 
+def server_key_configured() -> bool:
+    """True if a server-side DeepSeek key is available from the environment OR
+    .env (pydantic Settings reads both), so the startup warning is accurate."""
+    return bool((getattr(settings, "deepseek_api_key", "") or "").strip())
+
+
 def stream_query(query: str, answer_format, corpus_only: bool, session_id: str,
                  user_key: str | None):
     """Yield friendly step strings as the pipeline runs; the final item is the
@@ -553,23 +592,51 @@ def stream_query(query: str, answer_format, corpus_only: bool, session_id: str,
     from verirag.graph.build import run_query_streaming
     from verirag.llm.client import QuotaExceededError
 
-    with _REQUEST_LOCK:
-        with _key_context(user_key):
-            try:
-                gen = run_query_streaming(query, answer_format,
-                                          corpus_only=corpus_only, session_id=session_id)
-                while True:
+    # The pipeline runs in a worker thread that takes _REQUEST_LOCK for exactly as
+    # long as it runs. This generator only relays events, so it never holds the
+    # lock while suspended at a yield: if the visitor closes the tab or hits Stop,
+    # Gradio abandons/closes this generator, the finally below sets ``cancel``, and
+    # the worker stops at the next node boundary and releases the lock.
+    events: queue.Queue = queue.Queue()
+    cancel = threading.Event()
+    done = object()
+
+    def work():
+        try:
+            with _REQUEST_LOCK:
+                if cancel.is_set():
+                    return
+                with _key_context(user_key):
                     try:
-                        _, summary = next(gen)
-                        yield ("step", friendly_step(summary))
-                    except StopIteration as stop:
-                        yield ("__result__", stop.value)
-                        return
-            except QuotaExceededError:
-                yield ("__quota__", bool(user_key))
-            except Exception as exc:  # noqa: BLE001
-                logger.exception("query failed")
-                yield ("__error__", _friendly(exc))
+                        gen = run_query_streaming(query, answer_format,
+                                                  corpus_only=corpus_only, session_id=session_id)
+                        while True:
+                            if cancel.is_set():
+                                gen.close()
+                                return
+                            try:
+                                _, summary = next(gen)
+                                events.put(("step", friendly_step(summary)))
+                            except StopIteration as stop:
+                                events.put(("__result__", stop.value))
+                                return
+                    except QuotaExceededError:
+                        events.put(("__quota__", bool(user_key)))
+                    except Exception as exc:  # noqa: BLE001
+                        logger.exception("query failed")
+                        events.put(("__error__", _friendly(exc)))
+        finally:
+            events.put(done)
+
+    threading.Thread(target=work, name="verirag-query", daemon=True).start()
+    try:
+        while True:
+            item = events.get()
+            if item is done:
+                return
+            yield item
+    finally:
+        cancel.set()
 
 
 # ---------------------------------------------------------------------------

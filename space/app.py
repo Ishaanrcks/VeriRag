@@ -47,7 +47,7 @@ from demo_helpers import DemoError
 FREE_QUERIES = 5                  # free server-key queries per visitor (BrowserState)
 DAILY_BUDGET_QUERIES = 200        # total server-key queries/day, then everyone is BYO
 MAX_PDF_MB = 10.0
-MAX_PDF_PAGES = 30
+MAX_PDF_PAGES = 60                # arXiv papers with appendices routinely run 30-50
 MAX_QUESTION_CHARS = 500
 SHOW_CANDIDATE = os.getenv("UNVERIFIED_CANDIDATE", "false").lower() == "true"
 # ============================================================================
@@ -147,11 +147,13 @@ def ingest_url(url, session_id):
     if not (url or "").strip():
         return "[!] Paste a URL first."
     try:
-        name = H.ingest_from_url(url, session_id, MAX_PDF_MB, MAX_PDF_PAGES)
+        name, skipped = H.ingest_from_url(url, session_id, MAX_PDF_MB, MAX_PDF_PAGES)
     except DemoError as e:
         return f"[!] {e}"
     except Exception as e:  # noqa: BLE001
         return f"[!] {H._friendly(e)}"
+    if skipped:
+        return f"[i] **{name}**: already in corpus (skipped)"
     return f"[ok] Added **{name}** to your corpus."
 
 
@@ -647,7 +649,7 @@ def build_demo() -> gr.Blocks:
 
 
 if __name__ == "__main__":
-    if not os.getenv("DEEPSEEK_API_KEY"):
+    if not H.server_key_configured():
         print("WARNING: DEEPSEEK_API_KEY is not set — the free path will fail until it is.")
     _DEMO_NAMES = H.startup()
     print(f"Demo corpus preloaded: {_DEMO_NAMES}")
