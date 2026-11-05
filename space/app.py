@@ -250,12 +250,12 @@ def _clean_table_cell(text: str) -> str:
 
 def _pdf_link(abs_path: str, page=None) -> str:
     """A clickable link that opens the file (at an exact page for PDFs) in a new
-    tab. Gradio serves it at /file=<abs_path> when the dir is in allowed_paths."""
+    tab. Gradio 5 serves it at /gradio_api/file=<abs_path> when the dir is in allowed_paths."""
     if not abs_path:
         return ""
     if str(abs_path).lower().endswith(".pdf") and page not in (None, "", "-"):
-        return f'<a href="/file={abs_path}#page={page}" target="_blank">p.{page} (open)</a>'
-    return f'<a href="/file={abs_path}" target="_blank">open</a>'
+        return f'<a href="/gradio_api/file={abs_path}#page={page}" target="_blank">p.{page} (open)</a>'
+    return f'<a href="/gradio_api/file={abs_path}" target="_blank">open</a>'
 
 
 def _resolve_doc_path(doc_name: str) -> str | None:
@@ -655,6 +655,6 @@ if __name__ == "__main__":
     print(f"Demo corpus preloaded: {_DEMO_NAMES}")
     build_demo().queue(max_size=16).launch(
         server_name="0.0.0.0",
-        # serve demo-corpus files (and uploads) over /file= so PDF page links open
+        # serve demo-corpus files (and uploads) over /gradio_api/file= so PDF page links open
         allowed_paths=[str(H.DEMO_CORPUS_DIR), str(H.UPLOAD_TEMP_DIR)],
     )
