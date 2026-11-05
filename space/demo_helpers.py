@@ -31,9 +31,12 @@ key is never written to disk or logged.
 from __future__ import annotations
 
 import contextlib
+import ipaddress
 import logging
+import os
 import queue
 import re
+import socket
 import shutil
 import sys
 import tempfile
@@ -244,6 +247,130 @@ def _requests():
     return requests
 
 
+# ---------------------------------------------------------------------------
+# SSRF guard: a pasted URL must never make the server fetch something internal
+# (cloud metadata at 169.254.169.254, localhost services, RFC1918 ranges, ...).
+# Defence in depth, because each layer alone has a gap:
+#   1. every hop (including each redirect, followed by hand) is resolved and ALL
+#      its addresses must be public, on port 80/443 only;
+#   2. the connected socket's peer address is checked again, so DNS that changes
+#      between the check and the connect (rebinding) cannot slip through.
+# Set VERIRAG_ALLOW_PRIVATE_URLS=1 only for local development against a fixture
+# server; it is off by default and must stay off on a public deployment.
+# ---------------------------------------------------------------------------
+ALLOW_PRIVATE_URLS = os.getenv("VERIRAG_ALLOW_PRIVATE_URLS", "").lower() in ("1", "true", "yes")
+_ALLOWED_PORTS = {80, 443}
+_BLOCKED_MSG = "That address is not allowed. Paste a link to a PDF on a public website."
+_REDIRECT_STATUSES = {301, 302, 303, 307, 308}
+
+
+def _ip_is_public(ip_str: str) -> bool:
+    try:
+        ip = ipaddress.ip_address(ip_str.split("%", 1)[0])
+    except ValueError:
+        return False
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+        ip = ip.ipv4_mapped
+    return ip.is_global and not ip.is_multicast
+
+
+def _check_url_allowed(url: str) -> None:
+    """Raise DemoError unless ``url`` is http(s), on a normal port, and every
+    address its host resolves to is public."""
+    parts = urlsplit(url)
+    if parts.scheme.lower() not in ("http", "https") or not parts.hostname:
+        raise DemoError("Paste an http:// or https:// link to a PDF file.")
+    if ALLOW_PRIVATE_URLS:
+        return
+    try:
+        port = parts.port or (443 if parts.scheme.lower() == "https" else 80)
+    except ValueError:
+        raise DemoError(_BLOCKED_MSG)
+    if port not in _ALLOWED_PORTS:
+        raise DemoError(_BLOCKED_MSG)
+    try:
+        infos = socket.getaddrinfo(parts.hostname, port, proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        raise DemoError("Could not reach that URL.")
+    addrs = {info[4][0] for info in infos}
+    if not addrs or not all(_ip_is_public(a) for a in addrs):
+        logger.warning("blocked non-public url target: %s", _safe_url(url))
+        raise DemoError(_BLOCKED_MSG)
+
+
+_SAFE_ADAPTER = None
+
+
+def _safe_adapter_class(requests):
+    """requests adapter whose direct connections re-check the peer address."""
+    global _SAFE_ADAPTER
+    if _SAFE_ADAPTER is not None:
+        return _SAFE_ADAPTER
+    from urllib3.connection import HTTPConnection, HTTPSConnection
+    from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
+
+    def _check_peer(sock):
+        if ALLOW_PRIVATE_URLS:
+            return sock
+        try:
+            peer = sock.getpeername()[0]
+        except OSError:
+            peer = ""
+        if not _ip_is_public(peer):
+            with contextlib.suppress(Exception):
+                sock.close()
+            raise OSError("blocked non-public address")
+        return sock
+
+    class _Conn(HTTPConnection):
+        def _new_conn(self):
+            return _check_peer(super()._new_conn())
+
+    class _SConn(HTTPSConnection):
+        def _new_conn(self):
+            return _check_peer(super()._new_conn())
+
+    class _Pool(HTTPConnectionPool):
+        ConnectionCls = _Conn
+
+    class _SPool(HTTPSConnectionPool):
+        ConnectionCls = _SConn
+
+    class _Adapter(requests.adapters.HTTPAdapter):
+        def init_poolmanager(self, *a, **k):
+            super().init_poolmanager(*a, **k)
+            self.poolmanager.pool_classes_by_scheme = {"http": _Pool, "https": _SPool}
+
+    _SAFE_ADAPTER = _Adapter
+    return _SAFE_ADAPTER
+
+
+def _new_session(requests):
+    session = requests.Session()
+    session.max_redirects = URL_MAX_REDIRECTS
+    adapter = _safe_adapter_class(requests)()
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
+
+
+def _open_stream(session, url: str, requests):
+    """GET ``url`` as a stream, following redirects by hand so that EVERY hop
+    passes the SSRF check (requests' own redirect following would not)."""
+    current = url
+    for _ in range(URL_MAX_REDIRECTS + 1):
+        _check_url_allowed(current)
+        resp = session.get(current, stream=True, timeout=URL_DOWNLOAD_TIMEOUT,
+                           allow_redirects=False, headers=_URL_HEADERS)
+        location = resp.headers.get("Location")
+        if resp.status_code in _REDIRECT_STATUSES and location:
+            resp.close()
+            current = urljoin(current, location.strip())
+            continue
+        return resp
+    raise requests.exceptions.TooManyRedirects()
+
+
 def _safe_url(url: str) -> str:
     """URL with query string and fragment removed — the only form we log."""
     try:
@@ -372,11 +499,9 @@ def resolve_pdf_url(url: str) -> str:
 
     # Otherwise: fetch the page and look for a PDF link in it.
     requests = _requests()
-    session = requests.Session()
-    session.max_redirects = URL_MAX_REDIRECTS
+    session = _new_session(requests)
     try:
-        with session.get(url, stream=True, timeout=URL_DOWNLOAD_TIMEOUT,
-                         allow_redirects=True, headers=_URL_HEADERS) as resp:
+        with _open_stream(session, url, requests) as resp:
             if resp.status_code >= 400:
                 raise DemoError(_http_status_message(resp.status_code))
             ctype = (resp.headers.get("Content-Type") or "").lower()
@@ -413,13 +538,11 @@ def download_pdf(url: str, max_mb: float) -> Path:
     The file is a download of untrusted content: it lands in the system temp dir
     only, never in the repo or demo_corpus/."""
     requests = _requests()
-    session = requests.Session()
-    session.max_redirects = URL_MAX_REDIRECTS
+    session = _new_session(requests)
     max_bytes = int(max_mb * 1024 * 1024)
     tmp_path: Path | None = None
     try:
-        with session.get(url, stream=True, timeout=URL_DOWNLOAD_TIMEOUT,
-                         allow_redirects=True, headers=_URL_HEADERS) as resp:
+        with _open_stream(session, url, requests) as resp:
             if resp.status_code >= 400:
                 raise DemoError(_http_status_message(resp.status_code))
             ctype = (resp.headers.get("Content-Type") or "").lower()
