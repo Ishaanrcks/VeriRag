@@ -1131,43 +1131,69 @@ def _parse_judgements(text: str | None) -> dict[int, str]:
     return out
 
 
-def suggest_papers(missing: MissingFacts, question: str, user_key: str | None,
-                   max_results: int = 5) -> list[PaperSuggestion]:
-    """arXiv papers that could fill ``missing``'s gaps, each with a reason.
+ARXIV_UNREACHABLE_MSG = ("Could not reach ArXiv just now. Your answer above is "
+                         "unaffected -- ask again in a moment to retry the search.")
+SUGGEST_UNAVAILABLE_MSG = ("Could not search ArXiv just now. Your answer above is "
+                           "unaffected.")
 
-    Returns [] for a complete answer (never suggests on a fully verified one),
-    when nothing qualifies, and on ANY failure (arXiv down or slow, quota, bad
-    LLM output) -- this is an extra and must never break the query.
+
+def suggest_papers_with_status(
+    missing: MissingFacts, question: str, user_key: str | None,
+    max_results: int = 5,
+) -> tuple[list[PaperSuggestion], str | None]:
+    """``(suggestions, error)``.
+
+    ``error`` is a visitor-facing sentence when the search could not RUN
+    (arXiv unreachable or too slow, an LLM/quota failure), and None otherwise --
+    including when the search ran fine and simply matched nothing, which is a
+    real answer ("arXiv has no paper for this") and must not be reported as a
+    failure. Never raises: this is an extra and must not break the query.
     """
     if missing is None or missing.is_complete:
-        return []
+        return [], None
     if not (missing.missing_info or missing.unverified_claims):
-        return []
+        return [], None
     gaps = missing.missing_info or missing.unverified_claims
     gaps_text = "\n".join(f"- {g}" for g in gaps[:5])
+
+    # 1) search string (DeepSeek call 1 of 2); a failure here still leaves the
+    # keyword fallback, so it is not fatal on its own.
     try:
-        # 1) search string (DeepSeek call 1 of 2)
         raw = _llm_under_key(_ARXIV_QUERY_PROMPT.format(
             question=(question or "")[:500], missing=gaps_text), user_key, 40)
-        query = _clean_search_query(raw) or _fallback_search_query(question, missing)
-        if not query:
-            return []
-        # 2) arXiv, by relevance, 2x candidates (outside the lock, deadline)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("arxiv query call failed (%s): %s", type(exc).__name__, exc)
+        raw = None
+    query = _clean_search_query(raw) or _fallback_search_query(question, missing)
+    if not query:
+        return [], None
+
+    # 2) arXiv itself, by relevance, 2x candidates (outside the lock, deadline)
+    try:
         candidates = [c for c in _search_arxiv(query, max_results * 2)
                       if c["title"] and c["pdf_url"] and c["abs_url"]]
-        logger.info("arxiv suggest: query=%r candidates=%d", query, len(candidates))
-        if not candidates:
-            return []
-        # 3) one batched relevance judgement (DeepSeek call 2 of 2)
-        papers = "\n\n".join(
-            f"[{i}] {c['title']} ({c['year']})\n{c['summary'][:_ARXIV_ABSTRACT_FOR_LLM]}"
-            for i, c in enumerate(candidates, 1))
-        verdicts = _parse_judgements(_llm_under_key(_ARXIV_JUDGE_PROMPT.format(
+    except Exception as exc:  # noqa: BLE001 - down, slow, rate-limited, DNS
+        logger.warning("arxiv search failed (%s): %s", type(exc).__name__, exc)
+        return [], ARXIV_UNREACHABLE_MSG
+    logger.info("arxiv suggest: query=%r candidates=%d", query, len(candidates))
+    if not candidates:
+        return [], None          # searched fine, nothing there
+
+    # 3) one batched relevance judgement (DeepSeek call 2 of 2). Without it
+    # nothing can be shown WITH a reason, so a failure here is reported.
+    papers = "\n\n".join(
+        f"[{i}] {c['title']} ({c['year']})\n{c['summary'][:_ARXIV_ABSTRACT_FOR_LLM]}"
+        for i, c in enumerate(candidates, 1))
+    try:
+        reply = _llm_under_key(_ARXIV_JUDGE_PROMPT.format(
             question=(question or "")[:500], missing=gaps_text, papers=papers),
-            user_key, 120 * len(candidates)))
-    except Exception as exc:  # noqa: BLE001 - arXiv/quota/network: an extra, never fatal
-        logger.warning("arxiv suggest failed (%s): %s", type(exc).__name__, exc)
-        return []
+            user_key, 120 * len(candidates))
+    except Exception as exc:  # noqa: BLE001 - quota, network
+        logger.warning("arxiv judge call failed (%s): %s", type(exc).__name__, exc)
+        return [], SUGGEST_UNAVAILABLE_MSG
+    if reply is None:
+        return [], SUGGEST_UNAVAILABLE_MSG
+    verdicts = _parse_judgements(reply)
 
     out: list[PaperSuggestion] = []
     for i, c in enumerate(candidates, 1):           # keep arXiv's relevance order
@@ -1179,7 +1205,18 @@ def suggest_papers(missing: MissingFacts, question: str, user_key: str | None,
             pdf_url=c["pdf_url"], reason=verdicts[i]))
         if len(out) == max_results:
             break
-    return out
+    return out, None
+
+
+def suggest_papers(missing: MissingFacts, question: str, user_key: str | None,
+                   max_results: int = 5) -> list[PaperSuggestion]:
+    """arXiv papers that could fill ``missing``'s gaps, each with a reason.
+
+    Returns [] for a complete answer (never suggests on a fully verified one),
+    when nothing qualifies, and on any failure. Callers that need to tell those
+    apart for the visitor use :func:`suggest_papers_with_status`.
+    """
+    return suggest_papers_with_status(missing, question, user_key, max_results)[0]
 
 # ---------------------------------------------------------------------------
 # citation media + friendly phrasing (ported from the Streamlit UI)

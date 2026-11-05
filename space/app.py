@@ -623,8 +623,15 @@ def papers_flow(missing, query_ctx, byo_key):
         return
     yield _papers_updates(gr.update(visible=True, label=f"{_PAPERS_LABEL} (searching...)"),
                           "Searching ArXiv...", [])
-    papers = H.suggest_papers(missing, query_ctx.get("question") or "", user_key,
-                              max_results=MAX_PAPER_SUGGESTIONS)
+    papers, error = H.suggest_papers_with_status(
+        missing, query_ctx.get("question") or "", user_key,
+        max_results=MAX_PAPER_SUGGESTIONS)
+    if error:
+        # The search could not run. Say so plainly -- not "none found", which
+        # would claim arXiv has nothing when we never got an answer from it.
+        yield _papers_updates(gr.update(visible=True, label=f"{_PAPERS_LABEL} (unavailable)"),
+                              f"[!] {error}", [])
+        return
     if not papers:
         yield _papers_updates(gr.update(visible=True, label=f"{_PAPERS_LABEL} (none found)"),
                               "No arXiv papers found that clearly cover what your documents "
