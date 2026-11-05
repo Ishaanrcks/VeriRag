@@ -47,7 +47,7 @@ from demo_helpers import DemoError
 FREE_QUERIES = 5                  # free server-key queries per visitor (BrowserState)
 DAILY_BUDGET_QUERIES = 200        # total server-key queries/day, then everyone is BYO
 MAX_PDF_MB = 10.0
-MAX_PDF_PAGES = 30
+MAX_PDF_PAGES = 60                # arXiv papers with appendices routinely run 30-50
 MAX_QUESTION_CHARS = 500
 SHOW_CANDIDATE = os.getenv("UNVERIFIED_CANDIDATE", "false").lower() == "true"
 # ============================================================================
@@ -140,6 +140,21 @@ def _ingest(files, session_id):
             msgs.append(f"[OK] {name}: {res.num_text_chunks} text + "
                         f"{res.num_figure_chunks} figure chunk(s)")
     return "\n\n".join(msgs), _corpus_md(session_id)
+
+
+def ingest_url(url, session_id):
+    """Fetch a document by URL and ingest it into this visitor's session."""
+    if not (url or "").strip():
+        return "[!] Paste a URL first."
+    try:
+        name, skipped = H.ingest_from_url(url, session_id, MAX_PDF_MB, MAX_PDF_PAGES)
+    except DemoError as e:
+        return f"[!] {e}"
+    except Exception as e:  # noqa: BLE001
+        return f"[!] {H._friendly(e)}"
+    if skipped:
+        return f"[i] **{name}**: already in corpus (skipped)"
+    return f"[ok] Added **{name}** to your corpus."
 
 
 def _stats_md() -> str:
@@ -235,12 +250,12 @@ def _clean_table_cell(text: str) -> str:
 
 def _pdf_link(abs_path: str, page=None) -> str:
     """A clickable link that opens the file (at an exact page for PDFs) in a new
-    tab. Gradio serves it at /file=<abs_path> when the dir is in allowed_paths."""
+    tab. Gradio 5 serves it at /gradio_api/file=<abs_path> when the dir is in allowed_paths."""
     if not abs_path:
         return ""
     if str(abs_path).lower().endswith(".pdf") and page not in (None, "", "-"):
-        return f'<a href="/file={abs_path}#page={page}" target="_blank">p.{page} (open)</a>'
-    return f'<a href="/file={abs_path}" target="_blank">open</a>'
+        return f'<a href="/gradio_api/file={abs_path}#page={page}" target="_blank">p.{page} (open)</a>'
+    return f'<a href="/gradio_api/file={abs_path}" target="_blank">open</a>'
 
 
 def _resolve_doc_path(doc_name: str) -> str | None:
@@ -528,6 +543,14 @@ def build_demo() -> gr.Blocks:
                             "Only you can query what you upload; it is cleared automatically._")
                 ingest_btn = gr.Button("Ingest uploaded files", interactive=False)
                 ingest_msg = gr.Markdown()
+                gr.Markdown("**Or add by URL**")
+                url_box = gr.Textbox(
+                    label="Document URL",
+                    placeholder="https://arxiv.org/abs/2310.11511",
+                    lines=1,
+                )
+                url_btn = gr.Button("Fetch and ingest", size="sm")
+                url_status = gr.Markdown()
                 corpus_md = gr.Markdown()
                 refresh_btn = gr.Button("Refresh corpus list", size="sm")
                 with gr.Accordion("System stats", open=False):
@@ -588,6 +611,8 @@ def build_demo() -> gr.Blocks:
                         inputs=question, outputs=ask_btn)
 
         ingest_btn.click(_ingest, inputs=[uploads, session_id], outputs=[ingest_msg, corpus_md])
+        url_btn.click(ingest_url, inputs=[url_box, session_id], outputs=url_status).then(
+            _corpus_md, inputs=session_id, outputs=corpus_md)
         refresh_btn.click(_corpus_md, inputs=session_id, outputs=corpus_md)
         stats_btn.click(_stats_md, outputs=stats_md)
 
@@ -624,12 +649,12 @@ def build_demo() -> gr.Blocks:
 
 
 if __name__ == "__main__":
-    if not os.getenv("DEEPSEEK_API_KEY"):
+    if not H.server_key_configured():
         print("WARNING: DEEPSEEK_API_KEY is not set — the free path will fail until it is.")
     _DEMO_NAMES = H.startup()
     print(f"Demo corpus preloaded: {_DEMO_NAMES}")
     build_demo().queue(max_size=16).launch(
         server_name="0.0.0.0",
-        # serve demo-corpus files (and uploads) over /file= so PDF page links open
+        # serve demo-corpus files (and uploads) over /gradio_api/file= so PDF page links open
         allowed_paths=[str(H.DEMO_CORPUS_DIR), str(H.UPLOAD_TEMP_DIR)],
     )

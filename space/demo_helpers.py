@@ -31,12 +31,19 @@ key is never written to disk or logged.
 from __future__ import annotations
 
 import contextlib
+import ipaddress
 import logging
+import os
+import queue
+import re
+import socket
+import shutil
 import sys
 import tempfile
 import threading
 import uuid
 from pathlib import Path
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 logger = logging.getLogger("verirag.demo")
 
@@ -88,6 +95,14 @@ def startup() -> list[str]:
                  if m.get("session_id") not in (None, SHARED_SESSION_ID)}
         for sid in stale:
             vector_store.delete_by_session(sid)
+
+    # URL downloads staged by a previous process are orphans: the store they were
+    # ingested into was a temp dir that went with that process (_URL_STAGE_PREFIX
+    # is defined with the add-by-URL helpers below).
+    with contextlib.suppress(Exception):
+        for entry in UPLOAD_TEMP_DIR.glob(f"{_URL_STAGE_PREFIX}*"):
+            if entry.is_dir():
+                shutil.rmtree(entry, ignore_errors=True)
 
     names: list[str] = []
     if _DEMO_CORPUS.is_dir():
@@ -191,6 +206,481 @@ def cleanup_session(session_id: str) -> None:
     if session_id and session_id != SHARED_SESSION_ID:
         with contextlib.suppress(Exception):
             vector_store.delete_by_session(session_id)
+        # the URL downloads kept for this session's citations go with its chunks
+        with contextlib.suppress(Exception):
+            shutil.rmtree(_url_stage_dir(session_id, create=False), ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# add-by-URL ingest
+# ---------------------------------------------------------------------------
+# A pasted URL is untrusted input. Downloads are streamed to a temp file, size-
+# and page-capped by the SAME limits as uploads (no separate URL limits), checked
+# for PDF-ness, then staged in this session's own temp dir for as long as the
+# process lives, so citations can link back to the page they came from (see
+# _url_stage_dir). Nothing is ever written into demo_corpus/ or the repo, and
+# URLs are only logged with the query string stripped, since it may carry a token.
+URL_DOWNLOAD_TIMEOUT = 30       # seconds
+URL_MAX_REDIRECTS = 5
+
+# Generic client identifier only — no email address, no personal identifier.
+_URL_HEADERS = {"User-Agent": "VeriRAG-Demo/1.0 (+document-ingest)"}
+# Cap on the HTML we read when scraping a landing page for a PDF link.
+_URL_HTML_MAX_BYTES = 2 * 1024 * 1024
+# Per-session staging dirs for URL downloads: <temp>/verirag_url_<session id>.
+_URL_STAGE_PREFIX = "verirag_url_"
+_URL_STREAM_CHUNK = 64 * 1024
+
+_ARXIV_ABS_RE = re.compile(r"^/abs/(?P<ident>.+?)/?$", re.IGNORECASE)
+_ANCHOR_RE = re.compile(r"<a\b[^>]*?href\s*=\s*[\"']([^\"']+)[\"'][^>]*>(.*?)</a>", re.IGNORECASE | re.DOTALL)
+_META_RE = re.compile(r"<meta\b[^>]*>", re.IGNORECASE)
+_META_ATTR_RE = re.compile(r"(name|property|content)\s*=\s*[\"']([^\"']*)[\"']", re.IGNORECASE)
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _requests():
+    """Import requests lazily so a missing dependency breaks only this feature."""
+    try:
+        import requests
+    except ImportError:  # pragma: no cover - requirements pin it
+        raise DemoError("Adding documents by URL is unavailable in this deployment.")
+    return requests
+
+
+# ---------------------------------------------------------------------------
+# SSRF guard: a pasted URL must never make the server fetch something internal
+# (cloud metadata at 169.254.169.254, localhost services, RFC1918 ranges, ...).
+# Defence in depth, because each layer alone has a gap:
+#   1. every hop (including each redirect, followed by hand) is resolved and ALL
+#      its addresses must be public, on port 80/443 only;
+#   2. the connected socket's peer address is checked again, so DNS that changes
+#      between the check and the connect (rebinding) cannot slip through.
+# Set VERIRAG_ALLOW_PRIVATE_URLS=1 only for local development against a fixture
+# server; it is off by default and must stay off on a public deployment.
+# ---------------------------------------------------------------------------
+ALLOW_PRIVATE_URLS = os.getenv("VERIRAG_ALLOW_PRIVATE_URLS", "").lower() in ("1", "true", "yes")
+_ALLOWED_PORTS = {80, 443}
+_BLOCKED_MSG = "That address is not allowed. Paste a link to a PDF on a public website."
+_REDIRECT_STATUSES = {301, 302, 303, 307, 308}
+
+
+def _ip_is_public(ip_str: str) -> bool:
+    try:
+        ip = ipaddress.ip_address(ip_str.split("%", 1)[0])
+    except ValueError:
+        return False
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+        ip = ip.ipv4_mapped
+    return ip.is_global and not ip.is_multicast
+
+
+def _check_url_allowed(url: str) -> None:
+    """Raise DemoError unless ``url`` is http(s), on a normal port, and every
+    address its host resolves to is public."""
+    parts = urlsplit(url)
+    if parts.scheme.lower() not in ("http", "https") or not parts.hostname:
+        raise DemoError("Paste an http:// or https:// link to a PDF file.")
+    if ALLOW_PRIVATE_URLS:
+        return
+    try:
+        port = parts.port or (443 if parts.scheme.lower() == "https" else 80)
+    except ValueError:
+        raise DemoError(_BLOCKED_MSG)
+    if port not in _ALLOWED_PORTS:
+        raise DemoError(_BLOCKED_MSG)
+    try:
+        infos = socket.getaddrinfo(parts.hostname, port, proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        raise DemoError("Could not reach that URL.")
+    addrs = {info[4][0] for info in infos}
+    if not addrs or not all(_ip_is_public(a) for a in addrs):
+        logger.warning("blocked non-public url target: %s", _safe_url(url))
+        raise DemoError(_BLOCKED_MSG)
+
+
+_SAFE_ADAPTER = None
+
+
+def _safe_adapter_class(requests):
+    """requests adapter whose direct connections re-check the peer address."""
+    global _SAFE_ADAPTER
+    if _SAFE_ADAPTER is not None:
+        return _SAFE_ADAPTER
+    from urllib3.connection import HTTPConnection, HTTPSConnection
+    from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
+
+    def _check_peer(sock):
+        if ALLOW_PRIVATE_URLS:
+            return sock
+        try:
+            peer = sock.getpeername()[0]
+        except OSError:
+            peer = ""
+        if not _ip_is_public(peer):
+            with contextlib.suppress(Exception):
+                sock.close()
+            raise OSError("blocked non-public address")
+        return sock
+
+    class _Conn(HTTPConnection):
+        def _new_conn(self):
+            return _check_peer(super()._new_conn())
+
+    class _SConn(HTTPSConnection):
+        def _new_conn(self):
+            return _check_peer(super()._new_conn())
+
+    class _Pool(HTTPConnectionPool):
+        ConnectionCls = _Conn
+
+    class _SPool(HTTPSConnectionPool):
+        ConnectionCls = _SConn
+
+    class _Adapter(requests.adapters.HTTPAdapter):
+        def init_poolmanager(self, *a, **k):
+            super().init_poolmanager(*a, **k)
+            self.poolmanager.pool_classes_by_scheme = {"http": _Pool, "https": _SPool}
+
+    _SAFE_ADAPTER = _Adapter
+    return _SAFE_ADAPTER
+
+
+def _new_session(requests):
+    session = requests.Session()
+    session.max_redirects = URL_MAX_REDIRECTS
+    adapter = _safe_adapter_class(requests)()
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
+
+
+def _open_stream(session, url: str, requests):
+    """GET ``url`` as a stream, following redirects by hand so that EVERY hop
+    passes the SSRF check (requests' own redirect following would not)."""
+    current = url
+    for _ in range(URL_MAX_REDIRECTS + 1):
+        _check_url_allowed(current)
+        resp = session.get(current, stream=True, timeout=URL_DOWNLOAD_TIMEOUT,
+                           allow_redirects=False, headers=_URL_HEADERS)
+        location = resp.headers.get("Location")
+        if resp.status_code in _REDIRECT_STATUSES and location:
+            resp.close()
+            current = urljoin(current, location.strip())
+            continue
+        return resp
+    raise requests.exceptions.TooManyRedirects()
+
+
+def _safe_url(url: str) -> str:
+    """URL with query string and fragment removed — the only form we log."""
+    try:
+        parts = urlsplit(url)
+        return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+    except Exception:  # noqa: BLE001
+        return "<unparseable url>"
+
+
+def _http_status_message(status: int) -> str:
+    """User-facing reason for an HTTP error status (no raw exception text)."""
+    if status in (404, 410):
+        return "That URL was not found (404). Check the link and try again."
+    if status in (401, 403):
+        return "That site refused access to the document (login or permission required)."
+    if status == 429:
+        return "That site is rate-limiting requests right now. Try again in a minute."
+    if status >= 500:
+        return f"That site returned a server error ({status}). Try again later."
+    return f"That site returned an error ({status})."
+
+
+def _normalise_url(raw: str) -> str:
+    """Strip, default the scheme to https, and reject anything that cannot be a
+    web address (spaces, no dot in the host) with a specific message."""
+    u = (raw or "").strip()
+    if not u:
+        raise DemoError("Paste a URL first.")
+    scheme = urlsplit(u).scheme.lower()
+    if "://" not in u and scheme and scheme not in ("http", "https") and not u.lower().startswith(("mailto:", "javascript:", "data:", "file:")):
+        scheme = ""            # "example.com:8080/x" parses as scheme "example.com"
+    if "://" in u and scheme not in ("http", "https"):
+        raise DemoError("Paste an http:// or https:// link to a PDF file.")
+    if u.lower().startswith(("mailto:", "javascript:", "data:", "file:")):
+        raise DemoError("Paste an http:// or https:// link to a PDF file.")
+    if "://" not in u:
+        u = f"https://{u}"
+    parts = urlsplit(u)
+    host = (parts.hostname or "")
+    if re.search(r"\s", u) or "." not in host or host.startswith(".") or host.endswith("."):
+        raise DemoError("That doesn't look like a valid URL. Paste a full link, "
+                        "e.g. https://arxiv.org/abs/2310.11511")
+    return u
+
+
+def _looks_like_pdf_href(href: str) -> bool:
+    path = urlsplit(href).path.lower()
+    return path.endswith(".pdf") or "/pdf/" in path
+
+
+def _scrape_pdf_link(base_url: str, html_text: str) -> str | None:
+    """First PDF URL referenced by an HTML page, preferring links whose href or
+    link text mentions "pdf"/"download". Returns an absolute http(s) URL."""
+    # 1) <meta> hints first: citation_pdf_url and friends are explicit and exact.
+    for tag in _META_RE.findall(html_text):
+        attrs = {k.lower(): v for k, v in _META_ATTR_RE.findall(tag)}
+        key = attrs.get("name", "") or attrs.get("property", "")
+        content = attrs.get("content", "")
+        if not content:
+            continue
+        if "pdf" in key.lower() or _looks_like_pdf_href(content):
+            cand = _absolute_http_url(base_url, content)
+            if cand:
+                return cand
+    # 2) <a href> candidates. Link TEXT saying "pdf"/"download" is the strongest
+    # signal (landing pages often list supplementary PDFs before the paper), then
+    # the href itself, then plain document order.
+    by_text: list[str] = []
+    by_href: list[str] = []
+    rest: list[str] = []
+    for href, inner in _ANCHOR_RE.findall(html_text):
+        if not _looks_like_pdf_href(href):
+            continue
+        cand = _absolute_http_url(base_url, href)
+        if not cand:
+            continue
+        text = _TAG_RE.sub(" ", inner).lower()
+        if any(w in text for w in ("pdf", "download")):
+            by_text.append(cand)
+        elif any(w in href.lower() for w in ("pdf", "download")):
+            by_href.append(cand)
+        else:
+            rest.append(cand)
+    for bucket in (by_text, by_href, rest):
+        if bucket:
+            return bucket[0]
+    return None
+
+
+def _absolute_http_url(base_url: str, href: str) -> str | None:
+    """Absolutise ``href`` against ``base_url``, rejecting non-http(s) schemes
+    (javascript:, data:, file: ...)."""
+    try:
+        absolute = urljoin(base_url, href.strip())
+    except Exception:  # noqa: BLE001
+        return None
+    parts = urlsplit(absolute)
+    if parts.scheme.lower() not in ("http", "https") or not parts.netloc:
+        return None
+    return absolute
+
+
+def resolve_pdf_url(url: str) -> str:
+    """Normalise a pasted URL to a direct PDF URL.
+
+    arXiv abstract pages map to their /pdf/ form; anything already ending in
+    ``.pdf`` (or an arXiv /pdf/ URL without the suffix) is returned unchanged;
+    any other page is fetched and scraped for the first PDF link it references.
+    """
+    parts = urlsplit(url)
+    host = parts.netloc.lower().split(":")[0]
+    path = parts.path
+
+    # arxiv.org/abs/XXXX -> arxiv.org/pdf/XXXX
+    if host.endswith("arxiv.org"):
+        m = _ARXIV_ABS_RE.match(path)
+        if m:
+            return urlunsplit((parts.scheme or "https", parts.netloc,
+                               f"/pdf/{m.group('ident')}", "", ""))
+        # arxiv.org/pdf/XXXX (with or without .pdf) is already direct
+        if path.lower().startswith("/pdf/"):
+            return url
+
+    if path.lower().endswith(".pdf"):
+        return url
+
+    # Otherwise: fetch the page and look for a PDF link in it.
+    requests = _requests()
+    session = _new_session(requests)
+    try:
+        with _open_stream(session, url, requests) as resp:
+            if resp.status_code >= 400:
+                raise DemoError(_http_status_message(resp.status_code))
+            ctype = (resp.headers.get("Content-Type") or "").lower()
+            if "pdf" in ctype:
+                return url          # the "page" is itself a PDF
+            if "html" not in ctype and "xml" not in ctype and ctype:
+                raise DemoError("No PDF found at that URL. "
+                                "Paste a direct link to a PDF file.")
+            body = resp.raw.read(_URL_HTML_MAX_BYTES, decode_content=True) or b""
+            final_url = resp.url or url
+    except DemoError:
+        raise
+    except requests.exceptions.Timeout:
+        raise DemoError("That URL took too long to respond. "
+                        "Try again or upload the file directly.")
+    except requests.exceptions.TooManyRedirects:
+        raise DemoError("Could not reach that URL.")
+    except requests.exceptions.RequestException:
+        raise DemoError("Could not reach that URL.")
+    finally:
+        with contextlib.suppress(Exception):
+            session.close()
+
+    html_text = body.decode("utf-8", errors="replace")
+    found = _scrape_pdf_link(final_url, html_text)
+    if not found:
+        raise DemoError("No PDF found at that URL. Paste a direct link to a PDF file.")
+    return found
+
+
+def download_pdf(url: str, max_mb: float) -> Path:
+    """Stream a PDF from ``url`` to a temp file, enforcing ``max_mb``.
+
+    The file is a download of untrusted content: it lands in the system temp dir
+    only, never in the repo or demo_corpus/."""
+    requests = _requests()
+    session = _new_session(requests)
+    max_bytes = int(max_mb * 1024 * 1024)
+    tmp_path: Path | None = None
+    try:
+        with _open_stream(session, url, requests) as resp:
+            if resp.status_code >= 400:
+                raise DemoError(_http_status_message(resp.status_code))
+            ctype = (resp.headers.get("Content-Type") or "").lower()
+            declared_pdf = "pdf" in ctype
+
+            declared_len = resp.headers.get("Content-Length")
+            if declared_len and declared_len.isdigit() and int(declared_len) > max_bytes:
+                raise DemoError(f"That file is larger than {max_mb:.0f} MB. "
+                                "Try a smaller document.")
+
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as fh:
+                tmp_path = Path(fh.name)
+                total = 0
+                first = True
+                for chunk in resp.iter_content(chunk_size=_URL_STREAM_CHUNK):
+                    if not chunk:
+                        continue
+                    if first:
+                        first = False
+                        # Content-Type can lie in both directions; the magic bytes
+                        # are the deciding check.
+                        if not declared_pdf and not chunk.lstrip()[:5].startswith(b"%PDF-"):
+                            raise DemoError("That URL did not return a PDF.")
+                    total += len(chunk)
+                    if total > max_bytes:
+                        raise DemoError(f"That file is larger than {max_mb:.0f} MB. "
+                                        "Try a smaller document.")
+                    fh.write(chunk)
+                if first:          # empty body
+                    raise DemoError("That URL did not return a PDF.")
+        return tmp_path
+    except DemoError:
+        _discard_temp(tmp_path)
+        raise
+    except requests.exceptions.Timeout:
+        _discard_temp(tmp_path)
+        raise DemoError("That URL took too long to respond. "
+                        "Try again or upload the file directly.")
+    except requests.exceptions.TooManyRedirects:
+        _discard_temp(tmp_path)
+        raise DemoError("Could not reach that URL.")
+    except requests.exceptions.RequestException:
+        _discard_temp(tmp_path)
+        raise DemoError("Could not reach that URL.")
+    except Exception:
+        _discard_temp(tmp_path)
+        raise
+    finally:
+        with contextlib.suppress(Exception):
+            session.close()
+
+
+def _discard_temp(path: Path | None) -> None:
+    if path is not None:
+        with contextlib.suppress(Exception):
+            path.unlink(missing_ok=True)
+
+
+def _url_stage_dir(session_id: str, create: bool = True) -> Path:
+    """This session's directory for documents fetched by URL.
+
+    The download is KEPT for the life of the process rather than deleted after
+    ingest: a citation links to the chunk's ``source_path``, so the file has to
+    still exist when an answer renders -- exactly as a Gradio upload does. It
+    lives under UPLOAD_TEMP_DIR (which app.py hands Gradio as allowed_paths, so
+    the page link resolves) and is removed by ``cleanup_session`` and by the
+    startup sweep, so nothing a visitor fetched survives a restart."""
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", session_id or "anon").strip("-._")[:64]
+    directory = UPLOAD_TEMP_DIR / f"{_URL_STAGE_PREFIX}{safe or 'anon'}"
+    if create:
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    return directory
+
+
+def _free_staged_path(stage_dir: Path, name: str, size: int) -> Path:
+    """A path in ``stage_dir`` for ``name`` that will not clobber a *different*
+    document of the same filename (two sites, both "paper.pdf"). Re-fetching the
+    same document reuses its path; ingest itself dedupes by content."""
+    stem, suffix = name[:-4], name[-4:]          # _display_name_from_url ends .pdf
+    candidates = [stage_dir / name]
+    candidates += [stage_dir / f"{stem}-{i}{suffix}" for i in range(2, 50)]
+    for cand in candidates:
+        if not cand.exists() or cand.stat().st_size == size:
+            return cand
+    return stage_dir / f"{stem}-{uuid.uuid4().hex[:8]}{suffix}"
+
+
+def _display_name_from_url(url: str) -> str:
+    """A readable, sanitised ``*.pdf`` filename derived from the URL path.
+
+    Only ``[A-Za-z0-9._-]`` survives, so a crafted URL cannot escape the staging
+    directory or inject path separators."""
+    parts = urlsplit(url)
+    stem = (parts.path.rstrip("/").rsplit("/", 1)[-1] or "").strip()
+    if stem.lower().endswith(".pdf"):
+        stem = stem[:-4]
+    host = parts.netloc.lower().split(":")[0]
+    if not stem and host:
+        stem = host
+    if "arxiv.org" in host and stem:
+        stem = f"arxiv-{stem}"
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", stem).strip("-._")
+    cleaned = cleaned[:80] or "document"
+    return f"{cleaned}.pdf"
+
+
+def ingest_from_url(url: str, session_id: str, max_mb: float, max_pages: int) -> tuple[str, bool]:
+    """Download the PDF behind ``url`` and ingest it for ``session_id``.
+
+    Goes through the very same guards and ingest entrypoint as an upload, so the
+    size/page limits and session tagging are identical. Returns
+    ``(display_name, skipped)``; ``skipped`` is True when ingest found the same
+    content already in the corpus and added nothing."""
+    u = _normalise_url(url)
+
+    pdf_url = resolve_pdf_url(u)
+    downloaded = download_pdf(pdf_url, max_mb)
+
+    # Stage under a readable name in this session's directory, so the corpus list
+    # and citations show "arxiv-2310.11511.pdf" rather than "tmp8f3k1x.pdf" -- and
+    # so the file is still there when an answer cites it (see _url_stage_dir).
+    stage_dir = _url_stage_dir(session_id)
+    staged = _free_staged_path(stage_dir, _display_name_from_url(pdf_url),
+                               downloaded.stat().st_size)
+    try:
+        downloaded.replace(staged)
+    except Exception:
+        _discard_temp(downloaded)
+        raise
+    try:
+        validate_upload(str(staged), max_mb, max_pages)
+        # ingest_upload takes _REQUEST_LOCK itself; do not wrap it (not reentrant).
+        res = ingest_upload(str(staged), session_id)
+    except Exception:
+        _discard_temp(staged)      # nothing was ingested, so keep no junk around
+        raise
+    logger.info("ingested from url: %s", _safe_url(pdf_url))
+    return staged.name, bool(getattr(res, "skipped", False))
 
 
 # ---------------------------------------------------------------------------
@@ -212,6 +702,12 @@ def _key_context(user_key: str | None):
         settings.deepseek_api_key = prev
 
 
+def server_key_configured() -> bool:
+    """True if a server-side DeepSeek key is available from the environment OR
+    .env (pydantic Settings reads both), so the startup warning is accurate."""
+    return bool((getattr(settings, "deepseek_api_key", "") or "").strip())
+
+
 def stream_query(query: str, answer_format, corpus_only: bool, session_id: str,
                  user_key: str | None):
     """Yield friendly step strings as the pipeline runs; the final item is the
@@ -219,23 +715,51 @@ def stream_query(query: str, answer_format, corpus_only: bool, session_id: str,
     from verirag.graph.build import run_query_streaming
     from verirag.llm.client import QuotaExceededError
 
-    with _REQUEST_LOCK:
-        with _key_context(user_key):
-            try:
-                gen = run_query_streaming(query, answer_format,
-                                          corpus_only=corpus_only, session_id=session_id)
-                while True:
+    # The pipeline runs in a worker thread that takes _REQUEST_LOCK for exactly as
+    # long as it runs. This generator only relays events, so it never holds the
+    # lock while suspended at a yield: if the visitor closes the tab or hits Stop,
+    # Gradio abandons/closes this generator, the finally below sets ``cancel``, and
+    # the worker stops at the next node boundary and releases the lock.
+    events: queue.Queue = queue.Queue()
+    cancel = threading.Event()
+    done = object()
+
+    def work():
+        try:
+            with _REQUEST_LOCK:
+                if cancel.is_set():
+                    return
+                with _key_context(user_key):
                     try:
-                        _, summary = next(gen)
-                        yield ("step", friendly_step(summary))
-                    except StopIteration as stop:
-                        yield ("__result__", stop.value)
-                        return
-            except QuotaExceededError:
-                yield ("__quota__", bool(user_key))
-            except Exception as exc:  # noqa: BLE001
-                logger.exception("query failed")
-                yield ("__error__", _friendly(exc))
+                        gen = run_query_streaming(query, answer_format,
+                                                  corpus_only=corpus_only, session_id=session_id)
+                        while True:
+                            if cancel.is_set():
+                                gen.close()
+                                return
+                            try:
+                                _, summary = next(gen)
+                                events.put(("step", friendly_step(summary)))
+                            except StopIteration as stop:
+                                events.put(("__result__", stop.value))
+                                return
+                    except QuotaExceededError:
+                        events.put(("__quota__", bool(user_key)))
+                    except Exception as exc:  # noqa: BLE001
+                        logger.exception("query failed")
+                        events.put(("__error__", _friendly(exc)))
+        finally:
+            events.put(done)
+
+    threading.Thread(target=work, name="verirag-query", daemon=True).start()
+    try:
+        while True:
+            item = events.get()
+            if item is done:
+                return
+            yield item
+    finally:
+        cancel.set()
 
 
 # ---------------------------------------------------------------------------

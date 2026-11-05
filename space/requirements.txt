@@ -22,3 +22,11 @@ openai==3.36.0
 tenacity==9.2.1
 numpy==2.4.6
 rank-bm25==0.2.2
+requests==2.34.2            # add-by-URL ingest (also a chromadb/transformers dep)
+
+# --- imported by verirag.* at runtime but absent from the pins above (found by
+# --- running the app in a clean venv; root requirements.txt has them) ---
+tavily-python==0.8.5        # verirag.external.fetcher (imported by graph.nodes -> every query)
+python-docx==1.2.0          # verirag.loaders.office (imported by verirag.ingest -> every ingest)
+python-pptx==1.0.2          # verirag.loaders.office
+tiktoken==0.14.0            # verirag.chunking.chunker
