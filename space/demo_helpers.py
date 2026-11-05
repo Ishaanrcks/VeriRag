@@ -805,11 +805,14 @@ System's explanation:
 Statements it could not ground in the documents:
 {claims}
 
-List the specific INFORMATION that was absent from the documents and would be \
-needed to answer the question completely. Give 1 to {max_items} short noun \
-phrases (each under 12 words), most important first, e.g. "2023 revenue for \
-the APAC region". Describe the missing information, not the system or the \
-statements. Do not invent facts.
+Name the GAPS: the information the QUESTION needs that the user's documents \
+do not contain. Rules:
+- Name the gap, not the content of a statement. Do NOT repeat or paraphrase \
+the unverified statements above; e.g. write "COPD treatment recommendations", \
+not "LAMA monotherapy for mild symptoms".
+- Merge overlapping gaps into one. Usually 1-3 items; never more than {max_items}.
+- Each item is a short noun phrase under 10 words, most important first.
+- Do not invent facts or name sources.
 
 Return ONLY a JSON array of strings."""
 
